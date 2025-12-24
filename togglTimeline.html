@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timeline Visualization</title>
+  <title>Toggl 時間紀錄分析</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
   <script>
@@ -483,7 +483,7 @@
   <!-- No language switcher needed -->
 
   <div class="max-w-7xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4 text-center">時間軸視覺化</h1>
+    <h1 class="text-2xl font-bold mb-4 text-center">Toggl 時間紀錄分析</h1>
 
     <!-- Step Navigation -->
     <nav class="step-nav">
@@ -531,6 +531,28 @@
         </div>
 
         <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <h2 class="text-lg font-semibold mb-2">
+            自訂假期 (選填)
+          </h2>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-grow">
+              <input type="file" id="holiday-json-upload" accept=".json" class="hidden">
+              <div class="relative">
+                <input type="text" id="holiday-file-name" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" placeholder="" readonly>
+                <button id="holiday-browse-button" class="absolute right-1 top-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 px-3 py-1 rounded">
+                  瀏覽
+                </button>
+              </div>
+            </div>
+            <button id="clear-holiday-json" class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-md whitespace-nowrap hidden">
+              清除
+            </button>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">JSON 檔案需包含 publicHolidays 陣列，如有上傳，「顯示所有日子」將僅顯示週末及自訂假期</p>
+          <div id="holiday-status" class="mt-2 text-sm hidden"></div>
+        </div>
+
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
           <div class="flex justify-between items-center cursor-pointer" id="task-form-toggle">
             <h2 class="text-lg font-semibold">
               手動添加任務
@@ -567,14 +589,6 @@
         </div>
       </div>
       <div id="error-message" class="mt-2 text-red-500 text-sm hidden"></div>
-    </div>
-
-    <!-- Step 1 Actions -->
-    <div class="step-actions">
-      <div></div>
-      <button id="step1-next" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-6 rounded-md">
-        下一步：檢視時間軸 →
-      </button>
     </div>
 
     </div><!-- End Step 1 -->
@@ -636,16 +650,29 @@
       <div class="mb-3">
         <label for="ai-prompt" class="block text-sm font-medium mb-1">提示詞</label>
         <textarea id="ai-prompt-zh" rows="8" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">分析我的時間使用數據，並提供以下內容：
-1. 我的時間分配概況和模式
-2. 出勤時間分析：每天開始和結束工作的時間、工作時長、到達辦公室的時間規律性
-3. 可能存在的時間管理問題和改進建議
-4. 基於我的時間使用情況，有哪些可能的優化方案？
-5. 根據每個項目或活動類型的時間分配，提供平衡工作與生活的建議
-
-計算專注時間 (蕃茄), 以 30 分鐘算為一個蕃茄:
-任務1: 計算各個類別的蕃茄數, 但需以每一個時間區塊為計算單位, 少於 30 分鐘算作 0, 若是 30 的倍數則計整數, 例如 3.1 小時算為有 6 個蕃茄
-任務2: 排除休息、未分類、關係、交通和生活類別後的蕃茄總數
-任務3: 每天排除休息、未分類、關係、交通和生活類別後的蕃茄數以 Json 回傳, 用以製作熱度圖, 格式為: {"2023-06-01": 5, "2023-06-02": 8, ...}</textarea>
+1. 我的時間分配概況, 規律和模式
+2. 找出我最繁忙, 最輕鬆, 生產力最佳和最差的時段
+3. 我的時間模式與其他中年男性作比較
+4. 基於我的時間使用情況，有哪些可能的優化方案？</textarea>
+      </div>
+      <!-- LLM Selection -->
+      <div class="mb-3">
+        <label for="llm-selector" class="block text-sm font-medium mb-1">選擇 AI 模型</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <select id="llm-selector" class="flex-1 px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white">
+            <option value="GPT-5.2">GPT-5.2 (預設)</option>
+            <option value="Claude-Sonnet-4.5">Claude-Sonnet-4.5</option>
+            <option value="Claude-Opus-4.5">Claude-Opus-4.5</option>
+            <option value="Gemini-3.0-Pro">Gemini-3.0-Pro</option>
+            <option value="Gemini-2.5-Flash">Gemini-2.5-Flash</option>
+            <option value="Grok-4">Grok-4</option>
+            <option value="Grok-4-Fast-Reasoning">Grok-4-Fast-Reasoning</option>
+            <option value="Grok-4-Fast-Non-Reasoning">Grok-4-Fast-Non-Reasoning</option>
+            <option value="custom">自訂模型...</option>
+          </select>
+          <input type="text" id="custom-llm-input" class="flex-1 px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 hidden" placeholder="輸入自訂模型名稱 (例如: My-Bot)">
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1" id="llm-hint">GPT-5.2: OpenAI 最新旗艦模型，適���一般用途</p>
       </div>
       <div class="flex justify-end">
         <button id="analyze-time" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md flex items-center">
@@ -705,6 +732,9 @@
     </div>
 
     </div><!-- End Step 3 -->
+
+    <!-- Timeline Section Wrapper (only shown in Step 2) -->
+    <div id="timeline-section" class="hidden">
 
     <!-- Timeline Customization (Hidden - moved to sidebar) -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 hidden">
@@ -908,6 +938,9 @@
               總時間: <span id="default-works-hours">0</span>:<span id="default-works-minutes">00</span>
             </span>
           </div>
+          <select id="month-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 hidden">
+            <option value="all">全部月份</option>
+          </select>
           <select id="day-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
             <option value="all">顯示所有日子</option>
             <option value="weekday">僅顯示星期一至五</option>
@@ -964,6 +997,90 @@
       </div>
     </div>
 
+    <!-- Pomodoro Statistics Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6">
+      <h2 class="text-lg font-semibold mb-4">🍅 蕃茄鐘統計</h2>
+
+      <!-- Category Pomodoro Summary -->
+      <div class="mb-6">
+        <h3 class="text-md font-medium mb-3">各類別蕃茄數</h3>
+        <div id="pomodoro-category-summary" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          <!-- Category pomodoro counts will be inserted here -->
+        </div>
+      </div>
+
+      <!-- Total Focus Pomodoros -->
+      <div class="mb-6 p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg border border-primary/20">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-md font-medium">專注時間總蕃茄數</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">（排除設定中的非專注類別）</p>
+          </div>
+          <div class="text-3xl font-bold text-primary" id="total-focus-pomodoros">0</div>
+        </div>
+      </div>
+
+      <!-- Focus Time Heatmap -->
+      <div class="mb-6">
+        <h3 class="text-md font-medium mb-3">專注時間熱度圖</h3>
+        <div id="focus-heatmap-container" class="w-full overflow-x-auto">
+          <div id="focus-heatmap" class="min-w-max"></div>
+        </div>
+        <div class="flex items-center justify-center mt-4 flex-wrap gap-2">
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-100 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">0</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-300 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">1-2</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-500 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">3-5</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-700 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">6-9</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-blue-900 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">10+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Non-Focus Time Heatmap -->
+      <div>
+        <h3 class="text-md font-medium mb-3">非專注時間熱度圖</h3>
+        <div id="nonfocus-heatmap-container" class="w-full overflow-x-auto">
+          <div id="nonfocus-heatmap" class="min-w-max"></div>
+        </div>
+        <div class="flex items-center justify-center mt-4 flex-wrap gap-2">
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-orange-100 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">0</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-orange-300 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">1-2</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-orange-500 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">3-5</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-orange-700 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">6-9</span>
+          </div>
+          <div class="flex items-center">
+            <div class="w-4 h-4 bg-orange-900 rounded"></div>
+            <span class="ml-1 mr-3 text-sm">10+</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Heatmap Section (Hidden - moved to AI results) -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6 hidden">
       <h2 class="text-lg font-semibold mb-2">專注時間熱度圖</h2>
@@ -994,6 +1111,8 @@
       </div>
     </div>
   </div>
+
+    </div><!-- End Timeline Section Wrapper -->
 
   <!-- Settings Toggle Button (Gear) -->
   <button id="settings-toggle-btn" class="settings-toggle-btn" title="開啟設定">
@@ -1080,6 +1199,31 @@
         </div>
       </div>
 
+      <!-- Pomodoro Settings Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          蕃茄鐘設定
+        </h3>
+        <div class="space-y-3">
+          <div>
+            <label for="pomodoro-duration" class="block text-sm font-medium mb-1">蕃茄時長（分鐘）</label>
+            <input type="number" id="pomodoro-duration" min="10" max="120" value="30" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            <p class="text-xs text-gray-500 mt-1">每個時間區塊少於此時長算作 0 個蕃茄</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-2">排除類別（計算專注時間時排除）</label>
+            <div id="pomodoro-excluded-categories" class="bg-gray-50 dark:bg-gray-700 p-3 rounded-md max-h-[150px] overflow-y-auto">
+              <!-- Excluded categories will be populated here -->
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <input type="text" id="new-excluded-category" placeholder="新增排除類別" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            <button id="add-excluded-category" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md">新增排除類別</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Export/Import Section -->
       <div class="settings-section">
         <h3 class="settings-section-title">
@@ -1149,7 +1293,7 @@
   <div id="delete-confirm-modal" class="modal-backdrop">
     <div class="modal-content p-6 w-full max-w-md">
       <h3 class="text-xl font-bold mb-4">確認刪除</h3>
-      <p class="mb-6">確定要刪除此任務嗎？此操作無法撤銷。</p>
+      <p class="mb-6">確定要刪除此任務嗎？此���作無法撤銷。</p>
       <div class="flex justify-end gap-3">
         <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md">取消</button>
         <button id="confirm-delete-btn" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md">確認刪除</button>
@@ -1172,7 +1316,6 @@
       const stepConnectors = document.querySelectorAll('.step-connector');
 
       // Step navigation buttons
-      const step1NextBtn = document.getElementById('step1-next');
       const step2PrevBtn = document.getElementById('step2-prev');
       const step2NextBtn = document.getElementById('step2-next');
       const step3PrevBtn = document.getElementById('step3-prev');
@@ -1207,6 +1350,16 @@
           }
         });
 
+        // Show/hide timeline section based on current step
+        const timelineSection = document.getElementById('timeline-section');
+        if (timelineSection) {
+          if (currentStep === 2) {
+            timelineSection.classList.remove('hidden');
+          } else {
+            timelineSection.classList.add('hidden');
+          }
+        }
+
         // Scroll to top of the page when changing steps
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -1226,10 +1379,6 @@
         });
       });
 
-      // Step 1 Next button
-      if (step1NextBtn) {
-        step1NextBtn.addEventListener('click', () => goToStep(2));
-      }
 
       // Step 2 Previous/Next buttons
       if (step2PrevBtn) {
@@ -1401,7 +1550,355 @@
       // Initialize state
       const tasks = [];
       let taskColors = {};
-      
+
+      // Custom holidays data (from uploaded JSON)
+      let customHolidays = []; // Array of date strings like "2025-10-01"
+      let customHolidayDetails = {}; // Object mapping date to array of descriptions
+
+      // Pomodoro settings state
+      let pomodoroDuration = 30; // minutes
+      let excludedCategories = ['休息', '關係', '生活', '娛樂', '健康'];
+
+      // Initialize pomodoro settings UI
+      function initPomodoroSettings() {
+        const durationInput = document.getElementById('pomodoro-duration');
+        durationInput.value = pomodoroDuration;
+
+        durationInput.addEventListener('change', function() {
+          pomodoroDuration = parseInt(this.value) || 30;
+          if (pomodoroDuration < 10) pomodoroDuration = 10;
+          if (pomodoroDuration > 120) pomodoroDuration = 120;
+          this.value = pomodoroDuration;
+          updatePomodoroStatistics();
+        });
+
+        renderExcludedCategories();
+
+        // Add excluded category button
+        document.getElementById('add-excluded-category').addEventListener('click', function() {
+          const input = document.getElementById('new-excluded-category');
+          const category = input.value.trim();
+          if (category && !excludedCategories.includes(category)) {
+            excludedCategories.push(category);
+            input.value = '';
+            renderExcludedCategories();
+            updatePomodoroStatistics();
+          }
+        });
+
+        // Enter key to add
+        document.getElementById('new-excluded-category').addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            document.getElementById('add-excluded-category').click();
+          }
+        });
+      }
+
+      // Render excluded categories list
+      function renderExcludedCategories() {
+        const container = document.getElementById('pomodoro-excluded-categories');
+        container.innerHTML = '';
+
+        if (excludedCategories.length === 0) {
+          container.innerHTML = '<p class="text-sm text-gray-500">尚未設定排除類別</p>';
+          return;
+        }
+
+        excludedCategories.forEach((category, index) => {
+          const item = document.createElement('div');
+          item.className = 'flex items-center justify-between py-1 px-2 mb-1 bg-white dark:bg-gray-800 rounded';
+          item.innerHTML = `
+            <span class="text-sm">${category}</span>
+            <button class="text-red-500 hover:text-red-700 p-1" data-index="${index}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          `;
+          item.querySelector('button').addEventListener('click', function() {
+            excludedCategories.splice(index, 1);
+            renderExcludedCategories();
+            updatePomodoroStatistics();
+          });
+          container.appendChild(item);
+        });
+      }
+
+      // Calculate pomodoros for a single time block (task)
+      function calculatePomodorosForTask(task) {
+        const startMinutes = convertTimeToMinutes(task.start);
+        let endMinutes = convertTimeToMinutes(task.end);
+
+        // Handle crossing midnight
+        if (endMinutes < startMinutes) {
+          endMinutes += 24 * 60;
+        }
+
+        const durationMinutes = endMinutes - startMinutes;
+
+        // Floor to pomodoro duration multiples
+        // Less than pomodoroDuration = 0, otherwise floor(duration / pomodoroDuration)
+        if (durationMinutes < pomodoroDuration) {
+          return 0;
+        }
+        return Math.floor(durationMinutes / pomodoroDuration);
+      }
+
+      // Calculate all pomodoro statistics
+      function calculatePomodoroStatistics() {
+        const categoryPomodoros = {}; // category -> total pomodoros
+        const dailyFocusPomodoros = {}; // date -> focus pomodoros
+        const dailyNonFocusPomodoros = {}; // date -> non-focus pomodoros
+        let totalFocusPomodoros = 0;
+
+        tasks.forEach(task => {
+          const category = task.name;
+          const pomodoros = calculatePomodorosForTask(task);
+          const date = task.date;
+          const isExcluded = excludedCategories.some(
+            excluded => category.toLowerCase().includes(excluded.toLowerCase())
+          );
+
+          // Add to category totals
+          if (!categoryPomodoros[category]) {
+            categoryPomodoros[category] = 0;
+          }
+          categoryPomodoros[category] += pomodoros;
+
+          // Add to daily data based on whether it's focus or non-focus
+          if (isExcluded) {
+            // Non-focus
+            if (!dailyNonFocusPomodoros[date]) {
+              dailyNonFocusPomodoros[date] = 0;
+            }
+            dailyNonFocusPomodoros[date] += pomodoros;
+          } else {
+            // Focus
+            if (!dailyFocusPomodoros[date]) {
+              dailyFocusPomodoros[date] = 0;
+            }
+            dailyFocusPomodoros[date] += pomodoros;
+            totalFocusPomodoros += pomodoros;
+          }
+        });
+
+        return {
+          categoryPomodoros,
+          dailyFocusPomodoros,
+          dailyNonFocusPomodoros,
+          totalFocusPomodoros
+        };
+      }
+
+      // Update pomodoro statistics UI
+      function updatePomodoroStatistics() {
+        const stats = calculatePomodoroStatistics();
+
+        // Update category summary
+        const categorySummary = document.getElementById('pomodoro-category-summary');
+        categorySummary.innerHTML = '';
+
+        const sortedCategories = Object.entries(stats.categoryPomodoros)
+          .sort((a, b) => b[1] - a[1]);
+
+        if (sortedCategories.length === 0) {
+          categorySummary.innerHTML = '<p class="text-sm text-gray-500 col-span-full">尚無任務數據</p>';
+        } else {
+          sortedCategories.forEach(([category, count]) => {
+            const isExcluded = excludedCategories.some(
+              excluded => category.toLowerCase().includes(excluded.toLowerCase())
+            );
+            const categoryColor = taskColors[category] || '#CCCCCC';
+            const card = document.createElement('div');
+            card.className = `p-3 rounded-lg border ${isExcluded ? 'border-gray-300 dark:border-gray-600 opacity-60' : 'border-primary/30 bg-primary/5'}`;
+            card.innerHTML = `
+              <div class="flex items-center gap-2 mb-1">
+                <div class="w-3 h-3 rounded" style="background-color: ${categoryColor}"></div>
+                <span class="text-sm font-medium truncate" title="${category}">${category}</span>
+                ${isExcluded ? '<span class="text-xs text-gray-400">(排除)</span>' : ''}
+              </div>
+              <div class="text-xl font-bold ${isExcluded ? 'text-gray-400' : 'text-primary'}">${count} 🍅</div>
+            `;
+            categorySummary.appendChild(card);
+          });
+        }
+
+        // Update total focus pomodoros
+        document.getElementById('total-focus-pomodoros').textContent = stats.totalFocusPomodoros + ' 🍅';
+
+        // Render focus heatmap
+        renderPomodoroHeatmap(stats.dailyFocusPomodoros, 'focus-heatmap', 'blue');
+
+        // Render non-focus heatmap
+        renderPomodoroHeatmap(stats.dailyNonFocusPomodoros, 'nonfocus-heatmap', 'orange');
+      }
+
+      // Render pomodoro heatmap with custom color scheme
+      function renderPomodoroHeatmap(dailyPomodoroData, containerId, colorScheme = 'blue') {
+        const heatmapContainer = document.getElementById(containerId);
+        if (!heatmapContainer) return;
+        heatmapContainer.innerHTML = '';
+
+        // Get all dates from tasks to fill gaps
+        const allDates = new Set();
+        tasks.forEach(task => allDates.add(task.date));
+
+        // Fill missing dates with 0
+        const filledData = {};
+        allDates.forEach(date => {
+          filledData[date] = dailyPomodoroData[date] || 0;
+        });
+
+        if (Object.keys(filledData).length === 0) {
+          const noDataMsg = document.createElement('div');
+          noDataMsg.className = 'text-center p-4 text-gray-500';
+          noDataMsg.textContent = '尚無數據可供顯示';
+          heatmapContainer.appendChild(noDataMsg);
+          return;
+        }
+
+        // Build date range
+        const dates = Object.keys(filledData).sort();
+        const weekMap = new Map();
+
+        for (const dateStr of dates) {
+          const date = new Date(dateStr);
+          const weekStart = new Date(date);
+          const day = date.getDay();
+          weekStart.setDate(date.getDate() - day);
+          const weekKey = weekStart.toISOString().split('T')[0];
+
+          if (!weekMap.has(weekKey)) {
+            weekMap.set(weekKey, {
+              weekStart,
+              days: Array(7).fill(null)
+            });
+          }
+
+          const weekData = weekMap.get(weekKey);
+          weekData.days[day] = {
+            date,
+            dateStr,
+            count: filledData[dateStr] || 0
+          };
+        }
+
+        const sortedWeeks = Array.from(weekMap.entries()).sort((a, b) =>
+          new Date(a[0]).getTime() - new Date(b[0]).getTime()
+        );
+
+        const heatmapWrapper = document.createElement('div');
+        heatmapWrapper.className = 'flex flex-col gap-2';
+
+        const monthTitleContainer = document.createElement('div');
+        monthTitleContainer.className = 'flex pl-10 relative h-8';
+
+        const dayLabels = document.createElement('div');
+        dayLabels.className = 'flex pl-10';
+
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekDays.forEach(day => {
+          const dayLabel = document.createElement('div');
+          dayLabel.className = 'w-8 h-8 text-xs flex items-center justify-center text-gray-500';
+          dayLabel.textContent = day;
+          dayLabels.appendChild(dayLabel);
+        });
+
+        heatmapWrapper.appendChild(monthTitleContainer);
+        heatmapWrapper.appendChild(dayLabels);
+
+        let lastMonthDisplayed = null;
+
+        sortedWeeks.forEach(([weekKey, weekData], weekIndex) => {
+          const weekRow = document.createElement('div');
+          weekRow.className = 'flex items-center mb-1';
+
+          const weekLabel = document.createElement('div');
+          weekLabel.className = 'w-10 text-xs text-right pr-2 text-gray-500';
+          const weekStartFormatted = `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}`;
+          weekLabel.textContent = weekStartFormatted;
+          weekRow.appendChild(weekLabel);
+
+          weekData.days.forEach((dayData, dayIndex) => {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'w-8 h-8 m-0.5 rounded flex items-center justify-center text-xs';
+
+            if (dayData) {
+              const currentMonth = dayData.date.getMonth();
+
+              if (dayIndex === 0 && lastMonthDisplayed !== currentMonth) {
+                const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                const monthLabel = document.createElement('div');
+                monthLabel.className = 'absolute text-sm font-medium';
+                monthLabel.textContent = monthNames[currentMonth];
+                const monthPosition = weekIndex * 9 + dayIndex + 0.5;
+                monthLabel.style.left = `${monthPosition * 8 + 10}px`;
+                monthLabel.style.top = '0';
+                monthTitleContainer.appendChild(monthLabel);
+                lastMonthDisplayed = currentMonth;
+              }
+
+              const pomodoroCount = dayData.count;
+
+              // Apply color based on scheme
+              if (colorScheme === 'orange') {
+                // Non-focus heatmap scale: 0, 1-5, 6-10, 11-20, 21-30, 30+
+                if (pomodoroCount === 0) {
+                  dayCell.classList.add('bg-orange-100');
+                  dayCell.style.color = '#1F2937';
+                } else if (pomodoroCount <= 5) {
+                  dayCell.classList.add('bg-orange-200');
+                  dayCell.style.color = '#1F2937';
+                } else if (pomodoroCount <= 10) {
+                  dayCell.classList.add('bg-orange-300');
+                  dayCell.style.color = '#1F2937';
+                } else if (pomodoroCount <= 20) {
+                  dayCell.classList.add('bg-orange-500');
+                  dayCell.style.color = 'white';
+                } else if (pomodoroCount <= 30) {
+                  dayCell.classList.add('bg-orange-700');
+                  dayCell.style.color = 'white';
+                } else {
+                  dayCell.classList.add('bg-orange-900');
+                  dayCell.style.color = 'white';
+                }
+              } else {
+                // Default blue
+                if (pomodoroCount === 0) {
+                  dayCell.classList.add('bg-blue-100');
+                  dayCell.style.color = '#1F2937';
+                } else if (pomodoroCount <= 2) {
+                  dayCell.classList.add('bg-blue-300');
+                  dayCell.style.color = '#1F2937';
+                } else if (pomodoroCount <= 5) {
+                  dayCell.classList.add('bg-blue-500');
+                  dayCell.style.color = 'white';
+                } else if (pomodoroCount <= 9) {
+                  dayCell.classList.add('bg-blue-700');
+                  dayCell.style.color = 'white';
+                } else {
+                  dayCell.classList.add('bg-blue-900');
+                  dayCell.style.color = 'white';
+                }
+              }
+
+              dayCell.textContent = dayData.date.getDate();
+              dayCell.title = `${dayData.dateStr}: ${pomodoroCount} 個蕃茄`;
+              dayCell.style.cursor = 'pointer';
+            } else {
+              dayCell.classList.add('bg-gray-100', 'dark:bg-gray-700', 'opacity-30');
+            }
+
+            weekRow.appendChild(dayCell);
+          });
+
+          heatmapWrapper.appendChild(weekRow);
+        });
+
+        heatmapContainer.appendChild(heatmapWrapper);
+      }
+
+      // Initialize pomodoro settings after functions are defined
+      initPomodoroSettings();
+
       // For AI analysis
       const analyzeButton = document.getElementById('analyze-time');
       const aiPrompt = document.getElementById('ai-prompt');
@@ -1409,7 +1906,53 @@
       const aiResponseContent = document.getElementById('ai-response-content');
       const loadingSpinner = document.getElementById('loading-spinner');
       const analyzeText = document.getElementById('analyze-text');
-      
+
+      // LLM Selector Logic
+      const llmSelector = document.getElementById('llm-selector');
+      const customLlmInput = document.getElementById('custom-llm-input');
+      const llmHint = document.getElementById('llm-hint');
+
+      const llmHints = {
+        'GPT-5.2': 'GPT-5.2: OpenAI 最新旗艦模型，適合一般用途',
+        'Claude-Sonnet-4.5': 'Claude-Sonnet-4.5: Anthropic 的強大模型，擅長程式碼與推理',
+        'Claude-Opus-4.5': 'Claude-Opus-4.5: Anthropic 最強模型，適合複雜任務',
+        'Gemini-3.0-Pro': 'Gemini-3.0-Pro: Google 進階模型，支援超長上下文',
+        'Gemini-2.5-Flash': 'Gemini-2.5-Flash: Google 快速模型，性價比高',
+        'Grok-4': 'Grok-4: xAI 最新最強模型',
+        'Grok-4-Fast-Reasoning': 'Grok-4-Fast-Reasoning: xAI 快速推���模型',
+        'Grok-4-Fast-Non-Reasoning': 'Grok-4-Fast-Non-Reasoning: xAI 快速非推理模型，速度最快',
+        'custom': '輸入任意 Poe 上可用的 Bot 名稱'
+      };
+
+      function getSelectedLlm() {
+        const selectorValue = llmSelector.value;
+        if (selectorValue === 'custom') {
+          const customValue = customLlmInput.value.trim();
+          return customValue || 'GPT-5.2'; // Fallback to GPT-5.2 if empty
+        }
+        return selectorValue;
+      }
+
+      llmSelector.addEventListener('change', () => {
+        const value = llmSelector.value;
+        if (value === 'custom') {
+          customLlmInput.classList.remove('hidden');
+          customLlmInput.focus();
+        } else {
+          customLlmInput.classList.add('hidden');
+        }
+        llmHint.textContent = llmHints[value] || '';
+      });
+
+      customLlmInput.addEventListener('input', () => {
+        const customValue = customLlmInput.value.trim();
+        if (customValue) {
+          llmHint.textContent = `將使用自訂模型: @${customValue}`;
+        } else {
+          llmHint.textContent = llmHints['custom'];
+        }
+      });
+
       // 初始化熱度圖功能 - 每週一列顯示
       function renderHeatmap(dailyPomodoroData, containerId = 'heatmap') {
         const heatmapContainer = document.getElementById(containerId);
@@ -1726,7 +2269,60 @@
         const formattedTaskData = JSON.stringify(taskData, null, 2);
         const formattedCategoryData = JSON.stringify(categoryData, null, 2);
 
-        const message = `@GPT-5.1
+        // Calculate pomodoro statistics
+        const pomodoroStats = calculatePomodoroStatistics();
+        const formattedPomodoroData = {
+          pomodoroDuration: pomodoroDuration + '分鐘',
+          excludedCategories: excludedCategories,
+          categoryPomodoros: pomodoroStats.categoryPomodoros,
+          dailyFocusPomodoros: pomodoroStats.dailyFocusPomodoros,
+          dailyNonFocusPomodoros: pomodoroStats.dailyNonFocusPomodoros,
+          totalFocusPomodoros: pomodoroStats.totalFocusPomodoros
+        };
+
+        // Analyze workdays and holidays
+        const uniqueDates = getUniqueDates();
+        const dateAnalysis = uniqueDates.map(dateStr => {
+          const date = new Date(dateStr);
+          const dayOfWeek = date.getDay();
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isHoliday = isCustomHoliday(dateStr);
+          const holidayDetails = customHolidayDetails[dateStr] || [];
+
+          let dayType;
+          if (isHoliday) {
+            dayType = '假期';
+          } else if (isWeekend) {
+            dayType = '週末';
+          } else {
+            dayType = '工作天';
+          }
+
+          const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+          return {
+            date: dateStr,
+            weekday: '星期' + dayNames[dayOfWeek],
+            dayType: dayType,
+            holidayDetails: holidayDetails.length > 0 ? holidayDetails : undefined
+          };
+        });
+
+        // Summary of workdays vs holidays
+        const workdayCount = dateAnalysis.filter(d => d.dayType === '工作天').length;
+        const weekendCount = dateAnalysis.filter(d => d.dayType === '週末').length;
+        const holidayCount = dateAnalysis.filter(d => d.dayType === '假期').length;
+
+        const workdaySummary = {
+          totalDays: uniqueDates.length,
+          workdays: workdayCount,
+          weekends: weekendCount,
+          holidays: holidayCount,
+          dateDetails: dateAnalysis
+        };
+
+        const selectedLlm = getSelectedLlm();
+        const message = `@${selectedLlm}
 
 ${userPrompt}
 
@@ -1740,6 +2336,16 @@ ${formattedTaskData}
 任務類別統計：
 \`\`\`json
 ${formattedCategoryData}
+\`\`\`
+
+蕃茄鐘統計（每 ${pomodoroDuration} 分鐘為一個蕃茄）：
+\`\`\`json
+${JSON.stringify(formattedPomodoroData, null, 2)}
+\`\`\`
+
+工作天與假期分析：
+\`\`\`json
+${JSON.stringify(workdaySummary, null, 2)}
 \`\`\`
 
 請用繁體中文回答，並提供具體的建議和見解。`;
@@ -1836,7 +2442,14 @@ ${formattedCategoryData}
       const fileNameInput = document.getElementById('file-name');
       const browseButton = document.getElementById('browse-button');
       const uploadButton = document.getElementById('upload-csv');
-      
+
+      // Holiday JSON upload elements
+      const holidayJsonUploadInput = document.getElementById('holiday-json-upload');
+      const holidayFileNameInput = document.getElementById('holiday-file-name');
+      const holidayBrowseButton = document.getElementById('holiday-browse-button');
+      const clearHolidayButton = document.getElementById('clear-holiday-json');
+      const holidayStatus = document.getElementById('holiday-status');
+
       // Set default date to today
       taskDateInput.value = todayFormatted;
       
@@ -1864,6 +2477,8 @@ ${formattedCategoryData}
           try {
             parseCSV(e.target.result);
             hideError();
+            // Auto navigate to Step 2 after successful CSV parse
+            goToStep(2);
           } catch (error) {
             showError(getErrorMessage('csv_parse_error') + error.message);
           }
@@ -1875,7 +2490,116 @@ ${formattedCategoryData}
         
         reader.readAsText(file);
       });
-      
+
+      // Holiday JSON file upload handling
+      holidayBrowseButton.addEventListener('click', () => {
+        holidayJsonUploadInput.click();
+      });
+
+      holidayJsonUploadInput.addEventListener('change', (e) => {
+        if (e.target.files.length === 0) {
+          return;
+        }
+        holidayFileNameInput.value = e.target.files[0].name;
+
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = (ev) => {
+          try {
+            const jsonData = JSON.parse(ev.target.result);
+            const allHolidayDates = [];
+            const holidayDetailsMap = {};
+
+            // 讀取 publicHolidays
+            if (jsonData.publicHolidays && Array.isArray(jsonData.publicHolidays)) {
+              jsonData.publicHolidays.forEach(h => {
+                if (!allHolidayDates.includes(h.date)) {
+                  allHolidayDates.push(h.date);
+                }
+                if (!holidayDetailsMap[h.date]) {
+                  holidayDetailsMap[h.date] = [];
+                }
+                holidayDetailsMap[h.date].push(`🎌 ${h.name}`);
+              });
+            }
+
+            // 讀取 leaveApplications 中 status = "Leave taken" 的日期
+            if (jsonData.leaveApplications && Array.isArray(jsonData.leaveApplications)) {
+              jsonData.leaveApplications
+                .filter(leave => leave.status === 'Leave taken')
+                .forEach(leave => {
+                  // 處理可能的多天假期 (startDate 到 endDate)
+                  const startDate = new Date(leave.startDate);
+                  const endDate = new Date(leave.endDate);
+                  const dayCount = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                  for (let i = 0; i < dayCount; i++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + i);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    if (!allHolidayDates.includes(dateStr)) {
+                      allHolidayDates.push(dateStr);
+                    }
+                    if (!holidayDetailsMap[dateStr]) {
+                      holidayDetailsMap[dateStr] = [];
+                    }
+                    const durationText = leave.duration === 'am' ? '(上午)' : leave.duration === 'pm' ? '(下午)' : '';
+                    holidayDetailsMap[dateStr].push(`📅 ${leave.reason || '請假'} ${durationText}`);
+                  }
+                });
+            }
+
+            if (allHolidayDates.length > 0) {
+              customHolidays = allHolidayDates.sort();
+              customHolidayDetails = holidayDetailsMap;
+              showHolidayStatus(`已載入 ${customHolidays.length} 個假期`, 'success');
+              clearHolidayButton.classList.remove('hidden');
+              // Update filter labels and refresh timeline
+              updateDayFilterLabels();
+              if (tasks.length > 0) {
+                renderTimelines();
+                renderDefaultWorksSummary();
+              }
+            } else {
+              showHolidayStatus('JSON 檔案格式錯誤：找不到 publicHolidays 或 leaveApplications 資料', 'error');
+            }
+          } catch (error) {
+            showHolidayStatus('JSON 解析錯誤：' + error.message, 'error');
+          }
+        };
+
+        reader.onerror = () => {
+          showHolidayStatus('檔案讀取錯誤', 'error');
+        };
+
+        reader.readAsText(file);
+      });
+
+      clearHolidayButton.addEventListener('click', () => {
+        customHolidays = [];
+        customHolidayDetails = {};
+        holidayJsonUploadInput.value = '';
+        holidayFileNameInput.value = '';
+        holidayStatus.classList.add('hidden');
+        clearHolidayButton.classList.add('hidden');
+        // Update filter labels and refresh timeline
+        updateDayFilterLabels();
+        if (tasks.length > 0) {
+          renderTimelines();
+          renderDefaultWorksSummary();
+        }
+      });
+
+      function showHolidayStatus(message, type) {
+        holidayStatus.textContent = message;
+        holidayStatus.classList.remove('hidden', 'text-green-600', 'text-red-500', 'dark:text-green-400', 'dark:text-red-400');
+        if (type === 'success') {
+          holidayStatus.classList.add('text-green-600', 'dark:text-green-400');
+        } else {
+          holidayStatus.classList.add('text-red-500', 'dark:text-red-400');
+        }
+      }
+
       // Parse CSV data from Toggl export
       function parseCSV(csvText) {
         // Clear existing tasks and task colors when uploading new CSV
@@ -1908,7 +2632,7 @@ ${formattedCategoryData}
         
         if (projectIndex === -1 || startDateIndex === -1 || startTimeIndex === -1 || 
             endDateIndex === -1 || endTimeIndex === -1) {
-          throw new Error('CSV 缺少必要欄位: Project, Start date, Start time, End date, End time');
+          throw new Error('CSV ���少必要欄位: Project, Start date, Start time, End date, End time');
         }
         
         // Store the original header
@@ -2017,8 +2741,9 @@ ${formattedCategoryData}
         
         // Update UI
         renderTaskTable();
+        updateMonthFilter();
         renderTimelines();
-        
+
         return newTasks.length;
       }
       
@@ -2279,26 +3004,115 @@ ${formattedCategoryData}
         return [...new Set(dates)].sort();
       }
       
+      // 檢查日期是否為自訂假期
+      function isCustomHoliday(dateStr) {
+        return customHolidays.includes(dateStr);
+      }
+
+      // 更新日期過濾器的選項標籤
+      function updateDayFilterLabels() {
+        const dayFilter = document.getElementById('day-filter');
+        const weekdayOption = dayFilter.querySelector('option[value="weekday"]');
+        const weekendOption = dayFilter.querySelector('option[value="weekend"]');
+
+        if (customHolidays.length > 0) {
+          weekdayOption.textContent = '僅顯示工作天';
+          weekendOption.textContent = '僅顯示假期';
+        } else {
+          weekdayOption.textContent = '僅顯示星期一至五';
+          weekendOption.textContent = '僅顯示星期六日';
+        }
+      }
+
+      // 更新月份過濾器選項
+      function updateMonthFilter() {
+        const monthFilter = document.getElementById('month-filter');
+        const uniqueDates = getUniqueDates();
+
+        if (uniqueDates.length === 0) {
+          monthFilter.classList.add('hidden');
+          return;
+        }
+
+        // 獲取所有唯一的月份
+        const months = new Set();
+        uniqueDates.forEach(dateStr => {
+          const month = dateStr.substring(0, 7); // YYYY-MM
+          months.add(month);
+        });
+
+        const monthsArray = [...months].sort();
+
+        // 如果只有一個月份，隱藏過濾器
+        if (monthsArray.length <= 1) {
+          monthFilter.classList.add('hidden');
+          monthFilter.value = 'all';
+          return;
+        }
+
+        // 顯示過濾器並更新選項
+        monthFilter.classList.remove('hidden');
+        const currentValue = monthFilter.value;
+
+        // 清除現有選項（保留 "全部月份"）
+        monthFilter.innerHTML = '<option value="all">全部月份</option>';
+
+        // 添加月份選項
+        monthsArray.forEach(month => {
+          const option = document.createElement('option');
+          option.value = month;
+          const [year, monthNum] = month.split('-');
+          option.textContent = `${year}年${parseInt(monthNum)}月`;
+          monthFilter.appendChild(option);
+        });
+
+        // 嘗試恢復之前的選擇
+        if (currentValue && monthsArray.includes(currentValue)) {
+          monthFilter.value = currentValue;
+        }
+      }
+
+      // 檢查日期是否符合月份過濾條件
+      function checkMonthFilter(dateStr) {
+        const monthFilter = document.getElementById('month-filter');
+        const filterValue = monthFilter.value;
+
+        if (filterValue === 'all') {
+          return true;
+        }
+
+        return dateStr.startsWith(filterValue);
+      }
+
       // 檢查日期是否符合星期過濾條件
       function checkDayFilter(dateStr) {
         const date = new Date(dateStr);
         const dayOfWeek = date.getDay(); // 0 = 星期日, 1-5 = 星期一至五, 6 = 星期六
         const filterValue = document.getElementById('day-filter').value;
-        
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
         if (filterValue === 'all') {
           return true;
         } else if (filterValue === 'weekday') {
+          // 如果有自訂假期：僅顯示工作天（平日但排除自訂假期）
+          if (customHolidays.length > 0) {
+            return dayOfWeek >= 1 && dayOfWeek <= 5 && !isCustomHoliday(dateStr);
+          }
           return dayOfWeek >= 1 && dayOfWeek <= 5; // 星期一至五
         } else if (filterValue === 'weekend') {
-          return dayOfWeek === 0 || dayOfWeek === 6; // 星期六、日
+          // 如果有自訂假期：僅顯示假期（週末 + 自訂假期）
+          if (customHolidays.length > 0) {
+            return isWeekend || isCustomHoliday(dateStr);
+          }
+          return isWeekend; // 星期六、日
         }
         return true;
       }
       
-      // 根據星期過濾條件獲取日期
+      // 根據月份和星期過濾條件獲取日期
       function getFilteredDates() {
         const uniqueDates = getUniqueDates();
-        return uniqueDates.filter(date => checkDayFilter(date));
+        return uniqueDates.filter(date => checkMonthFilter(date) && checkDayFilter(date));
       }
         
       // Check if a task passes the duration filter
@@ -2426,7 +3240,7 @@ ${formattedCategoryData}
           workTimes[work] = 0;
         });
         
-        // 計算每個預設工作的總時間（分鐘）
+        // 計算每個預設工作的總時間（���鐘）
         tasks.forEach(task => {
           const workName = task.description || task.name;
           if (defaultWorks.includes(workName)) {
@@ -2452,7 +3266,7 @@ ${formattedCategoryData}
         return formattedWorkTimes;
       }
       
-      // 用於儲存當前選擇的過濾個別工作
+      // ���於儲存當前選擇的過濾個別工作
       let selectedDefaultWork = null;
       
       // Render the default works time summary
@@ -2941,9 +3755,12 @@ ${formattedCategoryData}
       // Render multiple timelines, one per date
       function renderTimelines() {
         timelinesContainer.innerHTML = '';
-        
+
         // Update the default works total time display
         updateDefaultWorksTotalTime();
+
+        // Update pomodoro statistics
+        updatePomodoroStatistics();
         
         // Get filtered dates based on day filter
         const filteredDates = getFilteredDates();
@@ -2996,6 +3813,14 @@ ${formattedCategoryData}
           const dateLabel = document.createElement('div');
           dateLabel.className = 'date-label';
           dateLabel.textContent = formatDate(date);
+
+          // Add tooltip for holidays
+          if (customHolidayDetails[date] && customHolidayDetails[date].length > 0) {
+            dateLabel.title = customHolidayDetails[date].join('\n');
+            dateLabel.style.cursor = 'help';
+            dateLabel.style.textDecoration = 'underline dotted';
+          }
+
           timelineRow.appendChild(dateLabel);
           
           // Create timeline content container on the right
@@ -3073,7 +3898,7 @@ ${formattedCategoryData}
             // Check if task labels should be shown
             const showTaskLabels = document.getElementById('show-task-labels').checked;
             
-            // 根據顯示模式決定顯示的文字 - 任務類別或個別工作
+            // 根據顯示模式決定顯示的���字 - 任務類別或個別工作
             const displayName = displayMode === 'task' ? task.name : (task.description || task.name);
             
             if (showTaskLabels) {
@@ -3233,8 +4058,28 @@ ${formattedCategoryData}
         });
       });
       
-      // 為各個過濾器添加立即響應的事件監聽器
-      
+      // 為各個過濾器添加立即響應的事件監聯器
+
+      // 月份過濾器變更時立即響應
+      document.getElementById('month-filter').addEventListener('change', () => {
+        console.log('Month filter changed to:', document.getElementById('month-filter').value);
+
+        // 先檢查並更新類別過濾器
+        if (!document.getElementById('category-filter-container').classList.contains('hidden')) {
+          if (document.getElementById('show-default-works-only').checked) {
+            updateCategoryFilterForDefaultWorks();
+          } else {
+            updateCategoryFilter();
+          }
+        }
+
+        // 更新所有預設個別工作相關的 UI
+        updateDefaultWorksUI();
+
+        // 重新渲染時間軸
+        renderTimelines();
+      });
+
       // 日期過濾器 (星期選擇) 變更時立即響應
       document.getElementById('day-filter').addEventListener('change', () => {
         console.log('Day filter changed to:', document.getElementById('day-filter').value);
@@ -3276,7 +4121,7 @@ ${formattedCategoryData}
           }
         }
         
-        // 確保在更新預設個別工作部分之前已經切換為個別工作模式
+        // 確保在���新預設個別工作部分之前已經切換為個別工作模式
         if (document.getElementById('show-default-works-only').checked && displayMode !== 'detail') {
           displayMode = 'detail';
           updateDisplayModeUI();
@@ -3714,6 +4559,12 @@ ${formattedCategoryData}
           });
         });
         
+        // 5. LLM Selection
+        const llmSelection = {
+          selected: llmSelector.value,
+          customLlm: customLlmInput.value
+        };
+
         return {
           version: '1.0',
           aiPrompts: {
@@ -3723,7 +4574,12 @@ ${formattedCategoryData}
           categoryColors: categoryColors,
           timelineSettings: timelineSettings,
           specialMarkers: specialMarkers,
-          defaultWorks: defaultWorks  // Add default works to export
+          defaultWorks: defaultWorks,  // Add default works to export
+          pomodoroSettings: {
+            duration: pomodoroDuration,
+            excludedCategories: excludedCategories
+          },
+          llmSelection: llmSelection
         };
       }
       
@@ -3859,7 +4715,37 @@ ${formattedCategoryData}
             // Update the UI
             renderDefaultWorksList();
           }
-          
+
+          // 6. Apply Pomodoro Settings
+          if (settings.pomodoroSettings) {
+            if (settings.pomodoroSettings.duration) {
+              pomodoroDuration = settings.pomodoroSettings.duration;
+              document.getElementById('pomodoro-duration').value = pomodoroDuration;
+            }
+            if (settings.pomodoroSettings.excludedCategories && Array.isArray(settings.pomodoroSettings.excludedCategories)) {
+              excludedCategories = [...settings.pomodoroSettings.excludedCategories];
+              renderExcludedCategories();
+            }
+          }
+
+          // 7. Apply LLM Selection
+          if (settings.llmSelection) {
+            if (settings.llmSelection.selected) {
+              llmSelector.value = settings.llmSelection.selected;
+              // Trigger change event to update UI
+              if (settings.llmSelection.selected === 'custom') {
+                customLlmInput.classList.remove('hidden');
+                if (settings.llmSelection.customLlm) {
+                  customLlmInput.value = settings.llmSelection.customLlm;
+                  llmHint.textContent = `將使用自訂模型: @${settings.llmSelection.customLlm}`;
+                }
+              } else {
+                customLlmInput.classList.add('hidden');
+                llmHint.textContent = llmHints[settings.llmSelection.selected] || '';
+              }
+            }
+          }
+
           // Update UI
           renderTaskTable();
           initializeTimeMarkers();
@@ -3901,7 +4787,7 @@ ${formattedCategoryData}
         } catch (error) {
           console.error('Error exporting settings:', error);
           showSettingsStatus(
-            '匯出設定時發生錯誤', 
+            '���出設定時發生錯誤', 
             true
           );
         }
@@ -4368,4 +5254,9 @@ ${formattedCategoryData}
   </script>
 </body>
 </html>
+
+
+
+
+
 
