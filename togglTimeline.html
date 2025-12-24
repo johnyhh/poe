@@ -246,6 +246,223 @@
     }
     
     /* Remove language switch styles */
+
+    /* Step Navigation Styles */
+    .step-nav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 1.5rem;
+      padding: 0 1rem;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      border-radius: 0.5rem;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .step-item:hover {
+      background-color: rgba(93, 92, 222, 0.1);
+    }
+
+    .step-number {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      background-color: #E5E7EB;
+      color: #6B7280;
+      transition: all 0.2s;
+    }
+
+    .dark .step-number {
+      background-color: #374151;
+      color: #9CA3AF;
+    }
+
+    .step-item.active .step-number {
+      background-color: #5D5CDE;
+      color: white;
+    }
+
+    .step-item.completed .step-number {
+      background-color: #10B981;
+      color: white;
+    }
+
+    .step-label {
+      font-weight: 500;
+      color: #6B7280;
+      transition: all 0.2s;
+    }
+
+    .dark .step-label {
+      color: #9CA3AF;
+    }
+
+    .step-item.active .step-label {
+      color: #5D5CDE;
+      font-weight: 600;
+    }
+
+    .step-item.completed .step-label {
+      color: #10B981;
+    }
+
+    .step-connector {
+      width: 40px;
+      height: 2px;
+      background-color: #E5E7EB;
+    }
+
+    .dark .step-connector {
+      background-color: #374151;
+    }
+
+    .step-connector.completed {
+      background-color: #10B981;
+    }
+
+    .step-content {
+      display: none;
+    }
+
+    .step-content.active {
+      display: block;
+    }
+
+    /* Settings Sidebar Styles */
+    .settings-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+
+    .settings-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .settings-sidebar {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      max-width: 90vw;
+      height: 100vh;
+      background-color: white;
+      z-index: 50;
+      overflow-y: auto;
+      transition: right 0.3s ease;
+      box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .dark .settings-sidebar {
+      background-color: #1F2937;
+    }
+
+    .settings-sidebar.open {
+      right: 0;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #E5E7EB;
+      position: sticky;
+      top: 0;
+      background-color: white;
+      z-index: 10;
+    }
+
+    .dark .settings-header {
+      background-color: #1F2937;
+      border-color: #374151;
+    }
+
+    .settings-body {
+      padding: 1.5rem;
+    }
+
+    .settings-section {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid #E5E7EB;
+    }
+
+    .dark .settings-section {
+      border-color: #374151;
+    }
+
+    .settings-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    .settings-section-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Settings toggle button */
+    .settings-toggle-btn {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background-color: #5D5CDE;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(93, 92, 222, 0.4);
+      z-index: 35;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .settings-toggle-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(93, 92, 222, 0.5);
+    }
+
+    /* Step action buttons */
+    .step-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid #E5E7EB;
+    }
+
+    .dark .step-actions {
+      border-color: #374151;
+    }
   </style>
 </head>
 <body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen p-4">
@@ -267,7 +484,28 @@
 
   <div class="max-w-7xl mx-auto">
     <h1 class="text-2xl font-bold mb-4 text-center">時間軸視覺化</h1>
-    
+
+    <!-- Step Navigation -->
+    <nav class="step-nav">
+      <div class="step-item active" data-step="1">
+        <span class="step-number">1</span>
+        <span class="step-label">上傳資料</span>
+      </div>
+      <div class="step-connector" id="connector-1-2"></div>
+      <div class="step-item" data-step="2">
+        <span class="step-number">2</span>
+        <span class="step-label">檢視時間軸</span>
+      </div>
+      <div class="step-connector" id="connector-2-3"></div>
+      <div class="step-item" data-step="3">
+        <span class="step-number">3</span>
+        <span class="step-label">AI 分析</span>
+      </div>
+    </nav>
+
+    <!-- Step 1: Upload -->
+    <div class="step-content active" id="step-1">
+
     <!-- CSV Upload Form -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
       <div class="flex flex-col gap-4">
@@ -330,7 +568,20 @@
       </div>
       <div id="error-message" class="mt-2 text-red-500 text-sm hidden"></div>
     </div>
-    
+
+    <!-- Step 1 Actions -->
+    <div class="step-actions">
+      <div></div>
+      <button id="step1-next" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-6 rounded-md">
+        下一步：檢視時間軸 →
+      </button>
+    </div>
+
+    </div><!-- End Step 1 -->
+
+    <!-- Step 2: Timeline View -->
+    <div class="step-content" id="step-2">
+
     <!-- Task Table -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 overflow-x-auto">
       <div class="flex justify-between items-center cursor-pointer mb-2" id="task-table-toggle">
@@ -363,7 +614,22 @@
         <div id="empty-table-message" class="py-4 text-center text-gray-500">尚未添加任務，請使用上方表單添加任務</div>
       </div>
     </div>
-    
+
+    <!-- Step 2 Actions -->
+    <div class="step-actions">
+      <button id="step2-prev" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-2 px-6 rounded-md">
+        ← 上一步
+      </button>
+      <button id="step2-next" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-6 rounded-md">
+        下一步：AI 分析 →
+      </button>
+    </div>
+
+    </div><!-- End Step 2 -->
+
+    <!-- Step 3: AI Analysis -->
+    <div class="step-content" id="step-3">
+
     <!-- AI Analysis Section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
       <h2 class="text-lg font-semibold mb-2">AI 時間分析與建議</h2>
@@ -383,8 +649,7 @@
       </div>
       <div class="flex justify-end">
         <button id="analyze-time" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md flex items-center">
-          <span id="analyze-text" data-lang="zh">分析我的時間數據</span>
-          <span id="analyze-text-en" data-lang="en">Analyze My Time Data</span>
+          <span id="analyze-text">分析我的時間數據</span>
           <span id="loading-spinner" class="ml-2 hidden">
             <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -401,49 +666,68 @@
           </button>
         </div>
         <div id="ai-response-content" class="whitespace-pre-wrap"></div>
+        <!-- Heatmap will be inserted here after AI analysis -->
+        <div id="ai-heatmap-container" class="mt-6 hidden">
+          <h4 class="text-md font-semibold mb-3">專注時間熱度圖</h4>
+          <div id="ai-heatmap" class="w-full overflow-x-auto"></div>
+          <div class="flex items-center justify-center mt-4">
+            <div class="flex items-center">
+              <div class="w-4 h-4 bg-blue-100"></div>
+              <span class="ml-1 mr-3 text-sm">0</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 bg-blue-300"></div>
+              <span class="ml-1 mr-3 text-sm">1-2</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 bg-blue-500"></div>
+              <span class="ml-1 mr-3 text-sm">3-5</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 bg-blue-700"></div>
+              <span class="ml-1 mr-3 text-sm">6-9</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 bg-blue-900"></div>
+              <span class="ml-1 mr-3 text-sm">10+</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    
-    <!-- Timeline Customization -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+
+    <!-- Step 3 Actions -->
+    <div class="step-actions">
+      <button id="step3-prev" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold py-2 px-6 rounded-md">
+        ← 返回時間軸
+      </button>
+      <div></div>
+    </div>
+
+    </div><!-- End Step 3 -->
+
+    <!-- Timeline Customization (Hidden - moved to sidebar) -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 hidden">
       <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold">
-          <span data-lang="zh">時間軸外觀設定</span>
-          <span data-lang="en">Timeline Appearance Settings</span>
-        </h2>
+        <h2 class="text-lg font-semibold">時間軸外觀設定</h2>
         <!-- Export/Import Buttons -->
         <div class="flex gap-2">
-          <button id="export-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">
-            <span data-lang="zh">匯出設定</span>
-            <span data-lang="en">Export Settings</span>
-          </button>
-          <button id="import-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">
-            <span data-lang="zh">匯入設定</span>
-            <span data-lang="en">Import Settings</span>
-          </button>
+          <button id="export-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">匯出設定</button>
+          <button id="import-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">匯入設定</button>
           <input type="file" id="settings-file-input" accept=".json" class="hidden" >
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
-          <label for="timeline-width" class="block text-sm font-medium mb-1">
-            <span data-lang="zh">時間條寬度 (10分鐘像素)</span>
-            <span data-lang="en">Timeline Width (pixels per 10 min)</span>
-          </label>
+          <label for="timeline-width" class="block text-sm font-medium mb-1">時間條寬度 (10分鐘像素)</label>
           <input type="number" id="timeline-width" min="1" max="100" value="7" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
         </div>
         <div>
-          <label for="timeline-height" class="block text-sm font-medium mb-1">
-            <span data-lang="zh">時間條高度 (像素)</span>
-            <span data-lang="en">Timeline Height (pixels)</span>
-          </label>
+          <label for="timeline-height" class="block text-sm font-medium mb-1">時間條高度 (像素)</label>
           <input type="number" id="timeline-height" min="20" max="100" value="20" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
         </div>
         <div>
-          <label for="timeline-spacing" class="block text-sm font-medium mb-1">
-            <span data-lang="zh">時間軸間距 (像素)</span>
-            <span data-lang="en">Timeline Spacing (pixels)</span>
-          </label>
+          <label for="timeline-spacing" class="block text-sm font-medium mb-1">時間軸間距 (像素)</label>
           <input type="number" id="timeline-spacing" min="-20" max="100" value="-5" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
         </div>
       </div>
@@ -451,31 +735,22 @@
         <div class="flex flex-col gap-2">
           <div class="flex items-center">
             <input type="checkbox" id="show-task-labels" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:border-gray-600" checked>
-            <label for="show-task-labels" class="ml-2 text-sm font-medium">
-              <span data-lang="zh">顯示時間條上的文字標籤</span>
-              <span data-lang="en">Show labels on timeline bars</span>
-            </label>
+            <label for="show-task-labels" class="ml-2 text-sm font-medium">顯示時間條上的文字標籤</label>
           </div>
           <div class="flex items-center">
             <input type="checkbox" id="show-hour-grid-lines" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:border-gray-600" checked>
-            <label for="show-hour-grid-lines" class="ml-2 text-sm font-medium">
-              <span data-lang="zh">顯示每小時垂直線</span>
-              <span data-lang="en">Show hourly vertical grid lines</span>
-            </label>
+            <label for="show-hour-grid-lines" class="ml-2 text-sm font-medium">顯示每小時垂直線</label>
           </div>
         </div>
         
         <!-- Special Time Markers -->
         <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <h3 class="text-md font-medium mb-2">
-            <span data-lang="zh">特別時間標記</span>
-            <span data-lang="en">Special Time Markers</span>
-          </h3>
+          <h3 class="text-md font-medium mb-2">特別時間標記</h3>
           <div id="special-time-markers" class="mb-3">
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
               <div class="flex items-center">
                 <input type="checkbox" id="marker-0100" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0100" data-color="#FF5858" checked>
-                <label for="marker-0100" class="ml-2 text-sm">01:00 <span data-lang="zh">入睡</span><span data-lang="en">Sleep</span></label>
+                <label for="marker-0100" class="ml-2 text-sm">01:00 入睡</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#FF5858" data-time="0100">
                   <div class="color-display" style="background-color: #FF5858;"></div>
@@ -491,7 +766,7 @@
               </div>
               <div class="flex items-center">
                 <input type="checkbox" id="marker-0745" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0745" data-color="#FFC658" checked>
-                <label for="marker-0745" class="ml-2 text-sm">07:45 <span data-lang="zh">起床</span><span data-lang="en">Wake up</span></label>
+                <label for="marker-0745" class="ml-2 text-sm">07:45 起床</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#FFC658" data-time="0745">
                   <div class="color-display" style="background-color: #FFC658;"></div>
@@ -507,7 +782,7 @@
               </div>
               <div class="flex items-center">
                 <input type="checkbox" id="marker-0930" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0930" data-color="#58C1FF" checked>
-                <label for="marker-0930" class="ml-2 text-sm">09:30 <span data-lang="zh">上班</span><span data-lang="en">Start work</span></label>
+                <label for="marker-0930" class="ml-2 text-sm">09:30 上班</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#58C1FF" data-time="0930">
                   <div class="color-display" style="background-color: #58C1FF;"></div>
@@ -523,7 +798,7 @@
               </div>
               <div class="flex items-center">
                 <input type="checkbox" id="marker-1800" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="1800" data-color="#58FF7F" checked>
-                <label for="marker-1800" class="ml-2 text-sm">18:00 <span data-lang="zh">下班</span><span data-lang="en">End work</span></label>
+                <label for="marker-1800" class="ml-2 text-sm">18:00 下班</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#58FF7F" data-time="1800">
                   <div class="color-display" style="background-color: #58FF7F;"></div>
@@ -539,7 +814,7 @@
               </div>
               <div class="flex items-center">
                 <input type="checkbox" id="marker-2000" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="2000" data-color="#C558FF" checked>
-                <label for="marker-2000" class="ml-2 text-sm">20:00 <span data-lang="zh">晚飯</span><span data-lang="en">Dinner</span></label>
+                <label for="marker-2000" class="ml-2 text-sm">20:00 晚飯</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#C558FF" data-time="2000">
                   <div class="color-display" style="background-color: #C558FF;"></div>
@@ -555,7 +830,7 @@
               </div>
               <div class="flex items-center">
                 <input type="checkbox" id="marker-2300" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="2300" data-color="#FF58A9" checked>
-                <label for="marker-2300" class="ml-2 text-sm">23:00 <span data-lang="zh">Me time</span><span data-lang="en">Me time</span></label>
+                <label for="marker-2300" class="ml-2 text-sm">23:00 Me time</label>
                 <div class="color-picker-container">
                   <input type="color" class="color-picker" value="#FF58A9" data-time="2300">
                   <div class="color-display" style="background-color: #FF58A9;"></div>
@@ -579,24 +854,15 @@
               <div class="flex-grow">
                 <input type="text" id="custom-marker-label" placeholder="Label" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 w-full">
               </div>
-              <button id="add-custom-marker" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">
-                <span data-lang="zh">新增標記</span>
-                <span data-lang="en">Add Marker</span>
-              </button>
+              <button id="add-custom-marker" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">新增標記</button>
             </div>
           </div>
         </div>
         
         <!-- Default Works Configuration -->
         <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-          <h3 class="text-md font-medium mb-2">
-            <span data-lang="zh">預設個別工作設定</span>
-            <span data-lang="en">Default Individual Works</span>
-          </h3>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
-            <span data-lang="zh">管理「僅顯示預設個別工作」過濾器中使用的預設工作列表</span>
-            <span data-lang="en">Manage the default works list used in the "Default works only" filter</span>
-          </p>
+          <h3 class="text-md font-medium mb-2">常用工作設定</h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">管理「僅顯示常用工作」過濾器中使用的工作列表</p>
           
           <div id="default-works-list" class="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-3 max-h-[200px] overflow-y-auto">
             <!-- Default works will be listed here -->
@@ -606,18 +872,12 @@
             <div class="flex-grow">
               <input type="text" id="new-default-work" placeholder="New work name" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 w-full">
             </div>
-            <button id="add-default-work" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">
-              <span data-lang="zh">新增預設工作</span>
-              <span data-lang="en">Add Default Work</span>
-            </button>
+            <button id="add-default-work" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">新增常用工作</button>
           </div>
         </div>
 
         <div class="flex justify-end mt-2">
-          <button id="apply-settings" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md">
-            <span data-lang="zh">應用設定</span>
-            <span data-lang="en">Apply Settings</span>
-          </button>
+          <button id="apply-settings" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md">應用設定</button>
         </div>
       </div>
       
@@ -630,30 +890,19 @@
     <!-- Timeline -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
       <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold">
-          <span data-lang="zh">多日時間軸 (0000-2400)</span>
-          <span data-lang="en">Multi-day Timeline (0000-2400)</span>
-        </h2>
+        <h2 class="text-lg font-semibold">多日時間軸 (0000-2400)</h2>
         <div class="flex flex-wrap gap-2">
           <div class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 flex items-center">
-            <span class="mr-2" data-lang="zh">顯示模式:</span>
-            <span class="mr-2" data-lang="en">Display Mode:</span>
+            <span class="mr-2">顯示模式:</span>
             <div class="flex">
-              <button id="display-mode-task" class="px-2 py-0.5 rounded-l-md bg-primary text-white">
-                <span data-lang="zh">任務類別</span>
-                <span data-lang="en">Task Category</span>
-              </button>
-              <button id="display-mode-detail" class="px-2 py-0.5 rounded-r-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
-                <span data-lang="zh">個別工作</span>
-                <span data-lang="en">Individual Work</span>
-              </button>
+              <button id="display-mode-task" class="px-2 py-0.5 rounded-l-md bg-primary text-white">依專案</button>
+              <button id="display-mode-detail" class="px-2 py-0.5 rounded-r-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">依工作描述</button>
             </div>
           </div>
           <div class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 flex items-center">
             <label class="inline-flex items-center cursor-pointer">
               <input type="checkbox" id="show-default-works-only" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
-              <span class="ml-2" data-lang="zh">僅顯示預設個別工作</span>
-              <span class="ml-2" data-lang="en">Default works only</span>
+              <span class="ml-2">僅顯示常用工作</span>
             </label>
             <span id="default-works-total-time" class="ml-3 text-xs bg-primary/20 rounded px-2 py-0.5 hidden">
               總時間: <span id="default-works-hours">0</span>:<span id="default-works-minutes">00</span>
@@ -670,33 +919,20 @@
             <option value="30min">30分鐘或以上</option>
             <option value="60min">1小時或以上</option>
           </select>
-          <button id="toggle-category-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700">
-            <span data-lang="zh">任務類別過濾</span>
-            <span data-lang="en">Task Categories</span>
-          </button>
-          <button id="focus-analysis" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700 mr-1">
-            <span data-lang="zh">專注分析</span>
-            <span data-lang="en">Focus Analysis</span>
-          </button>
+          <button id="toggle-category-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700">過濾類別</button>
+          <button id="focus-analysis" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700 mr-1">專注時間統計</button>
 
         </div>
         <!-- Category filter panel -->
         <div id="category-filter-container" class="mt-2 hidden w-full">
           <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
             <div class="mb-2">
-              <span class="text-sm font-medium" data-lang="zh">選擇要顯示的任務類別：</span>
-              <span class="text-sm font-medium" data-lang="en">Select task categories to display:</span>
+              <span class="text-sm font-medium">選擇要顯示的類別：</span>
             </div>
             <div id="category-checkboxes" class="flex flex-wrap gap-3"></div>
             <div class="mt-2 flex gap-2">
-              <button id="select-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">
-                <span data-lang="zh">全選</span>
-                <span data-lang="en">Select All</span>
-              </button>
-              <button id="deselect-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">
-                <span data-lang="zh">取消全選</span>
-                <span data-lang="en">Deselect All</span>
-              </button>
+              <button id="select-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">全選</button>
+              <button id="deselect-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">取消全選</button>
             </div>
           </div>
         </div>
@@ -722,21 +958,15 @@
 
     <!-- Default Works Time Summary Section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6">
-      <h2 class="text-lg font-semibold mb-2">
-        <span data-lang="zh">預設個別工作時間摘要</span>
-        <span data-lang="en">Default Works Time Summary</span>
-      </h2>
+      <h2 class="text-lg font-semibold mb-2">常用工作時間統計</h2>
       <div id="default-works-summary" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         <!-- Default works time entries will be inserted here -->
       </div>
     </div>
 
-    <!-- Heatmap Section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6">
-      <h2 class="text-lg font-semibold mb-2">
-        <span data-lang="zh">專注時間熱度圖</span>
-        <span data-lang="en">Focus Time Heatmap</span>
-      </h2>
+    <!-- Heatmap Section (Hidden - moved to AI results) -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6 hidden">
+      <h2 class="text-lg font-semibold mb-2">專注時間熱度圖</h2>
       <div id="heatmap-container" class="w-full overflow-x-auto">
         <div id="heatmap" class="min-w-max"></div>
       </div>
@@ -764,7 +994,108 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Settings Toggle Button (Gear) -->
+  <button id="settings-toggle-btn" class="settings-toggle-btn" title="開啟設定">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </button>
+
+  <!-- Settings Overlay -->
+  <div id="settings-overlay" class="settings-overlay"></div>
+
+  <!-- Settings Sidebar -->
+  <div id="settings-sidebar" class="settings-sidebar">
+    <div class="settings-header">
+      <h2 class="text-lg font-semibold">設定</h2>
+      <button id="close-settings" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="settings-body">
+      <!-- Timeline Appearance Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+          時間軸外觀
+        </h3>
+        <div class="space-y-3">
+          <div>
+            <label for="timeline-width" class="block text-sm font-medium mb-1">時間條寬度 (10分鐘像素)</label>
+            <input type="number" id="sidebar-timeline-width" min="1" max="100" value="7" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+          </div>
+          <div>
+            <label for="timeline-height" class="block text-sm font-medium mb-1">時間條高度 (像素)</label>
+            <input type="number" id="sidebar-timeline-height" min="20" max="100" value="20" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+          </div>
+          <div>
+            <label for="timeline-spacing" class="block text-sm font-medium mb-1">時間軸間距 (像素)</label>
+            <input type="number" id="sidebar-timeline-spacing" min="-20" max="100" value="-5" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="sidebar-show-task-labels" class="w-4 h-4 text-primary border-gray-300 rounded" checked>
+            <label for="sidebar-show-task-labels" class="ml-2 text-sm">顯示時間條上的文字標籤</label>
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="sidebar-show-hour-grid-lines" class="w-4 h-4 text-primary border-gray-300 rounded" checked>
+            <label for="sidebar-show-hour-grid-lines" class="ml-2 text-sm">顯示每小時垂直線</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Special Time Markers Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          特別時間標記
+        </h3>
+        <div id="sidebar-special-time-markers" class="space-y-2 max-h-[200px] overflow-y-auto">
+          <!-- Time markers will be populated here -->
+        </div>
+        <div class="flex flex-col gap-2 mt-3">
+          <input type="text" id="sidebar-custom-marker-time" placeholder="HHMM" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" maxlength="4">
+          <input type="text" id="sidebar-custom-marker-label" placeholder="標籤名稱" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+          <button id="sidebar-add-custom-marker" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md">新增標記</button>
+        </div>
+      </div>
+
+      <!-- Default Works Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          常用工作設定
+        </h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">管理「僅顯示常用工作」過濾器中使用的工作列表</p>
+        <div id="sidebar-default-works-list" class="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-3 max-h-[150px] overflow-y-auto">
+          <!-- Default works will be listed here -->
+        </div>
+        <div class="flex flex-col gap-2">
+          <input type="text" id="sidebar-new-default-work" placeholder="新增常用工作名稱" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+          <button id="sidebar-add-default-work" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md">新增常用工作</button>
+        </div>
+      </div>
+
+      <!-- Export/Import Section -->
+      <div class="settings-section">
+        <h3 class="settings-section-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          匯出/匯入設定
+        </h3>
+        <div class="flex gap-2">
+          <button id="sidebar-export-settings" class="flex-1 text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-2 px-3 rounded-md text-sm">匯出設定</button>
+          <button id="sidebar-import-settings" class="flex-1 text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-2 px-3 rounded-md text-sm">匯入設定</button>
+        </div>
+        <input type="file" id="sidebar-settings-file-input" accept=".json" class="hidden">
+        <div id="sidebar-settings-status" class="mt-2 p-2 rounded-md text-center text-sm hidden"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Task Edit Modal -->
   <div id="edit-task-modal" class="modal-backdrop">
     <div class="modal-content p-6 w-full max-w-md">
@@ -828,28 +1159,245 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Shared debounce timer for settings
+      let settingsDebounceTimer = null;
+
+      // ===== STEP NAVIGATION SYSTEM =====
+      let currentStep = 1;
+      const totalSteps = 3;
+
+      // Get step elements
+      const stepItems = document.querySelectorAll('.step-item');
+      const stepContents = document.querySelectorAll('.step-content');
+      const stepConnectors = document.querySelectorAll('.step-connector');
+
+      // Step navigation buttons
+      const step1NextBtn = document.getElementById('step1-next');
+      const step2PrevBtn = document.getElementById('step2-prev');
+      const step2NextBtn = document.getElementById('step2-next');
+      const step3PrevBtn = document.getElementById('step3-prev');
+
+      // Function to update step UI
+      function updateStepUI() {
+        // Update step items
+        stepItems.forEach((item, index) => {
+          const stepNum = index + 1;
+          item.classList.remove('active', 'completed');
+
+          if (stepNum === currentStep) {
+            item.classList.add('active');
+          } else if (stepNum < currentStep) {
+            item.classList.add('completed');
+          }
+        });
+
+        // Update connectors
+        stepConnectors.forEach((connector, index) => {
+          connector.classList.remove('completed');
+          if (index + 1 < currentStep) {
+            connector.classList.add('completed');
+          }
+        });
+
+        // Update step contents
+        stepContents.forEach((content, index) => {
+          content.classList.remove('active');
+          if (index + 1 === currentStep) {
+            content.classList.add('active');
+          }
+        });
+
+        // Scroll to top of the page when changing steps
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      // Function to go to specific step
+      function goToStep(stepNum) {
+        if (stepNum >= 1 && stepNum <= totalSteps) {
+          currentStep = stepNum;
+          updateStepUI();
+        }
+      }
+
+      // Click on step items to navigate (allow jumping)
+      stepItems.forEach((item, index) => {
+        item.addEventListener('click', () => {
+          goToStep(index + 1);
+        });
+      });
+
+      // Step 1 Next button
+      if (step1NextBtn) {
+        step1NextBtn.addEventListener('click', () => goToStep(2));
+      }
+
+      // Step 2 Previous/Next buttons
+      if (step2PrevBtn) {
+        step2PrevBtn.addEventListener('click', () => goToStep(1));
+      }
+      if (step2NextBtn) {
+        step2NextBtn.addEventListener('click', () => goToStep(3));
+      }
+
+      // Step 3 Previous button
+      if (step3PrevBtn) {
+        step3PrevBtn.addEventListener('click', () => goToStep(2));
+      }
+
+      // ===== SETTINGS SIDEBAR =====
+      const settingsToggleBtn = document.getElementById('settings-toggle-btn');
+      const settingsSidebar = document.getElementById('settings-sidebar');
+      const settingsOverlay = document.getElementById('settings-overlay');
+      const closeSettingsBtn = document.getElementById('close-settings');
+
+      // Function to open settings sidebar
+      function openSettings() {
+        settingsSidebar.classList.add('open');
+        settingsOverlay.classList.add('open');
+        // Sync sidebar values with main form values
+        syncSettingsToSidebar();
+      }
+
+      // Function to close settings sidebar
+      function closeSettings() {
+        settingsSidebar.classList.remove('open');
+        settingsOverlay.classList.remove('open');
+      }
+
+      // Toggle button click
+      settingsToggleBtn.addEventListener('click', openSettings);
+
+      // Close button click
+      closeSettingsBtn.addEventListener('click', closeSettings);
+
+      // Overlay click to close
+      settingsOverlay.addEventListener('click', closeSettings);
+
+      // Escape key to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && settingsSidebar.classList.contains('open')) {
+          closeSettings();
+        }
+      });
+
+      // Sync settings from main form to sidebar
+      function syncSettingsToSidebar() {
+        // Timeline settings
+        const mainWidth = document.getElementById('timeline-width');
+        const mainHeight = document.getElementById('timeline-height');
+        const mainSpacing = document.getElementById('timeline-spacing');
+        const mainShowLabels = document.getElementById('show-task-labels');
+        const mainShowGrid = document.getElementById('show-hour-grid-lines');
+
+        if (mainWidth) document.getElementById('sidebar-timeline-width').value = mainWidth.value;
+        if (mainHeight) document.getElementById('sidebar-timeline-height').value = mainHeight.value;
+        if (mainSpacing) document.getElementById('sidebar-timeline-spacing').value = mainSpacing.value;
+        if (mainShowLabels) document.getElementById('sidebar-show-task-labels').checked = mainShowLabels.checked;
+        if (mainShowGrid) document.getElementById('sidebar-show-hour-grid-lines').checked = mainShowGrid.checked;
+      }
+
+      // Sync settings from sidebar to main form and apply
+      function syncSettingsFromSidebar() {
+        const mainWidth = document.getElementById('timeline-width');
+        const mainHeight = document.getElementById('timeline-height');
+        const mainSpacing = document.getElementById('timeline-spacing');
+        const mainShowLabels = document.getElementById('show-task-labels');
+        const mainShowGrid = document.getElementById('show-hour-grid-lines');
+
+        const sidebarWidth = document.getElementById('sidebar-timeline-width');
+        const sidebarHeight = document.getElementById('sidebar-timeline-height');
+        const sidebarSpacing = document.getElementById('sidebar-timeline-spacing');
+        const sidebarShowLabels = document.getElementById('sidebar-show-task-labels');
+        const sidebarShowGrid = document.getElementById('sidebar-show-hour-grid-lines');
+
+        if (mainWidth && sidebarWidth) mainWidth.value = sidebarWidth.value;
+        if (mainHeight && sidebarHeight) mainHeight.value = sidebarHeight.value;
+        if (mainSpacing && sidebarSpacing) mainSpacing.value = sidebarSpacing.value;
+        if (mainShowLabels && sidebarShowLabels) mainShowLabels.checked = sidebarShowLabels.checked;
+        if (mainShowGrid && sidebarShowGrid) mainShowGrid.checked = sidebarShowGrid.checked;
+
+        // Apply changes
+        initializeTimeMarkers();
+        renderTimelines();
+      }
+
+      // Add instant response for sidebar settings
+      const sidebarSettingsInputs = [
+        'sidebar-timeline-width',
+        'sidebar-timeline-height',
+        'sidebar-timeline-spacing'
+      ];
+
+      sidebarSettingsInputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => {
+            clearTimeout(settingsDebounceTimer);
+            settingsDebounceTimer = setTimeout(syncSettingsFromSidebar, 150);
+          });
+        }
+      });
+
+      // Checkbox instant response
+      ['sidebar-show-task-labels', 'sidebar-show-hour-grid-lines'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('change', syncSettingsFromSidebar);
+        }
+      });
+
+      // Sidebar add default work button
+      const sidebarAddDefaultWorkBtn = document.getElementById('sidebar-add-default-work');
+      if (sidebarAddDefaultWorkBtn) {
+        sidebarAddDefaultWorkBtn.addEventListener('click', () => {
+          addDefaultWork('sidebar-new-default-work');
+        });
+      }
+
+      // Sidebar export/import settings buttons
+      const sidebarExportBtn = document.getElementById('sidebar-export-settings');
+      const sidebarImportBtn = document.getElementById('sidebar-import-settings');
+      const sidebarSettingsFileInput = document.getElementById('sidebar-settings-file-input');
+
+      if (sidebarExportBtn) {
+        sidebarExportBtn.addEventListener('click', () => {
+          document.getElementById('export-settings').click();
+        });
+      }
+
+      if (sidebarImportBtn) {
+        sidebarImportBtn.addEventListener('click', () => {
+          sidebarSettingsFileInput.click();
+        });
+      }
+
+      if (sidebarSettingsFileInput) {
+        sidebarSettingsFileInput.addEventListener('change', (e) => {
+          document.getElementById('settings-file-input').files = e.target.files;
+          document.getElementById('settings-file-input').dispatchEvent(new Event('change'));
+        });
+      }
+
       // Set up task form toggle
       const taskFormToggle = document.getElementById('task-form-toggle');
       const taskForm = document.getElementById('task-form');
       const taskFormArrow = document.getElementById('task-form-arrow');
-      
+
       taskFormToggle.addEventListener('click', function() {
         taskForm.classList.toggle('hidden');
         taskFormArrow.classList.toggle('rotate-180');
       });
-      
+
       // Set up task table toggle
       const taskTableToggle = document.getElementById('task-table-toggle');
       const taskTableContainer = document.getElementById('task-table-container');
       const taskTableArrow = document.getElementById('task-table-arrow');
-      
+
       taskTableToggle.addEventListener('click', function() {
         taskTableContainer.classList.toggle('hidden');
         taskTableArrow.classList.toggle('rotate-180');
       });
-      // No language manager needed - only Chinese
-      const currentLanguage = 'zh';
-      
+
       // Initialize state
       const tasks = [];
       let taskColors = {};
@@ -863,16 +1411,15 @@
       const analyzeText = document.getElementById('analyze-text');
       
       // 初始化熱度圖功能 - 每週一列顯示
-      function renderHeatmap(dailyPomodoroData) {
-        const heatmapContainer = document.getElementById('heatmap');
+      function renderHeatmap(dailyPomodoroData, containerId = 'heatmap') {
+        const heatmapContainer = document.getElementById(containerId);
+        if (!heatmapContainer) return;
         heatmapContainer.innerHTML = '';
         
         if (!dailyPomodoroData || Object.keys(dailyPomodoroData).length === 0) {
           const noDataMsg = document.createElement('div');
           noDataMsg.className = 'text-center p-4 text-gray-500';
-          noDataMsg.textContent = currentLanguage === 'zh' ? 
-            '尚無專注時間數據可供顯示。請先分析數據生成熱度圖。' : 
-            'No focus time data to display yet. Please analyze data to generate heatmap.';
+          noDataMsg.textContent = '尚無專注時間數據可供顯示。請先分析數據生成熱度圖。';
           heatmapContainer.appendChild(noDataMsg);
           return;
         }
@@ -930,9 +1477,7 @@
         const dayLabels = document.createElement('div');
         dayLabels.className = 'flex pl-10';
         
-        const weekDays = currentLanguage === 'zh' ? 
-          ['日', '一', '二', '三', '四', '五', '六'] : 
-          ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
         
         weekDays.forEach(day => {
           const dayLabel = document.createElement('div');
@@ -958,9 +1503,7 @@
           weekLabel.className = 'w-10 text-xs text-right pr-2 text-gray-500';
           
           // 取週的第一天 (星期日) 的日期
-          const weekStartFormated = currentLanguage === 'zh' ? 
-            `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}` : 
-            `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}`;
+          const weekStartFormated = `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}`;
           
           weekLabel.textContent = weekStartFormated;
           weekRow.appendChild(weekLabel);
@@ -976,9 +1519,7 @@
               
               // 如果是每週的第一天（星期日）並且月份改變了，添加月份標籤
               if (dayIndex === 0 && lastMonthDisplayed !== currentMonth) {
-                const monthNames = currentLanguage === 'zh' ? 
-                  ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'] : 
-                  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
                 
                 const monthLabel = document.createElement('div');
                 monthLabel.className = 'absolute text-sm font-medium';
@@ -1017,9 +1558,7 @@
               dayCell.textContent = dayData.date.getDate();
               
               // 顯示蕃茄數量的工具提示
-              dayCell.title = currentLanguage === 'zh' ? 
-                `${dayData.dateStr}: ${pomodoroCount} 個蕃茄` : 
-                `${dayData.dateStr}: ${pomodoroCount} pomodoros`;
+              dayCell.title = `${dayData.dateStr}: ${pomodoroCount} 個蕃茄`;
               
               dayCell.style.cursor = 'pointer';
             } else {
@@ -1078,11 +1617,7 @@
           aiResponse.classList.remove('hidden');
           // Reset analyze button
           loadingSpinner.classList.add('hidden');
-          if (currentLanguage === 'zh') {
-            document.getElementById('analyze-text').textContent = '分析我的時間數據';
-          } else {
-            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
-          }
+          document.getElementById('analyze-text').textContent = '分析我的時間數據';
           analyzeButton.disabled = false;
         } else if (response.status === 'incomplete') {
           // Stream response as it comes in
@@ -1092,24 +1627,23 @@
           // Final response
           aiResponseContent.innerHTML = marked.parse(response.content);
           aiResponse.classList.remove('hidden');
-          
+
           // 嘗試從響應中提取 JSON 數據並更新熱度圖
           const pomodoroData = extractJsonFromText(response.content);
           if (pomodoroData) {
-            renderHeatmap(pomodoroData);
+            renderHeatmap(pomodoroData); // 舊的隱藏容器
+            // Also render to AI results heatmap container
+            renderHeatmap(pomodoroData, 'ai-heatmap');
+            document.getElementById('ai-heatmap-container').classList.remove('hidden');
           }
           
           // Reset analyze button
           loadingSpinner.classList.add('hidden');
-          if (currentLanguage === 'zh') {
-            document.getElementById('analyze-text').textContent = '分析我的時間數據';
-          } else {
-            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
-          }
+          document.getElementById('analyze-text').textContent = '分析我的時間數據';
           analyzeButton.disabled = false;
         }
       });
-      
+
       // Function to download AI response as text file
       function downloadAIResponse() {
         const content = aiResponseContent.textContent || aiResponseContent.innerText;
@@ -1142,21 +1676,13 @@
       analyzeButton.addEventListener('click', async () => {
         // Check if there are tasks to analyze
         if (tasks.length === 0) {
-          const errorMsg = currentLanguage === 'zh' ? 
-            '沒有任務數據可供分析，請先添加任務或上傳數據' : 
-            'No task data to analyze. Please add tasks or upload data first.';
-          showError(errorMsg);
+          showError('沒有任務數據可供分析，請先添加任務或上傳數據');
           return;
         }
-        
+
         // Show loading state
         loadingSpinner.classList.remove('hidden');
-        
-        if (currentLanguage === 'zh') {
-          document.getElementById('analyze-text').textContent = '正在分析...';
-        } else {
-          document.getElementById('analyze-text-en').textContent = 'Analyzing...';
-        }
+        document.getElementById('analyze-text').textContent = '正在分析...';
         
         analyzeButton.disabled = true;
         
@@ -1187,44 +1713,36 @@
           
           return {
             name,
-            totalTime: currentLanguage === 'zh' ? 
-              `${hours}小時${mins}分鐘` : 
-              `${hours}h ${mins}m`,
+            totalTime: `${hours}小時${mins}分鐘`,
             totalMinutes: minutes
           };
         });
-        
-        // Get appropriate prompt based on current language
-        const promptElement = currentLanguage === 'zh' ? 
-          document.getElementById('ai-prompt-zh') : 
-          document.getElementById('ai-prompt-en');
-        
+
+        // Get prompt element
+        const promptElement = document.getElementById('ai-prompt-zh');
+
         // Create message for the AI
         const userPrompt = promptElement.value;
         const formattedTaskData = JSON.stringify(taskData, null, 2);
         const formattedCategoryData = JSON.stringify(categoryData, null, 2);
-        
-        const langPrompt = currentLanguage === 'zh' ? 
-          '請用繁體中文回答，並提供具體的建議和見解。' : 
-          'Please respond in English with specific suggestions and insights.';
-        
+
         const message = `@GPT-5.1
 
 ${userPrompt}
 
-${currentLanguage === 'zh' ? '以下是我的時間數據：' : 'Here is my time data:'}
+以下是我的時間數據：
 
-${currentLanguage === 'zh' ? '任務詳情：' : 'Task details:'}
+任務詳情：
 \`\`\`json
 ${formattedTaskData}
 \`\`\`
 
-${currentLanguage === 'zh' ? '任務類別統計：' : 'Task category statistics:'}
+任務類別統計：
 \`\`\`json
 ${formattedCategoryData}
 \`\`\`
 
-${langPrompt}`;
+請用繁體中文回答，並提供具體的建議和見解。`;
         
         try {
           await window.Poe.sendUserMessage(message, {
@@ -1234,26 +1752,18 @@ ${langPrompt}`;
           });
         } catch (error) {
           // Handle error
-          const errorMsg = currentLanguage === 'zh' ? 
-            '發送請求時發生錯誤: ' : 
-            'Error sending request: ';
+          const errorMsg = '發送請求時發生錯誤: ';
           
           aiResponseContent.textContent = errorMsg + error.message;
           aiResponse.classList.remove('hidden');
           
           // Reset analyze button
           loadingSpinner.classList.add('hidden');
-          
-          if (currentLanguage === 'zh') {
-            document.getElementById('analyze-text').textContent = '分析我的時間數據';
-          } else {
-            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
-          }
-          
+          document.getElementById('analyze-text').textContent = '分析我的時間數據';
           analyzeButton.disabled = false;
         }
       });
-      
+
       // Helper function to calculate duration in minutes
       function calculateDuration(startTime, endTime) {
         const startMinutes = convertTimeToMinutes(startTime);
@@ -1419,7 +1929,7 @@ ${langPrompt}`;
           // 將未分類的任務歸類為休息
           let projectName = projectIndex !== -1 && columns[projectIndex] ? columns[projectIndex] : '';
           if (!projectName || projectName.trim() === '') {
-            projectName = currentLanguage === 'zh' ? '休息' : 'Rest';
+            projectName = '休息';
           }
           
           // 获取Description作为个别工作
@@ -1599,22 +2109,13 @@ ${langPrompt}`;
       // Format date for display with shorter weekday format
       function formatDate(dateStr) {
         const date = new Date(dateStr);
-        
-        if (currentLanguage === 'zh') {
-          // 自定義格式: 2025年5月4日 (日)
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          const day = date.getDate();
-          const weekDay = date.getDay();
-          const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
-          return `${year}年${month}月${day}日 (${weekDayNames[weekDay]})`;
-        } else {
-          // 英文格式: May 4, 2025 (Sun)
-          const options = { year: 'numeric', month: 'long', day: 'numeric' };
-          const weekDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          const formattedDate = date.toLocaleDateString('en-US', options);
-          return `${formattedDate} (${weekDayNames[date.getDay()]})`;
-        }
+        // 自定義格式: 2025年5月4日 (日)
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const weekDay = date.getDay();
+        const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        return `${year}年${month}月${day}日 (${weekDayNames[weekDay]})`;
       }
       
       // Add a new task
@@ -1740,7 +2241,7 @@ ${langPrompt}`;
           const row = document.createElement('tr');
           row.className = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700';
           
-          const deleteText = currentLanguage === 'zh' ? '刪除' : 'Delete';
+          const deleteText = '刪除';
           
           row.innerHTML = `
             <td class="border py-2 px-3">${formatDate(task.date)}</td>
@@ -1968,9 +2469,7 @@ ${langPrompt}`;
         if (!hasData) {
           const emptyMessage = document.createElement('div');
           emptyMessage.className = 'col-span-full text-center text-gray-500 py-6';
-          emptyMessage.textContent = currentLanguage === 'zh' ? 
-            '尚無預設個別工作時間數據可供顯示。請先添加包含預設個別工作的任務。' : 
-            'No default work time data to display yet. Please add tasks that contain default individual works.';
+          emptyMessage.textContent = '尚無常用工作時間數據可供顯示。請先添加包含常用工作的任務。';
           summaryContainer.appendChild(emptyMessage);
           return;
         }
@@ -1981,11 +2480,11 @@ ${langPrompt}`;
           filterNotice.className = 'col-span-full bg-blue-100 dark:bg-blue-900 p-3 rounded-lg mb-3 flex justify-between items-center';
           filterNotice.innerHTML = `
             <div>
-              <span class="font-medium">${currentLanguage === 'zh' ? '當前過濾：' : 'Current filter: '}</span>
+              <span class="font-medium">${'當前過濾：'}</span>
               <span>${selectedDefaultWork}</span>
             </div>
             <button id="clear-work-filter" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm">
-              ${currentLanguage === 'zh' ? '清除過濾' : 'Clear filter'}
+              ${'清除過濾'}
             </button>
           `;
           summaryContainer.appendChild(filterNotice);
@@ -2119,14 +2618,14 @@ ${langPrompt}`;
         
         // Validate inputs
         if (!timeValue || !labelValue) {
-          showError(currentLanguage === 'zh' ? '時間和標籤都必須填寫' : 'Both time and label are required');
+          showError('時間和標籤都必須填寫');
           return;
         }
         
         // Validate time format (HHMM)
         const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
         if (!timeRegex.test(timeValue)) {
-          showError(currentLanguage === 'zh' ? '時間格式無效，請使用 HHMM 格式' : 'Invalid time format. Please use HHMM format');
+          showError('時間格式無效，請使用 HHMM 格式');
           return;
         }
         
@@ -2136,7 +2635,7 @@ ${langPrompt}`;
         // Check if this time already exists
         const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
         if (existingMarker) {
-          showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+          showError('此時間標記已存在');
           return;
         }
         
@@ -2234,11 +2733,7 @@ ${langPrompt}`;
           
           // Change add button text to indicate edit mode
           const addButton = document.getElementById('add-custom-marker');
-          if (currentLanguage === 'zh') {
-            addButton.querySelector('[data-lang="zh"]').textContent = '更新標記';
-          } else {
-            addButton.querySelector('[data-lang="en"]').textContent = 'Update Marker';
-          }
+          addButton.textContent = '更新標記';
           
           // Scroll to the edit form
           document.getElementById('custom-marker-time').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2262,13 +2757,9 @@ ${langPrompt}`;
             
             // Reset add button text
             const addButton = document.getElementById('add-custom-marker');
-            if (currentLanguage === 'zh') {
-              addButton.querySelector('[data-lang="zh"]').textContent = '新增標記';
-            } else {
-              addButton.querySelector('[data-lang="en"]').textContent = 'Add Marker';
-            }
+            addButton.textContent = '新增標記';
           }
-          
+
           // Remove the marker
           markerContainer.remove();
           
@@ -2276,7 +2767,7 @@ ${langPrompt}`;
           renderTimelines();
           
           // Show success message
-          const successMsg = currentLanguage === 'zh' ? '標記已刪除' : 'Marker deleted';
+          const successMsg = '標記已刪除';
           showSettingsStatus(successMsg);
         }
       }
@@ -2305,14 +2796,14 @@ ${langPrompt}`;
         
         // Validate inputs
         if (!timeValue || !labelValue) {
-          showError(currentLanguage === 'zh' ? '時間和標籤都必須填寫' : 'Both time and label are required');
+          showError('時間和標籤都必須填寫');
           return;
         }
         
         // Validate time format (HHMM)
         const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
         if (!timeRegex.test(timeValue)) {
-          showError(currentLanguage === 'zh' ? '時間格式無效，請使用 HHMM 格式' : 'Invalid time format. Please use HHMM format');
+          showError('時間格式無效，請使用 HHMM 格式');
           return;
         }
         
@@ -2328,7 +2819,7 @@ ${langPrompt}`;
             if (editingMarkerTime !== formattedTime) {
               const timeConflict = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
               if (timeConflict) {
-                showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+                showError('此時間標記已存在');
                 return;
               }
             }
@@ -2345,21 +2836,8 @@ ${langPrompt}`;
             label.htmlFor = `marker-${formattedTime}`;
             const formattedLabel = formatTime(formattedTime);
             
-            // Preserve language-specific spans
-            const zhSpan = label.querySelector('[data-lang="zh"]');
-            const enSpan = label.querySelector('[data-lang="en"]');
-            
-            if (zhSpan && enSpan) {
-              // Update both language spans
-              zhSpan.textContent = labelValue;
-              enSpan.textContent = labelValue;
-              label.innerHTML = `${formattedLabel} `;
-              label.appendChild(zhSpan);
-              label.appendChild(enSpan);
-            } else {
-              // Simple update if no language spans
-              label.textContent = `${formattedLabel} ${labelValue}`;
-            }
+            // Update label text
+            label.textContent = `${formattedLabel} ${labelValue}`;
             
             // Update color picker attributes
             const colorPicker = markerContainer.querySelector('.color-picker');
@@ -2375,14 +2853,13 @@ ${langPrompt}`;
             if (deleteBtn) deleteBtn.setAttribute('data-time', formattedTime);
             
             // Show success message
-            const successMsg = currentLanguage === 'zh' ? '標記已更新' : 'Marker updated';
-            showSettingsStatus(successMsg);
+            showSettingsStatus('標記已更新');
           }
         } else {
           // Adding a new marker - check if this time already exists
           const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
           if (existingMarker) {
-            showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+            showError('此時間標記已存在');
             return;
           }
           
@@ -2399,7 +2876,7 @@ ${langPrompt}`;
           
           markerContainer.innerHTML = `
             <input type="checkbox" id="${markerId}" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="${formattedTime}" data-color="${randomColor}" checked>
-            <label for="${markerId}" class="ml-2 text-sm">${formatTime(formattedTime)} <span data-lang="zh">${labelValue}</span><span data-lang="en">${labelValue}</span></label>
+            <label for="${markerId}" class="ml-2 text-sm">${formatTime(formattedTime)} ${labelValue}</label>
             <div class="color-picker-container">
               <input type="color" class="color-picker" value="${randomColor}" data-time="${formattedTime}">
               <div class="color-display" style="background-color: ${randomColor};"></div>
@@ -2427,20 +2904,15 @@ ${langPrompt}`;
           newDeleteBtn.addEventListener('click', handleMarkerDelete);
           
           // Show success message
-          const successMsg = currentLanguage === 'zh' ? '標記已新增' : 'Marker added';
-          showSettingsStatus(successMsg);
+          showSettingsStatus('標記已新增');
         }
-        
+
         // Clear edit mode
         editingMarkerTime = null;
-        
+
         // Reset add button text
         const addButton = document.getElementById('add-custom-marker');
-        if (currentLanguage === 'zh') {
-          addButton.querySelector('[data-lang="zh"]').textContent = '新增標記';
-        } else {
-          addButton.querySelector('[data-lang="en"]').textContent = 'Add Marker';
-        }
+        addButton.textContent = '新增標記';
         
         // Clear inputs
         timeInput.value = '';
@@ -2485,13 +2957,9 @@ ${langPrompt}`;
           
           // 檢查是否有任務但被過濾掉了
           if (tasks.length > 0) {
-            emptyMessage.textContent = currentLanguage === 'zh' ? 
-              '目前沒有符合過濾條件的任務' : 
-              'No tasks match the current filter criteria';
+            emptyMessage.textContent = '目前沒有符合過濾條件的任務';
           } else {
-            emptyMessage.textContent = currentLanguage === 'zh' ? 
-              '尚未添加任務，請使用上方表單添加任務' : 
-              'No tasks added yet. Please use the form above to add tasks.';
+            emptyMessage.textContent = '尚未添加任務，請先上傳 CSV 數據';
           }
           
           timelinesContainer.appendChild(emptyMessage);
@@ -2665,41 +3133,17 @@ ${langPrompt}`;
       // Format error messages based on language
       function getErrorMessage(errorType) {
         const errorMessages = {
-          'required_fields': {
-            'zh': '所有欄位都必須填寫',
-            'en': 'All fields are required'
-          },
-          'invalid_time_format': {
-            'zh': '時間格式無效，請使用 HHMM 格式（例如：0930、1430）',
-            'en': 'Invalid time format. Please use HHMM format (e.g. 0930, 1430)'
-          },
-          'end_time_before_start': {
-            'zh': '結束時間必須晚於開始時間',
-            'en': 'End time must be after start time'
-          },
-          'no_csv_file': {
-            'zh': '請先選擇 CSV 文件',
-            'en': 'Please select a CSV file first'
-          },
-          'csv_empty': {
-            'zh': 'CSV 文件為空或格式錯誤',
-            'en': 'CSV file is empty or has invalid format'
-          },
-          'csv_missing_fields': {
-            'zh': 'CSV 缺少必要欄位: Project, Start date, Start time, End date, End time',
-            'en': 'CSV missing required fields: Project, Start date, Start time, End date, End time'
-          },
-          'file_read_error': {
-            'zh': '讀取文件時發生錯誤',
-            'en': 'Error reading file'
-          },
-          'csv_parse_error': {
-            'zh': 'CSV 解析錯誤: ',
-            'en': 'CSV parsing error: '
-          }
+          'required_fields': '所有欄位都必須填寫',
+          'invalid_time_format': '時間格式無效，請使用 HHMM 格式（例如：0930、1430）',
+          'end_time_before_start': '結束時間必須晚於開始時間',
+          'no_csv_file': '請先選擇 CSV 文件',
+          'csv_empty': 'CSV 文件為空或格式錯誤',
+          'csv_missing_fields': 'CSV 缺少必要欄位: Project, Start date, Start time, End date, End time',
+          'file_read_error': '讀取文件時發生錯誤',
+          'csv_parse_error': 'CSV 解析錯誤: '
         };
-        
-        return errorMessages[errorType][currentLanguage] || message;
+
+        return errorMessages[errorType] || message;
       }
       
       // Helper function to convert hex color to RGB
@@ -2726,7 +3170,42 @@ ${langPrompt}`;
         initializeTimeMarkers();
         renderTimelines();
       });
-      
+
+      // 時間軸外觀設定即時響應 - 使用 debounce 避免過於頻繁更新
+      function applySettingsWithDebounce() {
+        clearTimeout(settingsDebounceTimer);
+        settingsDebounceTimer = setTimeout(() => {
+          initializeTimeMarkers();
+          renderTimelines();
+        }, 150);
+      }
+
+      // 時間條寬度即時響應
+      document.getElementById('timeline-width').addEventListener('input', applySettingsWithDebounce);
+
+      // 時間條高度即時響應
+      document.getElementById('timeline-height').addEventListener('input', applySettingsWithDebounce);
+
+      // 時間軸間距即時響應
+      document.getElementById('timeline-spacing').addEventListener('input', applySettingsWithDebounce);
+
+      // 顯示文字標籤即時響應
+      document.getElementById('show-task-labels').addEventListener('change', () => {
+        renderTimelines();
+      });
+
+      // 顯示每小時垂直線即時響應
+      document.getElementById('show-hour-grid-lines').addEventListener('change', () => {
+        renderTimelines();
+      });
+
+      // 特別時間標記勾選即時響應 (使用事件委派)
+      document.getElementById('special-time-markers').addEventListener('change', (e) => {
+        if (e.target.classList.contains('special-time-marker-checkbox') || e.target.classList.contains('color-picker')) {
+          renderTimelines();
+        }
+      });
+
       // Add event listeners for category filter toggle
       const categoryFilterContainer = document.getElementById('category-filter-container');
       const toggleCategoryFilterBtn = document.getElementById('toggle-category-filter');
@@ -2930,14 +3409,8 @@ ${langPrompt}`;
         }
         
         // 更新類別過濾器的標籤
-        const filterButtonText = document.getElementById('toggle-category-filter').querySelector(`[data-lang="${currentLanguage}"]`);
-        if (filterButtonText) {
-          if (currentLanguage === 'zh') {
-            filterButtonText.textContent = displayMode === 'task' ? '任務類別過濾' : '個別工作過濾';
-          } else {
-            filterButtonText.textContent = displayMode === 'task' ? 'Task Categories' : 'Individual Works';
-          }
-        }
+        const filterButton = document.getElementById('toggle-category-filter');
+        filterButton.textContent = displayMode === 'task' ? '過濾專案' : '過濾工作描述';
         
         // 如果類別過濾器面板已打開，更新它
         if (!document.getElementById('category-filter-container').classList.contains('hidden')) {
@@ -2962,9 +3435,9 @@ ${langPrompt}`;
           const emptyMsg = document.createElement('div');
           emptyMsg.className = 'text-sm text-gray-500';
           if (displayMode === 'task') {
-            emptyMsg.textContent = currentLanguage === 'zh' ? '沒有可用的任務類別' : 'No task categories available';
+            emptyMsg.textContent = '沒有可用的專案';
           } else {
-            emptyMsg.textContent = currentLanguage === 'zh' ? '沒有可用的個別工作' : 'No individual works available';
+            emptyMsg.textContent = '沒有可用的工作描述';
           }
           categoryCheckboxes.appendChild(emptyMsg);
           return;
@@ -3064,38 +3537,21 @@ ${langPrompt}`;
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowFormatted = tomorrow.toISOString().split('T')[0];
         
-        // Choose examples based on language
-        if (currentLanguage === 'zh') {
-          tasks.push(
-            { id: 1, date: yesterdayFormatted, start: '1000', end: '1200', name: '工作', color: taskTypeColors['工作'] },
-            { id: 2, date: todayFormatted, start: '0900', end: '1100', name: '學習', color: defaultColors[1] },
-            { id: 3, date: todayFormatted, start: '1200', end: '1300', name: '休息', color: taskTypeColors['休息'] },
-            { id: 4, date: todayFormatted, start: '1330', end: '1530', name: '業餘', color: taskTypeColors['業餘'] },
-            { id: 5, date: tomorrowFormatted, start: '1000', end: '1200', name: '生活', color: taskTypeColors['生活'] }
-          );
-          
-          // Update task colors map
-          taskColors['工作'] = taskTypeColors['工作'];
-          taskColors['學習'] = defaultColors[1];
-          taskColors['休息'] = taskTypeColors['休息'];
-          taskColors['業餘'] = taskTypeColors['業餘'];
-          taskColors['生活'] = taskTypeColors['生活'];
-        } else {
-          tasks.push(
-            { id: 1, date: yesterdayFormatted, start: '1000', end: '1200', name: 'Work', color: taskTypeColors['Work'] },
-            { id: 2, date: todayFormatted, start: '0900', end: '1100', name: 'Learning', color: taskTypeColors['Learning'] },
-            { id: 3, date: todayFormatted, start: '1200', end: '1300', name: 'Rest', color: taskTypeColors['Rest'] },
-            { id: 4, date: todayFormatted, start: '1330', end: '1530', name: 'Hobby', color: taskTypeColors['Hobby'] },
-            { id: 5, date: tomorrowFormatted, start: '1000', end: '1200', name: 'Living', color: taskTypeColors['Living'] }
-          );
-          
-          // Update task colors map
-          taskColors['Work'] = taskTypeColors['Work'];
-          taskColors['Learning'] = taskTypeColors['Learning'];
-          taskColors['Rest'] = taskTypeColors['Rest'];
-          taskColors['Hobby'] = taskTypeColors['Hobby'];
-          taskColors['Living'] = taskTypeColors['Living'];
-        }
+        // Sample data - Chinese only
+        tasks.push(
+          { id: 1, date: yesterdayFormatted, start: '1000', end: '1200', name: '工作', color: taskTypeColors['工作'] },
+          { id: 2, date: todayFormatted, start: '0900', end: '1100', name: '學習', color: defaultColors[1] },
+          { id: 3, date: todayFormatted, start: '1200', end: '1300', name: '休息', color: taskTypeColors['休息'] },
+          { id: 4, date: todayFormatted, start: '1330', end: '1530', name: '業餘', color: taskTypeColors['業餘'] },
+          { id: 5, date: tomorrowFormatted, start: '1000', end: '1200', name: '生活', color: taskTypeColors['生活'] }
+        );
+
+        // Update task colors map
+        taskColors['工作'] = taskTypeColors['工作'];
+        taskColors['學習'] = defaultColors[1];
+        taskColors['休息'] = taskTypeColors['休息'];
+        taskColors['業餘'] = taskTypeColors['業餘'];
+        taskColors['生活'] = taskTypeColors['生活'];
         
         renderTaskTable();
         renderTimelines();
@@ -3124,18 +3580,17 @@ ${langPrompt}`;
         }, 5000);
       }
 
-      // Render default works list
-      function renderDefaultWorksList() {
-        const defaultWorksList = document.getElementById('default-works-list');
-        defaultWorksList.innerHTML = '';
+      // Render default works list to a specific container
+      function renderDefaultWorksToContainer(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
 
         if (defaultWorks.length === 0) {
           const emptyMessage = document.createElement('div');
           emptyMessage.className = 'text-gray-500 py-2 text-center';
-          emptyMessage.textContent = currentLanguage === 'zh' ? 
-            '尚未設定預設個別工作' : 
-            'No default individual works defined yet';
-          defaultWorksList.appendChild(emptyMessage);
+          emptyMessage.textContent = '尚未設定常用工作';
+          container.appendChild(emptyMessage);
           return;
         }
 
@@ -3143,11 +3598,11 @@ ${langPrompt}`;
         defaultWorks.forEach((work, index) => {
           const workItem = document.createElement('div');
           workItem.className = 'flex justify-between items-center p-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
-          
+
           const workName = document.createElement('div');
-          workName.className = 'flex-grow';
+          workName.className = 'flex-grow text-sm';
           workName.textContent = work;
-          
+
           const deleteBtn = document.createElement('button');
           deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2';
           deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
@@ -3156,39 +3611,48 @@ ${langPrompt}`;
             const idx = parseInt(this.getAttribute('data-index'));
             removeDefaultWork(idx);
           });
-          
+
           workItem.appendChild(workName);
           workItem.appendChild(deleteBtn);
-          defaultWorksList.appendChild(workItem);
+          container.appendChild(workItem);
         });
       }
+
+      // Render default works list to both main and sidebar containers
+      function renderDefaultWorksList() {
+        renderDefaultWorksToContainer('default-works-list');
+        renderDefaultWorksToContainer('sidebar-default-works-list');
+      }
       
-      // Add a new default work
-      function addDefaultWork() {
-        const newWorkInput = document.getElementById('new-default-work');
+      // Add a new default work (supports both main and sidebar input)
+      function addDefaultWork(inputId = 'new-default-work') {
+        const newWorkInput = document.getElementById(inputId);
+        if (!newWorkInput) return;
+
         const workName = newWorkInput.value.trim();
-        
+
         if (!workName) {
-          showError(currentLanguage === 'zh' ? '請輸入工作名稱' : 'Please enter a work name');
+          showError('請輸入工作名稱');
           return;
         }
-        
+
         // Check if work already exists
         if (defaultWorks.includes(workName)) {
-          showError(currentLanguage === 'zh' ? '此工作已存在於預設列表中' : 'This work already exists in the default list');
+          showError('此工作已存在於常用列表中');
           return;
         }
-        
+
         // Add to default works list
         defaultWorks.push(workName);
-        
-        // Clear input and update UI
-        newWorkInput.value = '';
+
+        // Clear both inputs and update UI
+        document.getElementById('new-default-work').value = '';
+        document.getElementById('sidebar-new-default-work').value = '';
         renderDefaultWorksList();
         hideError();
-        
+
         // Show success message
-        showSettingsStatus(currentLanguage === 'zh' ? '預設工作已新增' : 'Default work added');
+        showSettingsStatus('常用工作已新增');
       }
       
       // Remove a default work
@@ -3198,7 +3662,7 @@ ${langPrompt}`;
           renderDefaultWorksList();
           
           // Show success message
-          showSettingsStatus(currentLanguage === 'zh' ? '預設工作已移除' : 'Default work removed');
+          showSettingsStatus('常用工作已移除');
         }
       }
 
@@ -3268,7 +3732,7 @@ ${langPrompt}`;
         try {
           // Validate settings
           if (!settings || !settings.version) {
-            throw new Error(currentLanguage === 'zh' ? '無效的設定檔' : 'Invalid settings file');
+            throw new Error('無效的設定檔');
           }
           
           // 1. Apply AI Prompts
@@ -3433,11 +3897,11 @@ ${langPrompt}`;
           document.body.removeChild(downloadLink);
           
           // Show success message
-          showSettingsStatus(currentLanguage === 'zh' ? '設定已成功匯出' : 'Settings exported successfully');
+          showSettingsStatus('設定已成功匯出');
         } catch (error) {
           console.error('Error exporting settings:', error);
           showSettingsStatus(
-            currentLanguage === 'zh' ? '匯出設定時發生錯誤' : 'Error exporting settings', 
+            '匯出設定時發生錯誤', 
             true
           );
         }
@@ -3463,17 +3927,17 @@ ${langPrompt}`;
               const success = applyImportedSettings(settings);
               
               if (success) {
-                showSettingsStatus(currentLanguage === 'zh' ? '設定已成功匯入' : 'Settings imported successfully');
+                showSettingsStatus('設定已成功匯入');
               } else {
                 showSettingsStatus(
-                  currentLanguage === 'zh' ? '套用設定時發生錯誤' : 'Error applying settings', 
+                  '套用設定時發生錯誤', 
                   true
                 );
               }
             } catch (error) {
               console.error('Error parsing settings file:', error);
               showSettingsStatus(
-                currentLanguage === 'zh' ? '解析設定檔時發生錯誤' : 'Error parsing settings file', 
+                '解析設定檔時發生錯誤', 
                 true
               );
             }
@@ -3484,7 +3948,7 @@ ${langPrompt}`;
           
           reader.onerror = () => {
             showSettingsStatus(
-              currentLanguage === 'zh' ? '讀取檔案時發生錯誤' : 'Error reading file', 
+              '讀取檔案時發生錯誤', 
               true
             );
             settingsFileInput.value = '';
@@ -3904,3 +4368,4 @@ ${langPrompt}`;
   </script>
 </body>
 </html>
+
