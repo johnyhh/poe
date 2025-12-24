@@ -1,0 +1,3906 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timeline Visualization</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#5D5CDE',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .timeline-container {
+      overflow-x: auto;
+      white-space: nowrap;
+      width: 100%;
+    }
+    .time-marker {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      font-size: 10px;
+      text-align: center;
+      color: transparent;
+      transition: color 0.3s ease;
+    }
+    .time-marker:hover {
+      color: currentColor;
+    }
+    .time-marker::before {
+      content: '';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      height: 8px;
+      width: 1px;
+      background-color: currentColor;
+      opacity: 0.5;
+    }
+    .time-marker.key-time::before {
+      height: 12px;
+      width: 2px;
+      background-color: currentColor;
+      opacity: 0.8;
+    }
+    .time-marker.key-time {
+      color: currentColor;
+      font-weight: bold;
+    }
+    .time-period-label {
+      position: absolute;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      top: -32px;
+      color: currentColor;
+    }
+
+    .timeline-grid {
+      position: relative;
+      height: 50px;
+      margin-top: 5px;
+    }
+    
+    /* Hourly vertical grid lines */
+    .hour-grid-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background-color: #FFFFFF;
+      opacity: 0.25;
+      pointer-events: none;
+      z-index: 2;
+    }
+    
+    /* Special time marker vertical lines */
+    .special-time-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1.5px;
+      background-color: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+      pointer-events: none;
+      z-index: 3;
+    }
+    
+    .dark .hour-grid-line {
+      background-color: #FFFFFF;
+    }
+    
+    /* Color picker styling */
+    .color-picker-container {
+      display: inline-block;
+      position: relative;
+      width: 16px;
+      height: 16px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    
+    .color-picker {
+      opacity: 0;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+    
+    .color-display {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      pointer-events: none;
+    }
+    
+    /* Marker action buttons */
+    .marker-actions {
+      display: flex;
+      gap: 4px;
+      margin-left: 4px;
+    }
+    
+    .marker-edit-btn,
+    .marker-delete-btn {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      opacity: 0.7;
+      font-size: 12px;
+      padding: 0;
+      color: inherit;
+    }
+    
+    .marker-edit-btn:hover,
+    .marker-delete-btn:hover {
+      opacity: 1;
+    }
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .date-label {
+      width: 150px;
+      min-width: 150px;
+      text-align: right;
+      padding-right: 10px;
+      font-weight: 500;
+    }
+    .timeline-content {
+      flex-grow: 1;
+      position: relative;
+    }
+    .timeline-task {
+      position: absolute;
+      height: 30px;
+      border-radius: 0px;
+      top: 0px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      z-index: 1;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .timeline-task:hover {
+      opacity: 0.85;
+      box-shadow: 0 0 0 2px rgba(93, 92, 222, 0.4);
+    }
+
+    /* Removed conflicting date-label styles as they're now defined in the .timeline-row class above */
+    .dark .task-table th,
+    .dark .task-table td {
+      border-color: #374151;
+    }
+    .legend-color {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .modal-content {
+      background-color: white;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+    
+    .dark .modal-content {
+      background-color: #1F2937;
+    }
+    
+    .modal-backdrop.show .modal-content {
+      transform: scale(1);
+    }
+    
+    /* Remove language switch styles */
+  </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen p-4">
+  <!-- Dark mode detection -->
+  <script>
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+      if (event.matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    });
+  </script>
+
+  <!-- No language switcher needed -->
+
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4 text-center">時間軸視覺化</h1>
+    
+    <!-- CSV Upload Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+      <div class="flex flex-col gap-4">
+        <div>
+          <h2 class="text-lg font-semibold mb-2">
+            CSV 上傳
+          </h2>
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-grow">
+              <input type="file" id="csv-upload" accept=".csv" class="hidden" >
+              <div class="relative">
+                <input type="text" id="file-name" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" placeholder="" readonly>
+                <button id="browse-button" class="absolute right-1 top-1 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 px-3 py-1 rounded">
+                  瀏覽
+                </button>
+              </div>
+            </div>
+            <button id="upload-csv" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md whitespace-nowrap">
+              上傳並解析
+            </button>
+          </div>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">從 Toggl 匯出的 CSV 文件，包含 Project、Start date、Start time 和 End time 欄位</p>
+        </div>
+
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <div class="flex justify-between items-center cursor-pointer" id="task-form-toggle">
+            <h2 class="text-lg font-semibold">
+              手動添加任務
+            </h2>
+            <svg class="w-5 h-5 transform transition-transform" id="task-form-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-6 gap-4 mt-2 hidden" id="task-form">
+            <div>
+              <label for="task-date" class="block text-sm font-medium mb-1">日期</label>
+              <input type="date" id="task-date" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            </div>
+            <div>
+              <label for="start-time" class="block text-sm font-medium mb-1">開始時間 (HHMM)</label>
+              <input type="text" id="start-time" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" maxlength="4">
+            </div>
+            <div>
+              <label for="end-time" class="block text-sm font-medium mb-1">結束時間 (HHMM)</label>
+              <input type="text" id="end-time" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" maxlength="4">
+            </div>
+            <div>
+              <label for="task-name" class="block text-sm font-medium mb-1">任務類別</label>
+              <input type="text" id="task-name" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            </div>
+            <div>
+              <label for="task-description" class="block text-sm font-medium mb-1">個別工作</label>
+              <input type="text" id="task-description" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            </div>
+            <div class="flex items-end">
+              <button id="add-task" class="w-full bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md">添加任務</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="error-message" class="mt-2 text-red-500 text-sm hidden"></div>
+    </div>
+    
+    <!-- Task Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 overflow-x-auto">
+      <div class="flex justify-between items-center cursor-pointer mb-2" id="task-table-toggle">
+        <h2 class="text-lg font-semibold">任務列表和編輯</h2>
+        <div class="flex gap-2">
+          <button id="export-csv" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">
+            匯出CSV
+          </button>
+          <svg class="w-5 h-5 transform transition-transform" id="task-table-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+          </svg>
+        </div>
+      </div>
+      <div id="task-table-container" class="hidden">
+        <table class="task-table w-full border-collapse">
+          <thead>
+            <tr class="bg-gray-100 dark:bg-gray-700">
+              <th class="border py-2 px-3 text-left">日期</th>
+              <th class="border py-2 px-3 text-left">開始時間</th>
+              <th class="border py-2 px-3 text-left">結束時間</th>
+              <th class="border py-2 px-3 text-left">任務</th>
+              <th class="border py-2 px-3 text-left">顏色</th>
+              <th class="border py-2 px-3 text-left">操作</th>
+            </tr>
+          </thead>
+          <tbody id="task-table-body">
+            <!-- Task entries will be inserted here -->
+          </tbody>
+        </table>
+        <div id="empty-table-message" class="py-4 text-center text-gray-500">尚未添加任務，請使用上方表單添加任務</div>
+      </div>
+    </div>
+    
+    <!-- AI Analysis Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+      <h2 class="text-lg font-semibold mb-2">AI 時間分析與建議</h2>
+      <div class="mb-3">
+        <label for="ai-prompt" class="block text-sm font-medium mb-1">提示詞</label>
+        <textarea id="ai-prompt-zh" rows="8" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">分析我的時間使用數據，並提供以下內容：
+1. 我的時間分配概況和模式
+2. 出勤時間分析：每天開始和結束工作的時間、工作時長、到達辦公室的時間規律性
+3. 可能存在的時間管理問題和改進建議
+4. 基於我的時間使用情況，有哪些可能的優化方案？
+5. 根據每個項目或活動類型的時間分配，提供平衡工作與生活的建議
+
+計算專注時間 (蕃茄), 以 30 分鐘算為一個蕃茄:
+任務1: 計算各個類別的蕃茄數, 但需以每一個時間區塊為計算單位, 少於 30 分鐘算作 0, 若是 30 的倍數則計整數, 例如 3.1 小時算為有 6 個蕃茄
+任務2: 排除休息、未分類、關係、交通和生活類別後的蕃茄總數
+任務3: 每天排除休息、未分類、關係、交通和生活類別後的蕃茄數以 Json 回傳, 用以製作熱度圖, 格式為: {"2023-06-01": 5, "2023-06-02": 8, ...}</textarea>
+      </div>
+      <div class="flex justify-end">
+        <button id="analyze-time" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md flex items-center">
+          <span id="analyze-text" data-lang="zh">分析我的時間數據</span>
+          <span id="analyze-text-en" data-lang="en">Analyze My Time Data</span>
+          <span id="loading-spinner" class="ml-2 hidden">
+            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div id="ai-response" class="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-md prose dark:prose-invert max-w-none hidden">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-semibold m-0">AI 分析結果</h3>
+          <button id="download-ai-response" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-1 px-3 rounded-md text-sm">
+            下載分析結果
+          </button>
+        </div>
+        <div id="ai-response-content" class="whitespace-pre-wrap"></div>
+      </div>
+    </div>
+    
+    <!-- Timeline Customization -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-semibold">
+          <span data-lang="zh">時間軸外觀設定</span>
+          <span data-lang="en">Timeline Appearance Settings</span>
+        </h2>
+        <!-- Export/Import Buttons -->
+        <div class="flex gap-2">
+          <button id="export-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">
+            <span data-lang="zh">匯出設定</span>
+            <span data-lang="en">Export Settings</span>
+          </button>
+          <button id="import-settings" class="text-primary hover:text-primary-dark border border-primary hover:bg-primary/10 py-1 px-3 rounded-md text-sm">
+            <span data-lang="zh">匯入設定</span>
+            <span data-lang="en">Import Settings</span>
+          </button>
+          <input type="file" id="settings-file-input" accept=".json" class="hidden" >
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label for="timeline-width" class="block text-sm font-medium mb-1">
+            <span data-lang="zh">時間條寬度 (10分鐘像素)</span>
+            <span data-lang="en">Timeline Width (pixels per 10 min)</span>
+          </label>
+          <input type="number" id="timeline-width" min="1" max="100" value="7" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+        <div>
+          <label for="timeline-height" class="block text-sm font-medium mb-1">
+            <span data-lang="zh">時間條高度 (像素)</span>
+            <span data-lang="en">Timeline Height (pixels)</span>
+          </label>
+          <input type="number" id="timeline-height" min="20" max="100" value="20" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+        <div>
+          <label for="timeline-spacing" class="block text-sm font-medium mb-1">
+            <span data-lang="zh">時間軸間距 (像素)</span>
+            <span data-lang="en">Timeline Spacing (pixels)</span>
+          </label>
+          <input type="number" id="timeline-spacing" min="-20" max="100" value="-5" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+      </div>
+      <div class="flex flex-col gap-4 mt-4">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center">
+            <input type="checkbox" id="show-task-labels" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:border-gray-600" checked>
+            <label for="show-task-labels" class="ml-2 text-sm font-medium">
+              <span data-lang="zh">顯示時間條上的文字標籤</span>
+              <span data-lang="en">Show labels on timeline bars</span>
+            </label>
+          </div>
+          <div class="flex items-center">
+            <input type="checkbox" id="show-hour-grid-lines" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:border-gray-600" checked>
+            <label for="show-hour-grid-lines" class="ml-2 text-sm font-medium">
+              <span data-lang="zh">顯示每小時垂直線</span>
+              <span data-lang="en">Show hourly vertical grid lines</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Special Time Markers -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <h3 class="text-md font-medium mb-2">
+            <span data-lang="zh">特別時間標記</span>
+            <span data-lang="en">Special Time Markers</span>
+          </h3>
+          <div id="special-time-markers" class="mb-3">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-0100" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0100" data-color="#FF5858" checked>
+                <label for="marker-0100" class="ml-2 text-sm">01:00 <span data-lang="zh">入睡</span><span data-lang="en">Sleep</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#FF5858" data-time="0100">
+                  <div class="color-display" style="background-color: #FF5858;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="0100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="0100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-0745" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0745" data-color="#FFC658" checked>
+                <label for="marker-0745" class="ml-2 text-sm">07:45 <span data-lang="zh">起床</span><span data-lang="en">Wake up</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#FFC658" data-time="0745">
+                  <div class="color-display" style="background-color: #FFC658;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="0745">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="0745">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-0930" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="0930" data-color="#58C1FF" checked>
+                <label for="marker-0930" class="ml-2 text-sm">09:30 <span data-lang="zh">上班</span><span data-lang="en">Start work</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#58C1FF" data-time="0930">
+                  <div class="color-display" style="background-color: #58C1FF;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="0930">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="0930">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-1800" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="1800" data-color="#58FF7F" checked>
+                <label for="marker-1800" class="ml-2 text-sm">18:00 <span data-lang="zh">下班</span><span data-lang="en">End work</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#58FF7F" data-time="1800">
+                  <div class="color-display" style="background-color: #58FF7F;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="1800">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="1800">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-2000" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="2000" data-color="#C558FF" checked>
+                <label for="marker-2000" class="ml-2 text-sm">20:00 <span data-lang="zh">晚飯</span><span data-lang="en">Dinner</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#C558FF" data-time="2000">
+                  <div class="color-display" style="background-color: #C558FF;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="2000">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="2000">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="flex items-center">
+                <input type="checkbox" id="marker-2300" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="2300" data-color="#FF58A9" checked>
+                <label for="marker-2300" class="ml-2 text-sm">23:00 <span data-lang="zh">Me time</span><span data-lang="en">Me time</span></label>
+                <div class="color-picker-container">
+                  <input type="color" class="color-picker" value="#FF58A9" data-time="2300">
+                  <div class="color-display" style="background-color: #FF58A9;"></div>
+                </div>
+                <div class="marker-actions">
+                  <button type="button" class="marker-edit-btn" data-time="2300">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                  </button>
+                  <button type="button" class="marker-delete-btn" data-time="2300">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Add custom marker -->
+            <div class="flex flex-col sm:flex-row gap-2 mt-2">
+              <div class="flex-grow">
+                <input type="text" id="custom-marker-time" placeholder="HHMM" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 w-full sm:w-24" maxlength="4">
+              </div>
+              <div class="flex-grow">
+                <input type="text" id="custom-marker-label" placeholder="Label" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 w-full">
+              </div>
+              <button id="add-custom-marker" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">
+                <span data-lang="zh">新增標記</span>
+                <span data-lang="en">Add Marker</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Default Works Configuration -->
+        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+          <h3 class="text-md font-medium mb-2">
+            <span data-lang="zh">預設個別工作設定</span>
+            <span data-lang="en">Default Individual Works</span>
+          </h3>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <span data-lang="zh">管理「僅顯示預設個別工作」過濾器中使用的預設工作列表</span>
+            <span data-lang="en">Manage the default works list used in the "Default works only" filter</span>
+          </p>
+          
+          <div id="default-works-list" class="bg-gray-50 dark:bg-gray-700 p-3 rounded-md mb-3 max-h-[200px] overflow-y-auto">
+            <!-- Default works will be listed here -->
+          </div>
+          
+          <div class="flex flex-col sm:flex-row gap-2 mb-3">
+            <div class="flex-grow">
+              <input type="text" id="new-default-work" placeholder="New work name" class="px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 w-full">
+            </div>
+            <button id="add-default-work" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-3 rounded-md whitespace-nowrap">
+              <span data-lang="zh">新增預設工作</span>
+              <span data-lang="en">Add Default Work</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex justify-end mt-2">
+          <button id="apply-settings" class="bg-primary hover:bg-opacity-80 text-white font-semibold py-2 px-4 rounded-md">
+            <span data-lang="zh">應用設定</span>
+            <span data-lang="en">Apply Settings</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Settings Export/Import Status Message -->
+      <div id="settings-status" class="mt-2 p-2 rounded-md text-center hidden">
+        <!-- Status message will appear here -->
+      </div>
+    </div>
+      
+    <!-- Timeline -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-semibold">
+          <span data-lang="zh">多日時間軸 (0000-2400)</span>
+          <span data-lang="en">Multi-day Timeline (0000-2400)</span>
+        </h2>
+        <div class="flex flex-wrap gap-2">
+          <div class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 flex items-center">
+            <span class="mr-2" data-lang="zh">顯示模式:</span>
+            <span class="mr-2" data-lang="en">Display Mode:</span>
+            <div class="flex">
+              <button id="display-mode-task" class="px-2 py-0.5 rounded-l-md bg-primary text-white">
+                <span data-lang="zh">任務類別</span>
+                <span data-lang="en">Task Category</span>
+              </button>
+              <button id="display-mode-detail" class="px-2 py-0.5 rounded-r-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
+                <span data-lang="zh">個別工作</span>
+                <span data-lang="en">Individual Work</span>
+              </button>
+            </div>
+          </div>
+          <div class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 flex items-center">
+            <label class="inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="show-default-works-only" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+              <span class="ml-2" data-lang="zh">僅顯示預設個別工作</span>
+              <span class="ml-2" data-lang="en">Default works only</span>
+            </label>
+            <span id="default-works-total-time" class="ml-3 text-xs bg-primary/20 rounded px-2 py-0.5 hidden">
+              總時間: <span id="default-works-hours">0</span>:<span id="default-works-minutes">00</span>
+            </span>
+          </div>
+          <select id="day-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            <option value="all">顯示所有日子</option>
+            <option value="weekday">僅顯示星期一至五</option>
+            <option value="weekend">僅顯示星期六日</option>
+          </select>
+          <select id="duration-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+            <option value="all">所有時長</option>
+            <option value="below30min">30分鐘以下</option>
+            <option value="30min">30分鐘或以上</option>
+            <option value="60min">1小時或以上</option>
+          </select>
+          <button id="toggle-category-filter" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700">
+            <span data-lang="zh">任務類別過濾</span>
+            <span data-lang="en">Task Categories</span>
+          </button>
+          <button id="focus-analysis" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 bg-white dark:bg-gray-700 mr-1">
+            <span data-lang="zh">專注分析</span>
+            <span data-lang="en">Focus Analysis</span>
+          </button>
+
+        </div>
+        <!-- Category filter panel -->
+        <div id="category-filter-container" class="mt-2 hidden w-full">
+          <div class="p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+            <div class="mb-2">
+              <span class="text-sm font-medium" data-lang="zh">選擇要顯示的任務類別：</span>
+              <span class="text-sm font-medium" data-lang="en">Select task categories to display:</span>
+            </div>
+            <div id="category-checkboxes" class="flex flex-wrap gap-3"></div>
+            <div class="mt-2 flex gap-2">
+              <button id="select-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">
+                <span data-lang="zh">全選</span>
+                <span data-lang="en">Select All</span>
+              </button>
+              <button id="deselect-all-categories" class="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded">
+                <span data-lang="zh">取消全選</span>
+                <span data-lang="en">Deselect All</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="timeline-container">
+        <div class="flex">
+          <!-- Date label column + time markers -->
+          <div class="flex">
+            <div class="w-[150px] min-w-[150px]"></div> <!-- Space for date labels -->
+            <div id="time-markers" class="flex w-max">
+              <!-- Time markers will be inserted here -->
+            </div>
+          </div>
+        </div>
+        
+        <div id="timelines-container">
+          <!-- Multiple timelines will be inserted here -->
+        </div>
+      </div>
+    </div>
+    
+
+    <!-- Default Works Time Summary Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6">
+      <h2 class="text-lg font-semibold mb-2">
+        <span data-lang="zh">預設個別工作時間摘要</span>
+        <span data-lang="en">Default Works Time Summary</span>
+      </h2>
+      <div id="default-works-summary" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <!-- Default works time entries will be inserted here -->
+      </div>
+    </div>
+
+    <!-- Heatmap Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mt-6">
+      <h2 class="text-lg font-semibold mb-2">
+        <span data-lang="zh">專注時間熱度圖</span>
+        <span data-lang="en">Focus Time Heatmap</span>
+      </h2>
+      <div id="heatmap-container" class="w-full overflow-x-auto">
+        <div id="heatmap" class="min-w-max"></div>
+      </div>
+      <div class="flex items-center justify-center mt-4">
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-blue-100"></div>
+          <span class="ml-1 mr-3 text-sm">0</span>
+        </div>
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-blue-300"></div>
+          <span class="ml-1 mr-3 text-sm">1-2</span>
+        </div>
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-blue-500"></div>
+          <span class="ml-1 mr-3 text-sm">3-5</span>
+        </div>
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-blue-700"></div>
+          <span class="ml-1 mr-3 text-sm">6-9</span>
+        </div>
+        <div class="flex items-center">
+          <div class="w-4 h-4 bg-blue-900"></div>
+          <span class="ml-1 mr-3 text-sm">10+</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Task Edit Modal -->
+  <div id="edit-task-modal" class="modal-backdrop">
+    <div class="modal-content p-6 w-full max-w-md">
+      <h3 class="text-xl font-bold mb-4">編輯任務</h3>
+      <div class="space-y-4">
+        <div>
+          <label for="edit-task-date" class="block text-sm font-medium mb-1">日期</label>
+          <input type="date" id="edit-task-date" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="edit-start-time" class="block text-sm font-medium mb-1">開始時間 (HHMM)</label>
+            <input type="text" id="edit-start-time" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" maxlength="4">
+          </div>
+          <div>
+            <label for="edit-end-time" class="block text-sm font-medium mb-1">結束時間 (HHMM)</label>
+            <input type="text" id="edit-end-time" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700" maxlength="4">
+          </div>
+        </div>
+        <div>
+          <label for="edit-task-name" class="block text-sm font-medium mb-1">任務類別</label>
+          <input type="text" id="edit-task-name" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+        <div>
+          <label for="edit-task-description" class="block text-sm font-medium mb-1">個別工作</label>
+          <input type="text" id="edit-task-description" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700">
+        </div>
+        <div>
+          <label for="edit-task-color" class="block text-sm font-medium mb-1">顏色</label>
+          <div class="flex items-center gap-2">
+            <input type="color" id="edit-task-color" class="w-12 h-8 border border-gray-300 dark:border-gray-700 rounded">
+            <span class="text-sm text-gray-500">(更改顏色將應用到所有相同類別的任務)</span>
+          </div>
+        </div>
+        <div class="flex items-center">
+          <input type="checkbox" id="batch-update-category" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary dark:focus:ring-primary dark:border-gray-600">
+          <label for="batch-update-category" class="ml-2 text-sm font-medium">批量修改任務類別</label>
+          <span class="ml-2 text-xs text-gray-500">(將修改所有相同個別工作的任務類別)</span>
+        </div>
+        <input type="hidden" id="edit-task-id">
+        <div class="flex justify-end gap-3 mt-6">
+          <button id="delete-task-btn" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md">刪除</button>
+          <button id="cancel-edit-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md">取消</button>
+          <button id="save-task-btn" class="px-4 py-2 bg-primary hover:bg-opacity-80 text-white rounded-md">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-confirm-modal" class="modal-backdrop">
+    <div class="modal-content p-6 w-full max-w-md">
+      <h3 class="text-xl font-bold mb-4">確認刪除</h3>
+      <p class="mb-6">確定要刪除此任務嗎？此操作無法撤銷。</p>
+      <div class="flex justify-end gap-3">
+        <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md">取消</button>
+        <button id="confirm-delete-btn" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md">確認刪除</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up task form toggle
+      const taskFormToggle = document.getElementById('task-form-toggle');
+      const taskForm = document.getElementById('task-form');
+      const taskFormArrow = document.getElementById('task-form-arrow');
+      
+      taskFormToggle.addEventListener('click', function() {
+        taskForm.classList.toggle('hidden');
+        taskFormArrow.classList.toggle('rotate-180');
+      });
+      
+      // Set up task table toggle
+      const taskTableToggle = document.getElementById('task-table-toggle');
+      const taskTableContainer = document.getElementById('task-table-container');
+      const taskTableArrow = document.getElementById('task-table-arrow');
+      
+      taskTableToggle.addEventListener('click', function() {
+        taskTableContainer.classList.toggle('hidden');
+        taskTableArrow.classList.toggle('rotate-180');
+      });
+      // No language manager needed - only Chinese
+      const currentLanguage = 'zh';
+      
+      // Initialize state
+      const tasks = [];
+      let taskColors = {};
+      
+      // For AI analysis
+      const analyzeButton = document.getElementById('analyze-time');
+      const aiPrompt = document.getElementById('ai-prompt');
+      const aiResponse = document.getElementById('ai-response');
+      const aiResponseContent = document.getElementById('ai-response-content');
+      const loadingSpinner = document.getElementById('loading-spinner');
+      const analyzeText = document.getElementById('analyze-text');
+      
+      // 初始化熱度圖功能 - 每週一列顯示
+      function renderHeatmap(dailyPomodoroData) {
+        const heatmapContainer = document.getElementById('heatmap');
+        heatmapContainer.innerHTML = '';
+        
+        if (!dailyPomodoroData || Object.keys(dailyPomodoroData).length === 0) {
+          const noDataMsg = document.createElement('div');
+          noDataMsg.className = 'text-center p-4 text-gray-500';
+          noDataMsg.textContent = currentLanguage === 'zh' ? 
+            '尚無專注時間數據可供顯示。請先分析數據生成熱度圖。' : 
+            'No focus time data to display yet. Please analyze data to generate heatmap.';
+          heatmapContainer.appendChild(noDataMsg);
+          return;
+        }
+        
+        // 建立日期範圍 (從最早到最晚的日期)
+        const dates = Object.keys(dailyPomodoroData).sort();
+        const startDate = new Date(dates[0]);
+        const endDate = new Date(dates[dates.length - 1]);
+        
+        // 計算需要顯示的週數
+        const weekMap = new Map(); // 儲存每週的資料 key是週號 value是該週的日期資料
+        
+        // 先獲取每週的開始日期 (星期日)
+        for (const dateStr of dates) {
+          const date = new Date(dateStr);
+          // 取得該週的第一天 (星期日)
+          const weekStart = new Date(date);
+          const day = date.getDay();
+          weekStart.setDate(date.getDate() - day);
+          
+          // 格式化週開始日期作為週的唯一標識
+          const weekKey = weekStart.toISOString().split('T')[0];
+          
+          // 如果這個週尚未在 Map 中，初始化它
+          if (!weekMap.has(weekKey)) {
+            weekMap.set(weekKey, {
+              weekStart,
+              days: Array(7).fill(null) // 七天的數據，未賦值的為 null
+            });
+          }
+          
+          // 將該天的數據添加到相應的週
+          const weekData = weekMap.get(weekKey);
+          weekData.days[day] = {
+            date,
+            dateStr,
+            count: dailyPomodoroData[dateStr] || 0
+          };
+        }
+        
+        // 排序週
+        const sortedWeeks = Array.from(weekMap.entries()).sort((a, b) => 
+          new Date(a[0]).getTime() - new Date(b[0]).getTime()
+        );
+        
+        // 建立熱度圖 - 一行代表一週
+        const heatmapWrapper = document.createElement('div');
+        heatmapWrapper.className = 'flex flex-col gap-2';
+        
+        // 月份標題區
+        const monthTitleContainer = document.createElement('div');
+        monthTitleContainer.className = 'flex pl-10 relative h-8';
+        
+        // 星期標籤
+        const dayLabels = document.createElement('div');
+        dayLabels.className = 'flex pl-10';
+        
+        const weekDays = currentLanguage === 'zh' ? 
+          ['日', '一', '二', '三', '四', '五', '六'] : 
+          ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        weekDays.forEach(day => {
+          const dayLabel = document.createElement('div');
+          dayLabel.className = 'w-8 h-8 text-xs flex items-center justify-center text-gray-500';
+          dayLabel.textContent = day;
+          dayLabels.appendChild(dayLabel);
+        });
+        
+        heatmapWrapper.appendChild(monthTitleContainer);
+        heatmapWrapper.appendChild(dayLabels);
+        
+        // 為每週創建一行
+        let currentMonthLabel = null;
+        let lastMonthDisplayed = null;
+        
+        sortedWeeks.forEach(([weekKey, weekData], weekIndex) => {
+          // 週的容器
+          const weekRow = document.createElement('div');
+          weekRow.className = 'flex items-center mb-1';
+          
+          // 週開始日期標籤
+          const weekLabel = document.createElement('div');
+          weekLabel.className = 'w-10 text-xs text-right pr-2 text-gray-500';
+          
+          // 取週的第一天 (星期日) 的日期
+          const weekStartFormated = currentLanguage === 'zh' ? 
+            `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}` : 
+            `${weekData.weekStart.getMonth() + 1}/${weekData.weekStart.getDate()}`;
+          
+          weekLabel.textContent = weekStartFormated;
+          weekRow.appendChild(weekLabel);
+          
+          // 顯示該週的天數
+          weekData.days.forEach((dayData, dayIndex) => {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'w-8 h-8 m-0.5 rounded flex items-center justify-center text-xs';
+            
+            // 檢查當天的月份，如果是新的月份則添加月份標籤
+            if (dayData) {
+              const currentMonth = dayData.date.getMonth();
+              
+              // 如果是每週的第一天（星期日）並且月份改變了，添加月份標籤
+              if (dayIndex === 0 && lastMonthDisplayed !== currentMonth) {
+                const monthNames = currentLanguage === 'zh' ? 
+                  ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'] : 
+                  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                
+                const monthLabel = document.createElement('div');
+                monthLabel.className = 'absolute text-sm font-medium';
+                monthLabel.textContent = monthNames[currentMonth];
+                
+                // 計算月份標籤的位置
+                const monthPosition = weekIndex * 9 + dayIndex + 0.5; // 9 = 一週的寬度
+                monthLabel.style.left = `${monthPosition * 8 + 10}px`; // 8 = 每天的寬度
+                monthLabel.style.top = '0';
+                
+                monthTitleContainer.appendChild(monthLabel);
+                lastMonthDisplayed = currentMonth;
+              }
+              
+              // 有數據的日期單元格
+              const pomodoroCount = dayData.count;
+              
+              if (pomodoroCount === 0) {
+                dayCell.classList.add('bg-blue-100');
+                dayCell.style.color = '#1F2937'; // 深灰色文字
+              } else if (pomodoroCount <= 2) {
+                dayCell.classList.add('bg-blue-300');
+                dayCell.style.color = '#1F2937';
+              } else if (pomodoroCount <= 5) {
+                dayCell.classList.add('bg-blue-500');
+                dayCell.style.color = 'white';
+              } else if (pomodoroCount <= 9) {
+                dayCell.classList.add('bg-blue-700');
+                dayCell.style.color = 'white';
+              } else {
+                dayCell.classList.add('bg-blue-900');
+                dayCell.style.color = 'white';
+              }
+              
+              // 顯示日期
+              dayCell.textContent = dayData.date.getDate();
+              
+              // 顯示蕃茄數量的工具提示
+              dayCell.title = currentLanguage === 'zh' ? 
+                `${dayData.dateStr}: ${pomodoroCount} 個蕃茄` : 
+                `${dayData.dateStr}: ${pomodoroCount} pomodoros`;
+              
+              dayCell.style.cursor = 'pointer';
+            } else {
+              // 沒有資料的單元格
+              dayCell.classList.add('bg-gray-100', 'dark:bg-gray-700', 'opacity-30');
+            }
+            
+            weekRow.appendChild(dayCell);
+          });
+          
+          heatmapWrapper.appendChild(weekRow);
+        });
+        
+        heatmapContainer.appendChild(heatmapWrapper);
+      }
+
+      // 從 AI 響應中解析 JSON 數據
+      function extractJsonFromText(text) {
+        try {
+          // 嘗試尋找包含專注時間數據的 JSON
+          const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/g;
+          const matches = [...text.matchAll(jsonRegex)];
+          
+          for (const match of matches) {
+            const jsonStr = match[1].trim();
+            try {
+              const data = JSON.parse(jsonStr);
+              
+              // 檢查這是否是日期為鍵、數字為值的 JSON (熱度圖數據)
+              const isDateToNumber = Object.entries(data).every(([key, value]) => {
+                return /^\d{4}-\d{2}-\d{2}$/.test(key) && typeof value === 'number';
+              });
+              
+              if (isDateToNumber && Object.keys(data).length > 0) {
+                return data;
+              }
+            } catch (e) {
+              console.log("解析 JSON 錯誤: ", e);
+              continue;
+            }
+          }
+          
+          return null;
+        } catch (error) {
+          console.log("提取 JSON 錯誤: ", error);
+          return null;
+        }
+      }
+
+      // Register handler for AI responses
+      window.Poe.registerHandler('time-analysis-handler', (result) => {
+        const response = result.responses[0];
+        
+        if (response.status === 'error') {
+          aiResponseContent.textContent = 'AI 分析過程中發生錯誤: ' + response.statusText;
+          aiResponse.classList.remove('hidden');
+          // Reset analyze button
+          loadingSpinner.classList.add('hidden');
+          if (currentLanguage === 'zh') {
+            document.getElementById('analyze-text').textContent = '分析我的時間數據';
+          } else {
+            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
+          }
+          analyzeButton.disabled = false;
+        } else if (response.status === 'incomplete') {
+          // Stream response as it comes in
+          aiResponseContent.innerHTML = marked.parse(response.content);
+          aiResponse.classList.remove('hidden');
+        } else if (response.status === 'complete') {
+          // Final response
+          aiResponseContent.innerHTML = marked.parse(response.content);
+          aiResponse.classList.remove('hidden');
+          
+          // 嘗試從響應中提取 JSON 數據並更新熱度圖
+          const pomodoroData = extractJsonFromText(response.content);
+          if (pomodoroData) {
+            renderHeatmap(pomodoroData);
+          }
+          
+          // Reset analyze button
+          loadingSpinner.classList.add('hidden');
+          if (currentLanguage === 'zh') {
+            document.getElementById('analyze-text').textContent = '分析我的時間數據';
+          } else {
+            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
+          }
+          analyzeButton.disabled = false;
+        }
+      });
+      
+      // Function to download AI response as text file
+      function downloadAIResponse() {
+        const content = aiResponseContent.textContent || aiResponseContent.innerText;
+        if (!content.trim()) {
+          showError('沒有可下載的分析結果');
+          return;
+        }
+        
+        // Create a blob from the content
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        
+        // Create a download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = `AI時間分析結果_${new Date().toISOString().slice(0, 10)}.txt`;
+        
+        // Trigger download
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // Clean up the object URL
+        URL.revokeObjectURL(downloadLink.href);
+      }
+      
+      // Add event listener for download button
+      document.getElementById('download-ai-response').addEventListener('click', downloadAIResponse);
+      
+      // Add event listener for AI analysis button
+      analyzeButton.addEventListener('click', async () => {
+        // Check if there are tasks to analyze
+        if (tasks.length === 0) {
+          const errorMsg = currentLanguage === 'zh' ? 
+            '沒有任務數據可供分析，請先添加任務或上傳數據' : 
+            'No task data to analyze. Please add tasks or upload data first.';
+          showError(errorMsg);
+          return;
+        }
+        
+        // Show loading state
+        loadingSpinner.classList.remove('hidden');
+        
+        if (currentLanguage === 'zh') {
+          document.getElementById('analyze-text').textContent = '正在分析...';
+        } else {
+          document.getElementById('analyze-text-en').textContent = 'Analyzing...';
+        }
+        
+        analyzeButton.disabled = true;
+        
+        // Prepare task data for AI analysis
+        const taskData = tasks.map(task => {
+          return {
+            date: task.date,
+            name: task.name,
+            startTime: formatTime(task.start),
+            endTime: formatTime(task.end),
+            duration: calculateDuration(task.start, task.end)
+          };
+        });
+        
+        // Get unique categories and their total time
+        const categories = {};
+        taskData.forEach(task => {
+          if (!categories[task.name]) {
+            categories[task.name] = 0;
+          }
+          categories[task.name] += task.duration;
+        });
+        
+        // Format categories for display
+        const categoryData = Object.entries(categories).map(([name, minutes]) => {
+          const hours = Math.floor(minutes / 60);
+          const mins = minutes % 60;
+          
+          return {
+            name,
+            totalTime: currentLanguage === 'zh' ? 
+              `${hours}小時${mins}分鐘` : 
+              `${hours}h ${mins}m`,
+            totalMinutes: minutes
+          };
+        });
+        
+        // Get appropriate prompt based on current language
+        const promptElement = currentLanguage === 'zh' ? 
+          document.getElementById('ai-prompt-zh') : 
+          document.getElementById('ai-prompt-en');
+        
+        // Create message for the AI
+        const userPrompt = promptElement.value;
+        const formattedTaskData = JSON.stringify(taskData, null, 2);
+        const formattedCategoryData = JSON.stringify(categoryData, null, 2);
+        
+        const langPrompt = currentLanguage === 'zh' ? 
+          '請用繁體中文回答，並提供具體的建議和見解。' : 
+          'Please respond in English with specific suggestions and insights.';
+        
+        const message = `@GPT-5.1
+
+${userPrompt}
+
+${currentLanguage === 'zh' ? '以下是我的時間數據：' : 'Here is my time data:'}
+
+${currentLanguage === 'zh' ? '任務詳情：' : 'Task details:'}
+\`\`\`json
+${formattedTaskData}
+\`\`\`
+
+${currentLanguage === 'zh' ? '任務類別統計：' : 'Task category statistics:'}
+\`\`\`json
+${formattedCategoryData}
+\`\`\`
+
+${langPrompt}`;
+        
+        try {
+          await window.Poe.sendUserMessage(message, {
+            handler: 'time-analysis-handler',
+            stream: true,
+            openChat: false
+          });
+        } catch (error) {
+          // Handle error
+          const errorMsg = currentLanguage === 'zh' ? 
+            '發送請求時發生錯誤: ' : 
+            'Error sending request: ';
+          
+          aiResponseContent.textContent = errorMsg + error.message;
+          aiResponse.classList.remove('hidden');
+          
+          // Reset analyze button
+          loadingSpinner.classList.add('hidden');
+          
+          if (currentLanguage === 'zh') {
+            document.getElementById('analyze-text').textContent = '分析我的時間數據';
+          } else {
+            document.getElementById('analyze-text-en').textContent = 'Analyze My Time Data';
+          }
+          
+          analyzeButton.disabled = false;
+        }
+      });
+      
+      // Helper function to calculate duration in minutes
+      function calculateDuration(startTime, endTime) {
+        const startMinutes = convertTimeToMinutes(startTime);
+        let endMinutes = convertTimeToMinutes(endTime);
+        
+        // Handle crossing midnight
+        if (endMinutes < startMinutes) {
+          endMinutes += 24 * 60; // Add a full day
+        }
+        
+        return endMinutes - startMinutes;
+      }
+      // 預設任務顏色映射
+      const taskTypeColors = {
+        // 中文類別
+        "HKCOC": "#808080", // 灰色
+        "工作": "#FF5555",  // 紅色
+        "業餘": "#FFDD55",  // 黃色
+        "生命": "#5599FF",  // 藍色
+        "生活": "#55DDBB",  // 薄荷綠色
+        "網賺": "#FFAA55",  // 橙色
+        "關係": "#AA55FF",  // 紫色
+        "健康": "#55DD77",  // 綠色
+        "未分類": "#C0C0C0", // 淺灰色
+        "休息": "#C0C0C0",  // 淺灰色
+        
+        // 英文類別
+        "Work": "#FF5555",      // 紅色
+        "Hobby": "#FFDD55",     // 黃色
+        "Life": "#5599FF",      // 藍色
+        "Living": "#55DDBB",    // 薄荷綠色
+        "Online": "#FFAA55",    // 橙色
+        "Relationship": "#AA55FF", // 紫色
+        "Health": "#55DD77",    // 綠色
+        "Uncategorized": "#C0C0C0", // 淺灰色
+        "Rest": "#C0C0C0",     // 淺灰色
+        "Learning": "#10B981"   // 綠色
+      };
+      
+      // 備用顏色，當任務名稱不在預設映射中使用
+      const defaultColors = [
+        "#EF4444", // Red
+        "#10B981", // Green
+        "#3B82F6", // Blue
+        "#F59E0B", // Yellow
+        "#8B5CF6", // Purple
+        "#EC4899", // Pink
+        "#06B6D4", // Cyan
+        "#F97316", // Orange
+      ];
+      let colorIndex = 0;
+      
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date();
+      const todayFormatted = today.toISOString().split('T')[0];
+      
+      // DOM elements
+      const taskDateInput = document.getElementById('task-date');
+      const startTimeInput = document.getElementById('start-time');
+      const endTimeInput = document.getElementById('end-time');
+      const taskNameInput = document.getElementById('task-name');
+      const addTaskButton = document.getElementById('add-task');
+      const taskTableBody = document.getElementById('task-table-body');
+      const emptyTableMessage = document.getElementById('empty-table-message');
+      const errorMessage = document.getElementById('error-message');
+      const timeMarkers = document.getElementById('time-markers');
+      const timelinesContainer = document.getElementById('timelines-container');
+      const colorLegend = document.getElementById('color-legend');
+      const csvUploadInput = document.getElementById('csv-upload');
+      const fileNameInput = document.getElementById('file-name');
+      const browseButton = document.getElementById('browse-button');
+      const uploadButton = document.getElementById('upload-csv');
+      
+      // Set default date to today
+      taskDateInput.value = todayFormatted;
+      
+      // CSV file upload handling
+      browseButton.addEventListener('click', () => {
+        csvUploadInput.click();
+      });
+      
+      csvUploadInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          fileNameInput.value = e.target.files[0].name;
+        }
+      });
+      
+      uploadButton.addEventListener('click', () => {
+        if (!csvUploadInput.files || csvUploadInput.files.length === 0) {
+          showError(getErrorMessage('no_csv_file'));
+          return;
+        }
+        
+        const file = csvUploadInput.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          try {
+            parseCSV(e.target.result);
+            hideError();
+          } catch (error) {
+            showError(getErrorMessage('csv_parse_error') + error.message);
+          }
+        };
+        
+        reader.onerror = () => {
+          showError(getErrorMessage('file_read_error'));
+        };
+        
+        reader.readAsText(file);
+      });
+      
+      // Parse CSV data from Toggl export
+      function parseCSV(csvText) {
+        // Clear existing tasks and task colors when uploading new CSV
+        tasks.length = 0;
+        taskColors = {};
+        colorIndex = 0;
+        
+        // Split into rows and remove header row
+        const rows = csvText.split('\n');
+        if (rows.length <= 1) {
+          throw new Error('CSV 文件為空或格式錯誤');
+        }
+        
+        // Parse header to find column indices
+        const headerRow = rows[0];
+        const header = parseCSVRow(headerRow);
+        const userIndex = header.indexOf('User');
+        const emailIndex = header.indexOf('Email');
+        const clientIndex = header.indexOf('Client');
+        const projectIndex = header.indexOf('Project');
+        const taskIndex = header.indexOf('Task');
+        const descriptionIndex = header.indexOf('Description');
+        const billableIndex = header.indexOf('Billable');
+        const startDateIndex = header.indexOf('Start date');
+        const startTimeIndex = header.indexOf('Start time');
+        const endDateIndex = header.indexOf('End date');
+        const endTimeIndex = header.indexOf('End time');
+        const durationIndex = header.indexOf('Duration');
+        const tagsIndex = header.indexOf('Tags');
+        
+        if (projectIndex === -1 || startDateIndex === -1 || startTimeIndex === -1 || 
+            endDateIndex === -1 || endTimeIndex === -1) {
+          throw new Error('CSV 缺少必要欄位: Project, Start date, Start time, End date, End time');
+        }
+        
+        // Store the original header
+        const csvHeader = headerRow;
+        
+        // Process data rows (skip header row)
+        const newTasks = [];
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i].trim();
+          if (!row) continue; // Skip empty rows
+          
+          const columns = parseCSVRow(row);
+          if (columns.length <= 1) continue; // Skip invalid rows
+          
+          // Store the original row
+          const originalRow = rows[i];
+          
+          // 將未分類的任務歸類為休息
+          let projectName = projectIndex !== -1 && columns[projectIndex] ? columns[projectIndex] : '';
+          if (!projectName || projectName.trim() === '') {
+            projectName = currentLanguage === 'zh' ? '休息' : 'Rest';
+          }
+          
+          // 获取Description作为个别工作
+          let description = descriptionIndex !== -1 ? columns[descriptionIndex] : '';
+          if (!description || description.trim() === '') {
+            description = projectName; // 如果沒有描述，使用專案名稱
+          }
+          
+          // Get other fields from the columns array
+          const user = userIndex !== -1 ? columns[userIndex] : '';
+          const email = emailIndex !== -1 ? columns[emailIndex] : '';
+          const client = clientIndex !== -1 ? columns[clientIndex] : '';
+          const taskName = taskIndex !== -1 ? columns[taskIndex] : '';
+          const billable = billableIndex !== -1 ? columns[billableIndex] : 'No';
+          const tags = tagsIndex !== -1 ? columns[tagsIndex] : '';
+          const duration = durationIndex !== -1 ? columns[durationIndex] : '';
+          
+          const startDate = startDateIndex !== -1 ? columns[startDateIndex] : '';
+          const startTime = startTimeIndex !== -1 ? columns[startTimeIndex] : '';
+          const endDate = endDateIndex !== -1 ? columns[endDateIndex] : '';
+          const endTime = endTimeIndex !== -1 ? columns[endTimeIndex] : '';
+          
+          // Skip if any required field is missing
+          if (!startTime || !endTime || !startDate) continue;
+          
+          // Convert to HHMM format
+          const startHHMM = convertTimeFormat(startTime);
+          const endHHMM = convertTimeFormat(endTime);
+          
+          // Check if task crosses midnight
+          const isCrossingMidnight = endDate !== startDate || 
+                                    (convertTimeToMinutes(startHHMM) > convertTimeToMinutes(endHHMM));
+          
+          // Create task object
+          const taskId = Date.now() + i; // Unique ID
+          
+          // 為任務指派顏色：優先使用預設顏色
+          if (!taskColors[projectName]) {
+            if (taskTypeColors[projectName]) {
+              // 使用預設顏色映射
+              taskColors[projectName] = taskTypeColors[projectName];
+            } else {
+              // 使用備用顏色
+              taskColors[projectName] = defaultColors[colorIndex % defaultColors.length];
+              colorIndex++;
+            }
+          }
+          
+          // Format date as YYYY-MM-DD for storage
+          const dateObj = new Date(startDate);
+          const formattedDate = dateObj.toISOString().split('T')[0];
+          
+          const newTask = {
+            id: taskId,
+            name: projectName,
+            description: description,
+            date: formattedDate,
+            start: startHHMM,
+            end: endHHMM,
+            color: taskColors[projectName],
+            isCrossingMidnight: isCrossingMidnight,
+            // Store original values for CSV export
+            user: user,
+            email: email,
+            client: client,
+            taskName: taskName,
+            billable: billable,
+            tags: tags,
+            duration: duration,
+            originalStartDate: startDate,
+            originalStartTime: startTime,
+            originalEndDate: endDate,
+            originalEndTime: endTime,
+            originalRow: originalRow
+          };
+          
+          newTasks.push(newTask);
+        }
+        
+        // Store the header for later export
+        window.csvOriginalHeader = csvHeader;
+        
+        // Add new tasks to the tasks array
+        tasks.push(...newTasks);
+        
+        // Update UI
+        renderTaskTable();
+        renderTimelines();
+        
+        return newTasks.length;
+      }
+      
+      // Helper function to parse CSV row respecting quotes
+      function parseCSVRow(row) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        
+        // Add the last field
+        result.push(current.trim());
+        return result;
+      }
+      
+      // Convert "HH:MM:SS" to "HHMM" format
+      function convertTimeFormat(timeStr) {
+        const match = timeStr.match(/(\d{1,2}):(\d{1,2})/);
+        if (!match) return '0000';
+        
+        const hours = match[1].padStart(2, '0');
+        const minutes = match[2].padStart(2, '0');
+        return hours + minutes;
+      }
+      
+      // Get timeline settings
+      function getTimelineSettings() {
+        return {
+          width: parseInt(document.getElementById('timeline-width').value) || 40,
+          height: parseInt(document.getElementById('timeline-height').value) || 30,
+          spacing: parseInt(document.getElementById('timeline-spacing').value) || 20
+        };
+      }
+      
+
+      
+      // 关键时间点
+      const keyTimePoints = [0, 6, 12, 18, 24];
+      
+      // Initialize time markers with custom width
+      function initializeTimeMarkers() {
+        timeMarkers.innerHTML = '';
+        
+        const settings = getTimelineSettings();
+        const markerWidth = settings.width;
+        
+        // Create a marker every hour (24 hours + 1 for 24:00)
+        for (let hour = 0; hour <= 24; hour++) {
+          const hourStr = hour.toString().padStart(2, '0') + ':00';
+          const markerDiv = document.createElement('div');
+          
+          // Check if this is a key time point
+          const isKeyTime = keyTimePoints.includes(hour);
+          markerDiv.className = isKeyTime ? 'time-marker key-time' : 'time-marker';
+          markerDiv.style.width = markerWidth + 'px';
+          markerDiv.textContent = hourStr;
+          timeMarkers.appendChild(markerDiv);
+          
+          // Add 5 more markers for each 10-minute interval (except for the last hour)
+          if (hour < 24) {
+            for (let tenMin = 1; tenMin <= 5; tenMin++) {
+              const minuteStr = (tenMin * 10).toString().padStart(2, '0');
+              const subMarkerDiv = document.createElement('div');
+              subMarkerDiv.className = 'time-marker';
+              subMarkerDiv.style.width = markerWidth + 'px';
+              // Only show text for 30-minute markers
+              if (tenMin === 3) {
+                subMarkerDiv.textContent = hour.toString().padStart(2, '0') + ':' + minuteStr;
+              }
+              timeMarkers.appendChild(subMarkerDiv);
+            }
+          }
+        }
+      }
+      
+      // Format date for display with shorter weekday format
+      function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        
+        if (currentLanguage === 'zh') {
+          // 自定義格式: 2025年5月4日 (日)
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          const weekDay = date.getDay();
+          const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
+          return `${year}年${month}月${day}日 (${weekDayNames[weekDay]})`;
+        } else {
+          // 英文格式: May 4, 2025 (Sun)
+          const options = { year: 'numeric', month: 'long', day: 'numeric' };
+          const weekDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const formattedDate = date.toLocaleDateString('en-US', options);
+          return `${formattedDate} (${weekDayNames[date.getDay()]})`;
+        }
+      }
+      
+      // Add a new task
+      function addTask() {
+        // Get input values
+        const taskDate = taskDateInput.value.trim();
+        const startTime = startTimeInput.value.trim();
+        const endTime = endTimeInput.value.trim();
+        const taskName = taskNameInput.value.trim();
+        const taskDescription = document.getElementById('task-description').value.trim();
+        
+        // Validate inputs
+        if (!taskDate || !startTime || !endTime || !taskName) {
+          showError(getErrorMessage('required_fields'));
+          return;
+        }
+        
+        // Validate time format (HHMM)
+        const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
+        if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+          showError(getErrorMessage('invalid_time_format'));
+          return;
+        }
+        
+        // Convert to numeric values for comparison
+        const startMinutes = convertTimeToMinutes(startTime);
+        const endMinutes = convertTimeToMinutes(endTime);
+        
+        // Validate time range
+        if (startMinutes >= endMinutes) {
+          showError(getErrorMessage('end_time_before_start'));
+          return;
+        }
+        
+        // 為任務指派顏色
+        if (!taskColors[taskName]) {
+          // 優先使用預設任務顏色
+          if (taskTypeColors[taskName]) {
+            taskColors[taskName] = taskTypeColors[taskName];
+          } else {
+            // 如果沒有預設顏色，使用備用顏色
+            taskColors[taskName] = defaultColors[colorIndex % defaultColors.length];
+            colorIndex++;
+          }
+        }
+        
+        // 如果沒有填寫個別工作，使用任務類別作為個別工作
+        const description = taskDescription || taskName;
+        
+        // Create a new task object
+        const newTask = {
+          id: Date.now(), // Unique ID for the task
+          date: taskDate,
+          start: startTime,
+          end: endTime,
+          name: taskName,
+          description: description,
+          color: taskColors[taskName]
+        };
+        
+        // Add to tasks array
+        tasks.push(newTask);
+        
+        // Update UI
+        renderTaskTable();
+        renderTimelines();
+        
+        // Clear inputs
+        startTimeInput.value = '';
+        endTimeInput.value = '';
+        taskNameInput.value = '';
+        document.getElementById('task-description').value = '';
+        hideError();
+        
+        // Focus back to first input
+        startTimeInput.focus();
+      }
+      
+      // Convert time string (HHMM) to minutes since midnight
+      function convertTimeToMinutes(timeStr) {
+        // Ensure 4-digit format by padding with leading zeros
+        const paddedTime = timeStr.padStart(4, '0');
+        const hours = parseInt(paddedTime.substring(0, 2), 10);
+        const minutes = parseInt(paddedTime.substring(2, 4), 10);
+        return hours * 60 + minutes;
+      }
+      
+      // Convert minutes to pixel position
+      function minutesToPosition(minutes) {
+        // Use current timeline settings
+        const settings = getTimelineSettings();
+        const markerWidth = settings.width;
+        return (minutes / 10) * markerWidth;
+      }
+      
+      // Format minutes as HH:MM
+      function formatTime(timeStr) {
+        // Ensure 4-digit format by padding with leading zeros
+        const paddedTime = timeStr.padStart(4, '0');
+        return paddedTime.substring(0, 2) + ':' + paddedTime.substring(2, 4);
+      }
+      
+      // Render the task table
+      function renderTaskTable() {
+        taskTableBody.innerHTML = '';
+        
+        if (tasks.length === 0) {
+          emptyTableMessage.classList.remove('hidden');
+          return;
+        }
+        
+        emptyTableMessage.classList.add('hidden');
+        
+        // Sort tasks by date and time
+        const sortedTasks = [...tasks].sort((a, b) => {
+          if (a.date !== b.date) {
+            return a.date.localeCompare(b.date);
+          }
+          return a.start.localeCompare(b.start);
+        });
+        
+        sortedTasks.forEach((task, index) => {
+          const row = document.createElement('tr');
+          row.className = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700';
+          
+          const deleteText = currentLanguage === 'zh' ? '刪除' : 'Delete';
+          
+          row.innerHTML = `
+            <td class="border py-2 px-3">${formatDate(task.date)}</td>
+            <td class="border py-2 px-3">${formatTime(task.start)}</td>
+            <td class="border py-2 px-3">${formatTime(task.end)}</td>
+            <td class="border py-2 px-3">
+              <div>${task.name}</div>
+              <div class="text-xs text-gray-500">${task.description !== task.name ? task.description : ''}</div>
+            </td>
+            <td class="border py-2 px-3">
+              <div class="w-6 h-6 rounded" style="background-color: ${task.color}"></div>
+            </td>
+            <td class="border py-2 px-3">
+              <button class="delete-task text-red-500 hover:text-red-700" data-id="${task.id}">
+                ${deleteText}
+              </button>
+            </td>
+          `;
+          
+          taskTableBody.appendChild(row);
+        });
+        
+        // Add event listeners to delete buttons
+        document.querySelectorAll('.delete-task').forEach(button => {
+          button.addEventListener('click', function() {
+            const taskId = parseInt(this.getAttribute('data-id'), 10);
+            deleteTask(taskId);
+          });
+        });
+      }
+      
+      // Get all unique dates from tasks
+      function getUniqueDates() {
+        const dates = tasks.map(task => task.date);
+        return [...new Set(dates)].sort();
+      }
+      
+      // 檢查日期是否符合星期過濾條件
+      function checkDayFilter(dateStr) {
+        const date = new Date(dateStr);
+        const dayOfWeek = date.getDay(); // 0 = 星期日, 1-5 = 星期一至五, 6 = 星期六
+        const filterValue = document.getElementById('day-filter').value;
+        
+        if (filterValue === 'all') {
+          return true;
+        } else if (filterValue === 'weekday') {
+          return dayOfWeek >= 1 && dayOfWeek <= 5; // 星期一至五
+        } else if (filterValue === 'weekend') {
+          return dayOfWeek === 0 || dayOfWeek === 6; // 星期六、日
+        }
+        return true;
+      }
+      
+      // 根據星期過濾條件獲取日期
+      function getFilteredDates() {
+        const uniqueDates = getUniqueDates();
+        return uniqueDates.filter(date => checkDayFilter(date));
+      }
+        
+      // Check if a task passes the duration filter
+      function checkDurationFilter(task) {
+        const durationFilter = document.getElementById('duration-filter').value;
+        if (durationFilter === 'all') {
+          return true;
+        }
+        
+        const startMinutes = convertTimeToMinutes(task.start);
+        let endMinutes = convertTimeToMinutes(task.end);
+        
+        // Handle crossing midnight
+        if (task.isCrossingMidnight || endMinutes < startMinutes) {
+          endMinutes += 24 * 60; // Add a full day
+        }
+        
+        const duration = endMinutes - startMinutes;
+        
+        if (durationFilter === 'below30min') {
+          return duration < 30;
+        } else if (durationFilter === '30min') {
+          return duration >= 30;
+        } else if (durationFilter === '60min') {
+          return duration >= 60;
+        }
+        
+        return true;
+      }
+      
+      // Check if a task passes the category filter
+      function checkCategoryFilter(task) {
+        // If category filter panel is hidden, don't filter by category
+        if (document.getElementById('category-filter-container').classList.contains('hidden')) {
+          return true;
+        }
+        
+        // Get all checked category checkboxes
+        const checkedCategories = Array.from(document.querySelectorAll('#category-checkboxes input[type="checkbox"]:checked'))
+          .map(cb => cb.value);
+        
+        // If no categories are checked, show nothing
+        if (checkedCategories.length === 0) {
+          return false;
+        }
+        
+        // 根據當前顯示模式選擇過濾字段
+        if (displayMode === 'task') {
+          // 按任務類別過濾
+          return checkedCategories.includes(task.name);
+        } else {
+          // 按個別工作過濾
+          return checkedCategories.includes(task.description || task.name);
+        }
+      }
+      
+      // 預設個別工作列表 - 可配置
+      let defaultWorks = [
+        "讀經",
+        "每月相片管理",
+        "Facebook",
+        "傳說對決",
+        "H-Channel",
+        "步行",
+        "手機上的理財活動",
+        "手機上網賺活動",
+        "筆友",
+        "日記",
+		"飲食",
+		"家長角色"		
+      ];
+
+      // Check if a task passes the default works filter
+      function checkDefaultWorksFilter(task) {
+        // 只有在顯示個別工作模式下且有勾選「僅顯示預設個別工作」時才過濾
+        const showDefaultWorksOnly = document.getElementById('show-default-works-only').checked;
+        if (displayMode !== 'detail' || !showDefaultWorksOnly) {
+          return true;
+        }
+        
+        // 檢查任務的個別工作名稱是否在預設列表中
+        const workName = task.description || task.name;
+        const result = defaultWorks.includes(workName);
+        
+        // 調試信息
+        console.log(`Filtering task: ${workName}, in default works: ${result}`);
+        
+        return result;
+      }
+      
+      // Calculate total time for default works
+      function calculateDefaultWorksTotalTime() {
+        // 只計算當顯示個別工作模式下且勾選「僅顯示預設個別工作」時的總時間
+        const showDefaultWorksOnly = document.getElementById('show-default-works-only').checked;
+        if (displayMode !== 'detail' || !showDefaultWorksOnly) {
+          return { hours: 0, minutes: 0, totalMinutes: 0 };
+        }
+        
+        // 找出所有符合預設個別工作的任務
+        const defaultWorkTasks = tasks.filter(task => {
+          const workName = task.description || task.name;
+          return defaultWorks.includes(workName);
+        });
+        
+        // 計算這些任務的總時間（分鐘）
+        let totalMinutes = 0;
+        defaultWorkTasks.forEach(task => {
+          totalMinutes += calculateDuration(task.start, task.end);
+        });
+        
+        // 轉換為小時和分鐘
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        
+        return { hours, minutes, totalMinutes };
+      }
+      
+      // Calculate time for each default work individually
+      function calculateDefaultWorksDetailedTime() {
+        // 為每個預設工作計算總時間
+        const workTimes = {};
+        
+        // 初始化每個預設工作的時間為0
+        defaultWorks.forEach(work => {
+          workTimes[work] = 0;
+        });
+        
+        // 計算每個預設工作的總時間（分鐘）
+        tasks.forEach(task => {
+          const workName = task.description || task.name;
+          if (defaultWorks.includes(workName)) {
+            const duration = calculateDuration(task.start, task.end);
+            workTimes[workName] += duration;
+          }
+        });
+        
+        // 轉換為更可讀的格式
+        const formattedWorkTimes = {};
+        for (const [work, minutes] of Object.entries(workTimes)) {
+          const hours = Math.floor(minutes / 60);
+          const remainingMinutes = minutes % 60;
+          formattedWorkTimes[work] = {
+            hours,
+            minutes: remainingMinutes,
+            totalMinutes: minutes,
+            // 格式化為 HH:MM
+            formatted: `${hours}:${remainingMinutes < 10 ? '0' + remainingMinutes : remainingMinutes}`
+          };
+        }
+        
+        return formattedWorkTimes;
+      }
+      
+      // 用於儲存當前選擇的過濾個別工作
+      let selectedDefaultWork = null;
+      
+      // Render the default works time summary
+      function renderDefaultWorksSummary() {
+        const summaryContainer = document.getElementById('default-works-summary');
+        summaryContainer.innerHTML = '';
+        
+        // 計算每個預設工作的時間
+        const workTimes = calculateDefaultWorksDetailedTime();
+        
+        // 檢查是否有數據
+        const hasData = Object.values(workTimes).some(time => time.totalMinutes > 0);
+        
+        if (!hasData) {
+          const emptyMessage = document.createElement('div');
+          emptyMessage.className = 'col-span-full text-center text-gray-500 py-6';
+          emptyMessage.textContent = currentLanguage === 'zh' ? 
+            '尚無預設個別工作時間數據可供顯示。請先添加包含預設個別工作的任務。' : 
+            'No default work time data to display yet. Please add tasks that contain default individual works.';
+          summaryContainer.appendChild(emptyMessage);
+          return;
+        }
+        
+        // 如果有選擇的過濾項目，添加一個清除過濾的按鈕
+        if (selectedDefaultWork) {
+          const filterNotice = document.createElement('div');
+          filterNotice.className = 'col-span-full bg-blue-100 dark:bg-blue-900 p-3 rounded-lg mb-3 flex justify-between items-center';
+          filterNotice.innerHTML = `
+            <div>
+              <span class="font-medium">${currentLanguage === 'zh' ? '當前過濾：' : 'Current filter: '}</span>
+              <span>${selectedDefaultWork}</span>
+            </div>
+            <button id="clear-work-filter" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm">
+              ${currentLanguage === 'zh' ? '清除過濾' : 'Clear filter'}
+            </button>
+          `;
+          summaryContainer.appendChild(filterNotice);
+          
+          // 添加清除過濾的事件監聽器
+          document.getElementById('clear-work-filter').addEventListener('click', () => {
+            selectedDefaultWork = null;
+            renderDefaultWorksSummary();
+            renderTimelines();
+          });
+        }
+        
+        // 排序預設工作 - 按時間從高到低
+        const sortedWorks = Object.entries(workTimes)
+          .filter(([_, time]) => time.totalMinutes > 0)  // 只顯示有時間的工作
+          .sort((a, b) => b[1].totalMinutes - a[1].totalMinutes);
+        
+        // 為每個預設工作創建卡片
+        sortedWorks.forEach(([work, time]) => {
+          // 根據個別工作名稱查找相應的任務類別顏色
+          let workColor = '#CCCCCC';
+          const taskWithWork = tasks.find(task => (task.description || task.name) === work);
+          if (taskWithWork) {
+            workColor = taskColors[taskWithWork.name] || '#CCCCCC';
+          }
+          
+          const card = document.createElement('div');
+          // 添加游標顯示這是可點擊的
+          card.className = 'bg-gray-50 dark:bg-gray-700 rounded-lg p-3 flex items-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition';
+          
+          // 如果是當前選擇的項目，添加高亮樣式
+          if (selectedDefaultWork === work) {
+            card.className += ' ring-2 ring-primary';
+          }
+          
+          // 使用任務顏色作為左側條
+          card.innerHTML = `
+            <div class="w-2 self-stretch rounded-full mr-3" style="background-color: ${workColor}"></div>
+            <div class="flex-grow">
+              <div class="font-medium">${work}</div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">${time.formatted}</div>
+            </div>
+            <div class="text-lg font-semibold">
+              ${time.hours}<span class="text-gray-400 text-sm">h</span>
+              ${time.minutes}<span class="text-gray-400 text-sm">m</span>
+            </div>
+          `;
+          
+          // 添加點擊事件，用於過濾時間軸
+          card.addEventListener('click', () => {
+            // 如果已經選擇了這個項目，則取消選擇
+            if (selectedDefaultWork === work) {
+              selectedDefaultWork = null;
+            } else {
+              selectedDefaultWork = work;
+            }
+            // 重新渲染摘要和時間軸
+            renderDefaultWorksSummary();
+            renderTimelines();
+          });
+          
+          summaryContainer.appendChild(card);
+        });
+      }
+      
+      // Update the total time display for default works
+      function updateDefaultWorksTotalTime() {
+        const totalTimeElement = document.getElementById('default-works-total-time');
+        const hoursElement = document.getElementById('default-works-hours');
+        const minutesElement = document.getElementById('default-works-minutes');
+        
+        const { hours, minutes } = calculateDefaultWorksTotalTime();
+        
+        // 更新顯示
+        hoursElement.textContent = hours;
+        minutesElement.textContent = minutes < 10 ? '0' + minutes : minutes;
+        
+        // 只有在顯示個別工作模式下且勾選「僅顯示預設個別工作」時才顯示總時間
+        const showDefaultWorksOnly = document.getElementById('show-default-works-only').checked;
+        if (displayMode === 'detail' && showDefaultWorksOnly) {
+          totalTimeElement.classList.remove('hidden');
+        } else {
+          totalTimeElement.classList.add('hidden');
+        }
+      }
+      
+      // Get filtered tasks
+      function getFilteredTasks() {
+        return tasks.filter(task => 
+          checkDurationFilter(task) && 
+          checkCategoryFilter(task) &&
+          checkDefaultWorksFilter(task) &&
+          checkSelectedDefaultWorkFilter(task)
+        );
+      }
+      
+      // Check if a task passes the selected default work filter
+      function checkSelectedDefaultWorkFilter(task) {
+        // 如果沒有選擇特定的預設個別工作，不進行過濾
+        if (!selectedDefaultWork) {
+          return true;
+        }
+        
+        // 檢查任務的個別工作名稱是否是被選中的預設個別工作
+        const workName = task.description || task.name;
+        return workName === selectedDefaultWork;
+      }
+      
+      // Get special time markers
+      function getSpecialTimeMarkers() {
+        const markers = [];
+        
+        // Get all checked special time marker checkboxes
+        document.querySelectorAll('.special-time-marker-checkbox:checked').forEach(checkbox => {
+          const timeStr = checkbox.getAttribute('data-time');
+          if (timeStr) {
+            markers.push(timeStr);
+          }
+        });
+        
+        return markers;
+      }
+      
+      // Add new custom marker
+      function addCustomMarker() {
+        const timeInput = document.getElementById('custom-marker-time');
+        const labelInput = document.getElementById('custom-marker-label');
+        
+        const timeValue = timeInput.value.trim();
+        const labelValue = labelInput.value.trim();
+        
+        // Validate inputs
+        if (!timeValue || !labelValue) {
+          showError(currentLanguage === 'zh' ? '時間和標籤都必須填寫' : 'Both time and label are required');
+          return;
+        }
+        
+        // Validate time format (HHMM)
+        const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
+        if (!timeRegex.test(timeValue)) {
+          showError(currentLanguage === 'zh' ? '時間格式無效，請使用 HHMM 格式' : 'Invalid time format. Please use HHMM format');
+          return;
+        }
+        
+        // Format the time to ensure 4 digits
+        const formattedTime = timeValue.padStart(4, '0');
+        
+        // Check if this time already exists
+        const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
+        if (existingMarker) {
+          showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+          return;
+        }
+        
+        // Generate a random color for the new marker
+        const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        
+        // Create a new marker checkbox
+        const markersContainer = document.querySelector('#special-time-markers .grid');
+        
+        const markerContainer = document.createElement('div');
+        markerContainer.className = 'flex items-center';
+        
+        const markerId = `marker-${formattedTime}`;
+        
+        markerContainer.innerHTML = `
+          <input type="checkbox" id="${markerId}" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="${formattedTime}" data-color="${randomColor}" checked>
+          <label for="${markerId}" class="ml-2 text-sm">${formatTime(formattedTime)} ${labelValue}</label>
+          <div class="color-picker-container">
+            <input type="color" class="color-picker" value="${randomColor}" data-time="${formattedTime}">
+            <div class="color-display" style="background-color: ${randomColor};"></div>
+          </div>
+          <div class="marker-actions">
+            <button type="button" class="marker-edit-btn" data-time="${formattedTime}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </button>
+            <button type="button" class="marker-delete-btn" data-time="${formattedTime}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        `;
+        
+        markersContainer.appendChild(markerContainer);
+        
+        // Add event listener to the new color picker
+        const newColorPicker = markerContainer.querySelector('.color-picker');
+        newColorPicker.addEventListener('input', handleColorPickerChange);
+        
+        // Clear inputs
+        timeInput.value = '';
+        labelInput.value = '';
+        
+        // Hide error if visible
+        hideError();
+        
+        // Apply settings to show the new marker
+        document.getElementById('apply-settings').click();
+      }
+      
+      // Handle color picker changes
+      function handleColorPickerChange(e) {
+        const colorPicker = e.target;
+        const timeStr = colorPicker.getAttribute('data-time');
+        const newColor = colorPicker.value;
+        
+        // Update the color display next to the picker
+        const colorDisplay = colorPicker.nextElementSibling;
+        colorDisplay.style.backgroundColor = newColor;
+        
+        // Update the checkbox's data-color attribute
+        const checkbox = document.querySelector(`.special-time-marker-checkbox[data-time="${timeStr}"]`);
+        if (checkbox) {
+          checkbox.setAttribute('data-color', newColor);
+        }
+        
+        // If the timeline settings are currently applied, update the timeline
+        if (checkbox.checked) {
+          renderTimelines();
+        }
+      }
+      
+      // Add event listeners to all color pickers
+      document.querySelectorAll('.color-picker').forEach(picker => {
+        picker.addEventListener('input', handleColorPickerChange);
+      });
+      
+      // Variable to track if we're in edit mode
+      let editingMarkerTime = null;
+      
+      // Handle edit button click for markers
+      function handleMarkerEdit(e) {
+        const timeStr = e.currentTarget.getAttribute('data-time');
+        const markerCheckbox = document.querySelector(`.special-time-marker-checkbox[data-time="${timeStr}"]`);
+        
+        if (markerCheckbox) {
+          // Get the marker label
+          const label = markerCheckbox.nextElementSibling.textContent.trim();
+          const labelText = label.substring(6); // Remove the time part (e.g., "01:00 ")
+          
+          // Populate the custom marker form
+          document.getElementById('custom-marker-time').value = timeStr;
+          document.getElementById('custom-marker-label').value = labelText;
+          
+          // Set edit mode
+          editingMarkerTime = timeStr;
+          
+          // Change add button text to indicate edit mode
+          const addButton = document.getElementById('add-custom-marker');
+          if (currentLanguage === 'zh') {
+            addButton.querySelector('[data-lang="zh"]').textContent = '更新標記';
+          } else {
+            addButton.querySelector('[data-lang="en"]').textContent = 'Update Marker';
+          }
+          
+          // Scroll to the edit form
+          document.getElementById('custom-marker-time').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          document.getElementById('custom-marker-time').focus();
+        }
+      }
+      
+      // Handle delete button click for markers
+      function handleMarkerDelete(e) {
+        const timeStr = e.currentTarget.getAttribute('data-time');
+        const markerContainer = document.querySelector(`.special-time-marker-checkbox[data-time="${timeStr}"]`).closest('.flex.items-center');
+        
+        if (markerContainer) {
+          // If we're currently editing this marker, clear the form
+          if (editingMarkerTime === timeStr) {
+            document.getElementById('custom-marker-time').value = '';
+            document.getElementById('custom-marker-label').value = '';
+            
+            // Reset edit mode
+            editingMarkerTime = null;
+            
+            // Reset add button text
+            const addButton = document.getElementById('add-custom-marker');
+            if (currentLanguage === 'zh') {
+              addButton.querySelector('[data-lang="zh"]').textContent = '新增標記';
+            } else {
+              addButton.querySelector('[data-lang="en"]').textContent = 'Add Marker';
+            }
+          }
+          
+          // Remove the marker
+          markerContainer.remove();
+          
+          // Update the timeline
+          renderTimelines();
+          
+          // Show success message
+          const successMsg = currentLanguage === 'zh' ? '標記已刪除' : 'Marker deleted';
+          showSettingsStatus(successMsg);
+        }
+      }
+      
+      // Attach event listeners for edit and delete buttons
+      function attachMarkerActionListeners() {
+        document.querySelectorAll('.marker-edit-btn').forEach(btn => {
+          btn.addEventListener('click', handleMarkerEdit);
+        });
+        
+        document.querySelectorAll('.marker-delete-btn').forEach(btn => {
+          btn.addEventListener('click', handleMarkerDelete);
+        });
+      }
+      
+      // Call this function on page load
+      attachMarkerActionListeners();
+      
+      // Function to add or update a marker
+      function addOrUpdateMarker() {
+        const timeInput = document.getElementById('custom-marker-time');
+        const labelInput = document.getElementById('custom-marker-label');
+        
+        const timeValue = timeInput.value.trim();
+        const labelValue = labelInput.value.trim();
+        
+        // Validate inputs
+        if (!timeValue || !labelValue) {
+          showError(currentLanguage === 'zh' ? '時間和標籤都必須填寫' : 'Both time and label are required');
+          return;
+        }
+        
+        // Validate time format (HHMM)
+        const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
+        if (!timeRegex.test(timeValue)) {
+          showError(currentLanguage === 'zh' ? '時間格式無效，請使用 HHMM 格式' : 'Invalid time format. Please use HHMM format');
+          return;
+        }
+        
+        // Format the time to ensure 4 digits
+        const formattedTime = timeValue.padStart(4, '0');
+        
+        // Are we editing an existing marker?
+        if (editingMarkerTime) {
+          const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${editingMarkerTime}"]`);
+          
+          if (existingMarker) {
+            // Check if time is changing and if the new time already exists
+            if (editingMarkerTime !== formattedTime) {
+              const timeConflict = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
+              if (timeConflict) {
+                showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+                return;
+              }
+            }
+            
+            // Get the marker container
+            const markerContainer = existingMarker.closest('.flex.items-center');
+            
+            // Update the marker attributes
+            existingMarker.setAttribute('data-time', formattedTime);
+            existingMarker.id = `marker-${formattedTime}`;
+            
+            // Update the label text
+            const label = existingMarker.nextElementSibling;
+            label.htmlFor = `marker-${formattedTime}`;
+            const formattedLabel = formatTime(formattedTime);
+            
+            // Preserve language-specific spans
+            const zhSpan = label.querySelector('[data-lang="zh"]');
+            const enSpan = label.querySelector('[data-lang="en"]');
+            
+            if (zhSpan && enSpan) {
+              // Update both language spans
+              zhSpan.textContent = labelValue;
+              enSpan.textContent = labelValue;
+              label.innerHTML = `${formattedLabel} `;
+              label.appendChild(zhSpan);
+              label.appendChild(enSpan);
+            } else {
+              // Simple update if no language spans
+              label.textContent = `${formattedLabel} ${labelValue}`;
+            }
+            
+            // Update color picker attributes
+            const colorPicker = markerContainer.querySelector('.color-picker');
+            if (colorPicker) {
+              colorPicker.setAttribute('data-time', formattedTime);
+            }
+            
+            // Update edit and delete buttons
+            const editBtn = markerContainer.querySelector('.marker-edit-btn');
+            const deleteBtn = markerContainer.querySelector('.marker-delete-btn');
+            
+            if (editBtn) editBtn.setAttribute('data-time', formattedTime);
+            if (deleteBtn) deleteBtn.setAttribute('data-time', formattedTime);
+            
+            // Show success message
+            const successMsg = currentLanguage === 'zh' ? '標記已更新' : 'Marker updated';
+            showSettingsStatus(successMsg);
+          }
+        } else {
+          // Adding a new marker - check if this time already exists
+          const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${formattedTime}"]`);
+          if (existingMarker) {
+            showError(currentLanguage === 'zh' ? '此時間標記已存在' : 'This time marker already exists');
+            return;
+          }
+          
+          // Generate a random color for the new marker
+          const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+          
+          // Create a new marker checkbox
+          const markersContainer = document.querySelector('#special-time-markers .grid');
+          
+          const markerContainer = document.createElement('div');
+          markerContainer.className = 'flex items-center';
+          
+          const markerId = `marker-${formattedTime}`;
+          
+          markerContainer.innerHTML = `
+            <input type="checkbox" id="${markerId}" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="${formattedTime}" data-color="${randomColor}" checked>
+            <label for="${markerId}" class="ml-2 text-sm">${formatTime(formattedTime)} <span data-lang="zh">${labelValue}</span><span data-lang="en">${labelValue}</span></label>
+            <div class="color-picker-container">
+              <input type="color" class="color-picker" value="${randomColor}" data-time="${formattedTime}">
+              <div class="color-display" style="background-color: ${randomColor};"></div>
+            </div>
+            <div class="marker-actions">
+              <button type="button" class="marker-edit-btn" data-time="${formattedTime}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+              </button>
+              <button type="button" class="marker-delete-btn" data-time="${formattedTime}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          `;
+          
+          markersContainer.appendChild(markerContainer);
+          
+          // Add event listeners to the new controls
+          const newColorPicker = markerContainer.querySelector('.color-picker');
+          newColorPicker.addEventListener('input', handleColorPickerChange);
+          
+          const newEditBtn = markerContainer.querySelector('.marker-edit-btn');
+          newEditBtn.addEventListener('click', handleMarkerEdit);
+          
+          const newDeleteBtn = markerContainer.querySelector('.marker-delete-btn');
+          newDeleteBtn.addEventListener('click', handleMarkerDelete);
+          
+          // Show success message
+          const successMsg = currentLanguage === 'zh' ? '標記已新增' : 'Marker added';
+          showSettingsStatus(successMsg);
+        }
+        
+        // Clear edit mode
+        editingMarkerTime = null;
+        
+        // Reset add button text
+        const addButton = document.getElementById('add-custom-marker');
+        if (currentLanguage === 'zh') {
+          addButton.querySelector('[data-lang="zh"]').textContent = '新增標記';
+        } else {
+          addButton.querySelector('[data-lang="en"]').textContent = 'Add Marker';
+        }
+        
+        // Clear inputs
+        timeInput.value = '';
+        labelInput.value = '';
+        
+        // Hide error if visible
+        hideError();
+        
+        // Apply settings to show the new marker
+        document.getElementById('apply-settings').click();
+      }
+      
+      // Register event listener for the add/update marker button
+      document.getElementById('add-custom-marker').addEventListener('click', addOrUpdateMarker);
+      document.getElementById('custom-marker-time').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          addOrUpdateMarker();
+        }
+      });
+      document.getElementById('custom-marker-label').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          addOrUpdateMarker();
+        }
+      });
+      
+      // Render multiple timelines, one per date
+      function renderTimelines() {
+        timelinesContainer.innerHTML = '';
+        
+        // Update the default works total time display
+        updateDefaultWorksTotalTime();
+        
+        // Get filtered dates based on day filter
+        const filteredDates = getFilteredDates();
+        // Get filtered tasks
+        const filteredTasks = getFilteredTasks();
+        
+        // Check if there are any tasks to display after filtering
+        if (filteredDates.length === 0 || filteredTasks.length === 0) {
+          const emptyMessage = document.createElement('div');
+          emptyMessage.className = 'py-4 text-center text-gray-500';
+          
+          // 檢查是否有任務但被過濾掉了
+          if (tasks.length > 0) {
+            emptyMessage.textContent = currentLanguage === 'zh' ? 
+              '目前沒有符合過濾條件的任務' : 
+              'No tasks match the current filter criteria';
+          } else {
+            emptyMessage.textContent = currentLanguage === 'zh' ? 
+              '尚未添加任務，請使用上方表單添加任務' : 
+              'No tasks added yet. Please use the form above to add tasks.';
+          }
+          
+          timelinesContainer.appendChild(emptyMessage);
+          return;
+        }
+        
+        // Get current timeline settings
+        const settings = getTimelineSettings();
+        const showHourGridLines = document.getElementById('show-hour-grid-lines').checked;
+        const specialTimeMarkers = getSpecialTimeMarkers();
+        
+        // Add left padding for the labels column (matches the time markers)
+        const leftPadding = document.createElement('div');
+        leftPadding.className = 'pl-[150px]';
+        leftPadding.style.marginBottom = '10px';
+        timelinesContainer.appendChild(leftPadding);
+        
+        // Create a timeline for each date that has tasks after filtering
+        filteredDates.forEach(date => {
+          // Get tasks for this date that pass all filters
+          const dateTasks = filteredTasks.filter(task => task.date === date);
+          
+          // Skip dates with no tasks after filtering
+          if (dateTasks.length === 0) {
+            return;
+          }
+          
+          // Create a row for this date with the label and timeline
+          const timelineRow = document.createElement('div');
+          timelineRow.className = 'timeline-row';
+          timelinesContainer.appendChild(timelineRow);
+          
+          // Create date label on the left
+          const dateLabel = document.createElement('div');
+          dateLabel.className = 'date-label';
+          dateLabel.textContent = formatDate(date);
+          timelineRow.appendChild(dateLabel);
+          
+          // Create timeline content container on the right
+          const timelineContent = document.createElement('div');
+          timelineContent.className = 'timeline-content';
+          timelineRow.appendChild(timelineContent);
+          
+          // Create timeline grid inside the content container
+          const timelineGrid = document.createElement('div');
+          timelineGrid.className = 'timeline-grid';
+          timelineGrid.style.height = settings.height + 'px';
+          timelineGrid.style.marginBottom = settings.spacing + 'px';
+          timelineContent.appendChild(timelineGrid);
+          
+          // Add hourly vertical grid lines if enabled
+          if (showHourGridLines) {
+            for (let hour = 0; hour <= 24; hour++) {
+              const hourLinePosition = minutesToPosition(hour * 60);
+              const hourLine = document.createElement('div');
+              hourLine.className = 'hour-grid-line';
+              hourLine.style.left = hourLinePosition + 'px';
+              timelineGrid.appendChild(hourLine);
+            }
+            
+            // Add special time marker lines - only show them when hourly grid lines are enabled
+            specialTimeMarkers.forEach(timeStr => {
+              const minutes = convertTimeToMinutes(timeStr);
+              const markerPosition = minutesToPosition(minutes);
+              
+              // Find the marker checkbox to get the color
+              const markerCheckbox = document.querySelector(`.special-time-marker-checkbox[data-time="${timeStr}"]`);
+              const markerColor = markerCheckbox ? markerCheckbox.getAttribute('data-color') : '#FFFFFF';
+              
+              const markerLine = document.createElement('div');
+              markerLine.className = 'special-time-line';
+              markerLine.style.left = markerPosition + 'px';
+              
+              // Apply custom color
+              markerLine.style.backgroundColor = markerColor;
+              markerLine.style.boxShadow = `0 0 3px ${markerColor}`;
+              
+              // Add tooltip showing the time and label
+              const label = markerCheckbox ? markerCheckbox.nextElementSibling.textContent : formatTime(timeStr);
+              markerLine.title = label;
+              
+              timelineGrid.appendChild(markerLine);
+            });
+          }
+          
+          // Add tasks for this date
+          dateTasks.forEach(task => {
+            const startMinutes = convertTimeToMinutes(task.start);
+            let endMinutes = convertTimeToMinutes(task.end);
+            let duration;
+            
+            // Handle crossing midnight (end time < start time)
+            if (task.isCrossingMidnight || endMinutes < startMinutes) {
+              // For tasks crossing midnight, we add 24 hours (1440 minutes) to the end time
+              endMinutes += 24 * 60;
+            }
+            
+            duration = endMinutes - startMinutes;
+            
+            const taskBar = document.createElement('div');
+            taskBar.className = 'timeline-task';
+            taskBar.style.backgroundColor = task.color;
+            taskBar.style.left = minutesToPosition(startMinutes) + 'px';
+            taskBar.style.width = minutesToPosition(duration) + 'px';
+            taskBar.style.height = settings.height + 'px';
+            taskBar.style.top = '0'; // Position at the top of the grid
+            
+            // Add task ID as data attribute for editing
+            taskBar.setAttribute('data-id', task.id);
+            
+            // Check if task labels should be shown
+            const showTaskLabels = document.getElementById('show-task-labels').checked;
+            
+            // 根據顯示模式決定顯示的文字 - 任務類別或個別工作
+            const displayName = displayMode === 'task' ? task.name : (task.description || task.name);
+            
+            if (showTaskLabels) {
+              taskBar.textContent = `${displayName} (${formatTime(task.start)}-${formatTime(task.end)})`;
+              
+              // Add a darker text color for better readability on light backgrounds
+              const rgb = hexToRgb(task.color);
+              const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+              taskBar.style.color = brightness > 128 ? '#000000' : '#FFFFFF';
+            } else {
+              // Add title for tooltip when hovering
+              taskBar.title = `${displayName} (${formatTime(task.start)}-${formatTime(task.end)})`;
+            }
+            
+            // Add a subtle hover effect
+            taskBar.addEventListener('mouseenter', function() {
+              this.style.boxShadow = '0 0 0 2px rgba(93, 92, 222, 0.6)';
+            });
+            
+            taskBar.addEventListener('mouseleave', function() {
+              this.style.boxShadow = '';
+            });
+            
+            // Add click event listener to open edit modal
+            taskBar.addEventListener('click', function() {
+              showEditTaskModal(task.id);
+            });
+            
+            timelineGrid.appendChild(taskBar);
+          });
+        });
+      }
+      
+      // No color legend needed
+      
+      // Delete a task
+      function deleteTask(taskId) {
+        const index = tasks.findIndex(task => task.id === taskId);
+        if (index !== -1) {
+          tasks.splice(index, 1);
+          renderTaskTable();
+          renderTimelines();
+        }
+      }
+      
+      // Show error message
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+      }
+      
+      // Hide error message
+      function hideError() {
+        errorMessage.classList.add('hidden');
+      }
+      
+      // Format error messages based on language
+      function getErrorMessage(errorType) {
+        const errorMessages = {
+          'required_fields': {
+            'zh': '所有欄位都必須填寫',
+            'en': 'All fields are required'
+          },
+          'invalid_time_format': {
+            'zh': '時間格式無效，請使用 HHMM 格式（例如：0930、1430）',
+            'en': 'Invalid time format. Please use HHMM format (e.g. 0930, 1430)'
+          },
+          'end_time_before_start': {
+            'zh': '結束時間必須晚於開始時間',
+            'en': 'End time must be after start time'
+          },
+          'no_csv_file': {
+            'zh': '請先選擇 CSV 文件',
+            'en': 'Please select a CSV file first'
+          },
+          'csv_empty': {
+            'zh': 'CSV 文件為空或格式錯誤',
+            'en': 'CSV file is empty or has invalid format'
+          },
+          'csv_missing_fields': {
+            'zh': 'CSV 缺少必要欄位: Project, Start date, Start time, End date, End time',
+            'en': 'CSV missing required fields: Project, Start date, Start time, End date, End time'
+          },
+          'file_read_error': {
+            'zh': '讀取文件時發生錯誤',
+            'en': 'Error reading file'
+          },
+          'csv_parse_error': {
+            'zh': 'CSV 解析錯誤: ',
+            'en': 'CSV parsing error: '
+          }
+        };
+        
+        return errorMessages[errorType][currentLanguage] || message;
+      }
+      
+      // Helper function to convert hex color to RGB
+      function hexToRgb(hex) {
+        // Remove # if present
+        hex = hex.replace(/^#/, '');
+        
+        // Parse hex values
+        const bigint = parseInt(hex, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        
+        return { r, g, b };
+      }
+      
+      // No color selector functionality needed
+      
+      // Add event listener to add task button
+      addTaskButton.addEventListener('click', addTask);
+      
+      // Add event listener to apply settings button
+      document.getElementById('apply-settings').addEventListener('click', () => {
+        initializeTimeMarkers();
+        renderTimelines();
+      });
+      
+      // Add event listeners for category filter toggle
+      const categoryFilterContainer = document.getElementById('category-filter-container');
+      const toggleCategoryFilterBtn = document.getElementById('toggle-category-filter');
+      
+      toggleCategoryFilterBtn.addEventListener('click', () => {
+        // Toggle the visibility of the category filter container
+        if (categoryFilterContainer.classList.contains('hidden')) {
+          categoryFilterContainer.classList.remove('hidden');
+          updateCategoryFilter();
+        } else {
+          categoryFilterContainer.classList.add('hidden');
+        }
+      });
+      
+      // Add event listeners for select/deselect all categories
+      document.getElementById('select-all-categories').addEventListener('click', () => {
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = true;
+        });
+      });
+      
+      document.getElementById('deselect-all-categories').addEventListener('click', () => {
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+      });
+      
+      // 為各個過濾器添加立即響應的事件監聽器
+      
+      // 日期過濾器 (星期選擇) 變更時立即響應
+      document.getElementById('day-filter').addEventListener('change', () => {
+        console.log('Day filter changed to:', document.getElementById('day-filter').value);
+        
+        // 先檢查並更新類別過濾器
+        if (!document.getElementById('category-filter-container').classList.contains('hidden')) {
+          // 如果勾選了「僅顯示預設個別工作」，則優先使用預設個別工作過濾邏輯
+          if (document.getElementById('show-default-works-only').checked) {
+            updateCategoryFilterForDefaultWorks();
+          } else {
+            updateCategoryFilter();
+          }
+        }
+        
+        // 確保在更新預設個別工作部分之前已經切換為個別工作模式
+        if (document.getElementById('show-default-works-only').checked && displayMode !== 'detail') {
+          displayMode = 'detail';
+          updateDisplayModeUI();
+        }
+        
+        // 更新所有預設個別工作相關的 UI
+        updateDefaultWorksUI();
+        
+        // 重新渲染時間軸
+        renderTimelines();
+      });
+      
+      // 時長過濾器變更時立即響應
+      document.getElementById('duration-filter').addEventListener('change', () => {
+        console.log('Duration filter changed to:', document.getElementById('duration-filter').value);
+        
+        // 先檢查並更新類別過濾器
+        if (!document.getElementById('category-filter-container').classList.contains('hidden')) {
+          // 如果勾選了「僅顯示預設個別工作」，則優先使用預設個別工作過濾邏輯
+          if (document.getElementById('show-default-works-only').checked) {
+            updateCategoryFilterForDefaultWorks();
+          } else {
+            updateCategoryFilter();
+          }
+        }
+        
+        // 確保在更新預設個別工作部分之前已經切換為個別工作模式
+        if (document.getElementById('show-default-works-only').checked && displayMode !== 'detail') {
+          displayMode = 'detail';
+          updateDisplayModeUI();
+        }
+        
+        // 更新所有預設個別工作相關的 UI
+        updateDefaultWorksUI();
+        
+        // 重新渲染時間軸
+        renderTimelines();
+      });
+      
+      // 類別過濾器複選框變更時立即響應
+      document.getElementById('category-checkboxes').addEventListener('change', (e) => {
+        // 確保目標是複選框
+        if (e.target.type === 'checkbox') {
+          console.log('Category checkbox changed:', e.target.value, e.target.checked);
+          
+          // 確保在更新預設個別工作部分之前已經切換為個別工作模式
+          if (document.getElementById('show-default-works-only').checked && displayMode !== 'detail') {
+            displayMode = 'detail';
+            updateDisplayModeUI();
+          }
+          
+          // 更新所有預設個別工作相關的 UI
+          updateDefaultWorksUI();
+          
+          // 重新渲染時間軸
+          renderTimelines();
+        }
+      });
+      
+      // 全選和取消全選按鈕點擊後，也要立即響應
+      document.getElementById('select-all-categories').addEventListener('click', () => {
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = true;
+        });
+        // 立即渲染時間軸反映變更
+        renderTimelines();
+      });
+      
+      document.getElementById('deselect-all-categories').addEventListener('click', () => {
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          checkbox.checked = false;
+        });
+        // 立即渲染時間軸反映變更
+        renderTimelines();
+      });
+      
+      // Add event listener to 'show-default-works-only' checkbox
+      document.getElementById('show-default-works-only').addEventListener('change', (e) => {
+        console.log('Default works only checkbox changed:', e.target.checked);
+        
+        // 如果勾選僅顯示預設個別工作，自動切換到個別工作模式
+        if (e.target.checked && displayMode !== 'detail') {
+          displayMode = 'detail';
+          updateDisplayModeUI();
+        }
+        
+        // 如果勾選了僅顯示預設個別工作，且類別過濾器面板打開中
+        if (e.target.checked && !categoryFilterContainer.classList.contains('hidden')) {
+          // 更新類別過濾器只勾選包含預設個別工作的類別
+          updateCategoryFilterForDefaultWorks();
+        }
+        
+        // 更新預設個別工作相關的 UI
+        updateDefaultWorksUI();
+        
+        renderTimelines();
+      });
+      
+      // Add event listener for focus analysis button
+      document.getElementById('focus-analysis').addEventListener('click', () => {
+        // Set duration filter to 30 min or longer
+        document.getElementById('duration-filter').value = '30min';
+        
+        // Show category filter panel if it's hidden
+        if (categoryFilterContainer.classList.contains('hidden')) {
+          categoryFilterContainer.classList.remove('hidden');
+          updateCategoryFilter();
+        }
+        
+        // Exclude specific categories (未分類, 生活, 關係, 休息)
+        const excludeCategories = ['未分類', '生活', '關係', '休息', 'Uncategorized', 'Living', 'Relationship', 'Rest'];
+        
+        // Check/uncheck appropriate category checkboxes
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          if (excludeCategories.includes(checkbox.value)) {
+            checkbox.checked = false; // Uncheck excluded categories
+          } else {
+            checkbox.checked = true; // Check all other categories
+          }
+        });
+        
+        // Apply the filters
+        renderTimelines();
+      });
+      
+      // 定義顯示模式（任務類別/個別工作）
+      let displayMode = 'task'; // 'task' 或 'detail'
+      
+      // 處理顯示模式切換
+      document.getElementById('display-mode-task').addEventListener('click', function() {
+        if (displayMode !== 'task') {
+          displayMode = 'task';
+          updateDisplayModeUI();
+          renderTimelines();
+        }
+      });
+      
+      document.getElementById('display-mode-detail').addEventListener('click', function() {
+        if (displayMode !== 'detail') {
+          displayMode = 'detail';
+          updateDisplayModeUI();
+          renderTimelines();
+        }
+      });
+      
+      // 更新顯示模式的 UI 狀態
+      function updateDisplayModeUI() {
+        const taskButton = document.getElementById('display-mode-task');
+        const detailButton = document.getElementById('display-mode-detail');
+        
+        if (displayMode === 'task') {
+          taskButton.className = 'px-2 py-0.5 rounded-l-md bg-primary text-white';
+          detailButton.className = 'px-2 py-0.5 rounded-r-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200';
+        } else {
+          taskButton.className = 'px-2 py-0.5 rounded-l-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200';
+          detailButton.className = 'px-2 py-0.5 rounded-r-md bg-primary text-white';
+        }
+        
+        // 更新類別過濾器的標籤
+        const filterButtonText = document.getElementById('toggle-category-filter').querySelector(`[data-lang="${currentLanguage}"]`);
+        if (filterButtonText) {
+          if (currentLanguage === 'zh') {
+            filterButtonText.textContent = displayMode === 'task' ? '任務類別過濾' : '個別工作過濾';
+          } else {
+            filterButtonText.textContent = displayMode === 'task' ? 'Task Categories' : 'Individual Works';
+          }
+        }
+        
+        // 如果類別過濾器面板已打開，更新它
+        if (!document.getElementById('category-filter-container').classList.contains('hidden')) {
+          updateCategoryFilter();
+        }
+      }
+      
+      // Function to update category filter checkboxes
+      function updateCategoryFilter() {
+        const categoryCheckboxes = document.getElementById('category-checkboxes');
+        categoryCheckboxes.innerHTML = '';
+        
+        // 根據當前顯示模式獲取所有唯一的類別或工作
+        let categories;
+        if (displayMode === 'task') {
+          categories = [...new Set(tasks.map(task => task.name))].sort();
+        } else {
+          categories = [...new Set(tasks.map(task => task.description || task.name))].sort();
+        }
+        
+        if (categories.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.className = 'text-sm text-gray-500';
+          if (displayMode === 'task') {
+            emptyMsg.textContent = currentLanguage === 'zh' ? '沒有可用的任務類別' : 'No task categories available';
+          } else {
+            emptyMsg.textContent = currentLanguage === 'zh' ? '沒有可用的個別工作' : 'No individual works available';
+          }
+          categoryCheckboxes.appendChild(emptyMsg);
+          return;
+        }
+        
+        // 預設個別工作模式下檢查顯示「僅顯示預設個別工作」是否勾選
+        const showDefaultWorksOnly = document.getElementById('show-default-works-only').checked;
+        
+        // Create a checkbox for each category
+        categories.forEach(category => {
+          // 顯示任務類別時使用預設顏色，顯示個別工作時使用相應的任務類別顏色
+          let categoryColor = '#CCCCCC';
+          if (displayMode === 'task') {
+            categoryColor = taskColors[category] || '#CCCCCC';
+          } else {
+            // 找到對應這個工作描述的任務
+            const taskWithDescription = tasks.find(task => task.description === category);
+            if (taskWithDescription) {
+              categoryColor = taskColors[taskWithDescription.name] || '#CCCCCC';
+            }
+          }
+          
+          const checkboxContainer = document.createElement('div');
+          checkboxContainer.className = 'flex items-center gap-2';
+          
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = `category-${category.replace(/\s+/g, '-')}`;
+          checkbox.value = category;
+          checkbox.className = 'w-4 h-4 text-primary border-gray-300 rounded';
+          checkbox.checked = true; // Default to checked
+          
+          const colorIndicator = document.createElement('div');
+          colorIndicator.className = 'w-4 h-4 rounded';
+          colorIndicator.style.backgroundColor = categoryColor;
+          
+          const label = document.createElement('label');
+          label.htmlFor = `category-${category.replace(/\s+/g, '-')}`;
+          label.className = 'text-sm';
+          label.textContent = category;
+          
+          checkboxContainer.appendChild(checkbox);
+          checkboxContainer.appendChild(colorIndicator);
+          checkboxContainer.appendChild(label);
+          
+          categoryCheckboxes.appendChild(checkboxContainer);
+        });
+      }
+      
+      // Function to update category filter to only check categories containing default works
+      function updateCategoryFilterForDefaultWorks() {
+        // 只有在「個別工作」模式下才執行此功能
+        if (displayMode !== 'detail') {
+          return;
+        }
+        
+        // 找出所有包含預設個別工作的任務類別
+        const categoriesWithDefaultWorks = new Set();
+        
+        tasks.forEach(task => {
+          const workName = task.description || task.name;
+          // 如果這個個別工作在預設列表中，記錄其所屬的任務類別
+          if (defaultWorks.includes(workName)) {
+            categoriesWithDefaultWorks.add(task.name);
+          }
+        });
+        
+        // 更新所有類別過濾器的勾選狀態
+        document.querySelectorAll('#category-checkboxes input[type="checkbox"]').forEach(checkbox => {
+          const categoryName = checkbox.value;
+          
+          if (displayMode === 'task') {
+            // 在任務類別模式下，只勾選包含預設個別工作的類別
+            checkbox.checked = categoriesWithDefaultWorks.has(categoryName);
+          } else {
+            // 在個別工作模式下，只勾選是預設個別工作的工作
+            checkbox.checked = defaultWorks.includes(categoryName);
+          }
+        });
+        
+        console.log('Updated category filter for default works');
+      }
+      
+      // Adjust timeline width on window resize
+      window.addEventListener('resize', () => {
+        initializeTimeMarkers();
+        renderTimelines();
+      });
+      
+      // Add example tasks (with dates)
+      function addExampleTasks() {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayFormatted = yesterday.toISOString().split('T')[0];
+        
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowFormatted = tomorrow.toISOString().split('T')[0];
+        
+        // Choose examples based on language
+        if (currentLanguage === 'zh') {
+          tasks.push(
+            { id: 1, date: yesterdayFormatted, start: '1000', end: '1200', name: '工作', color: taskTypeColors['工作'] },
+            { id: 2, date: todayFormatted, start: '0900', end: '1100', name: '學習', color: defaultColors[1] },
+            { id: 3, date: todayFormatted, start: '1200', end: '1300', name: '休息', color: taskTypeColors['休息'] },
+            { id: 4, date: todayFormatted, start: '1330', end: '1530', name: '業餘', color: taskTypeColors['業餘'] },
+            { id: 5, date: tomorrowFormatted, start: '1000', end: '1200', name: '生活', color: taskTypeColors['生活'] }
+          );
+          
+          // Update task colors map
+          taskColors['工作'] = taskTypeColors['工作'];
+          taskColors['學習'] = defaultColors[1];
+          taskColors['休息'] = taskTypeColors['休息'];
+          taskColors['業餘'] = taskTypeColors['業餘'];
+          taskColors['生活'] = taskTypeColors['生活'];
+        } else {
+          tasks.push(
+            { id: 1, date: yesterdayFormatted, start: '1000', end: '1200', name: 'Work', color: taskTypeColors['Work'] },
+            { id: 2, date: todayFormatted, start: '0900', end: '1100', name: 'Learning', color: taskTypeColors['Learning'] },
+            { id: 3, date: todayFormatted, start: '1200', end: '1300', name: 'Rest', color: taskTypeColors['Rest'] },
+            { id: 4, date: todayFormatted, start: '1330', end: '1530', name: 'Hobby', color: taskTypeColors['Hobby'] },
+            { id: 5, date: tomorrowFormatted, start: '1000', end: '1200', name: 'Living', color: taskTypeColors['Living'] }
+          );
+          
+          // Update task colors map
+          taskColors['Work'] = taskTypeColors['Work'];
+          taskColors['Learning'] = taskTypeColors['Learning'];
+          taskColors['Rest'] = taskTypeColors['Rest'];
+          taskColors['Hobby'] = taskTypeColors['Hobby'];
+          taskColors['Living'] = taskTypeColors['Living'];
+        }
+        
+        renderTaskTable();
+        renderTimelines();
+      }
+      
+      // Settings Export/Import Functionality
+      const exportSettingsBtn = document.getElementById('export-settings');
+      const importSettingsBtn = document.getElementById('import-settings');
+      const settingsFileInput = document.getElementById('settings-file-input');
+      const settingsStatus = document.getElementById('settings-status');
+
+      // Show status message
+      function showSettingsStatus(message, isError = false) {
+        settingsStatus.textContent = message;
+        settingsStatus.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+        
+        if (isError) {
+          settingsStatus.classList.add('bg-red-100', 'text-red-800');
+        } else {
+          settingsStatus.classList.add('bg-green-100', 'text-green-800');
+        }
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          settingsStatus.classList.add('hidden');
+        }, 5000);
+      }
+
+      // Render default works list
+      function renderDefaultWorksList() {
+        const defaultWorksList = document.getElementById('default-works-list');
+        defaultWorksList.innerHTML = '';
+
+        if (defaultWorks.length === 0) {
+          const emptyMessage = document.createElement('div');
+          emptyMessage.className = 'text-gray-500 py-2 text-center';
+          emptyMessage.textContent = currentLanguage === 'zh' ? 
+            '尚未設定預設個別工作' : 
+            'No default individual works defined yet';
+          defaultWorksList.appendChild(emptyMessage);
+          return;
+        }
+
+        // Create a list of default works with delete buttons
+        defaultWorks.forEach((work, index) => {
+          const workItem = document.createElement('div');
+          workItem.className = 'flex justify-between items-center p-2 border-b border-gray-200 dark:border-gray-700 last:border-0';
+          
+          const workName = document.createElement('div');
+          workName.className = 'flex-grow';
+          workName.textContent = work;
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'text-red-500 hover:text-red-700 ml-2';
+          deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+          deleteBtn.setAttribute('data-index', index);
+          deleteBtn.addEventListener('click', function() {
+            const idx = parseInt(this.getAttribute('data-index'));
+            removeDefaultWork(idx);
+          });
+          
+          workItem.appendChild(workName);
+          workItem.appendChild(deleteBtn);
+          defaultWorksList.appendChild(workItem);
+        });
+      }
+      
+      // Add a new default work
+      function addDefaultWork() {
+        const newWorkInput = document.getElementById('new-default-work');
+        const workName = newWorkInput.value.trim();
+        
+        if (!workName) {
+          showError(currentLanguage === 'zh' ? '請輸入工作名稱' : 'Please enter a work name');
+          return;
+        }
+        
+        // Check if work already exists
+        if (defaultWorks.includes(workName)) {
+          showError(currentLanguage === 'zh' ? '此工作已存在於預設列表中' : 'This work already exists in the default list');
+          return;
+        }
+        
+        // Add to default works list
+        defaultWorks.push(workName);
+        
+        // Clear input and update UI
+        newWorkInput.value = '';
+        renderDefaultWorksList();
+        hideError();
+        
+        // Show success message
+        showSettingsStatus(currentLanguage === 'zh' ? '預設工作已新增' : 'Default work added');
+      }
+      
+      // Remove a default work
+      function removeDefaultWork(index) {
+        if (index >= 0 && index < defaultWorks.length) {
+          defaultWorks.splice(index, 1);
+          renderDefaultWorksList();
+          
+          // Show success message
+          showSettingsStatus(currentLanguage === 'zh' ? '預設工作已移除' : 'Default work removed');
+        }
+      }
+
+      // Get all settings to export
+      function getExportSettings() {
+        // 1. AI Prompts
+        const aiPromptZhElement = document.getElementById('ai-prompt-zh');
+        const aiPromptEnElement = document.getElementById('ai-prompt-en');
+        
+        const aiPromptZh = aiPromptZhElement ? aiPromptZhElement.value : '';
+        const aiPromptEn = aiPromptEnElement ? aiPromptEnElement.value : '';
+        
+        // 2. Task Categories and Colors
+        const categoryColors = {};
+        
+        // Get all predefined task type colors
+        for (const [category, color] of Object.entries(taskTypeColors)) {
+          categoryColors[category] = color;
+        }
+        
+        // Add any additional colors from current tasks
+        for (const [category, color] of Object.entries(taskColors)) {
+          categoryColors[category] = color;
+        }
+        
+        // 3. Timeline Appearance Settings
+        const timelineSettings = {
+          width: parseInt(document.getElementById('timeline-width').value) || 7,
+          height: parseInt(document.getElementById('timeline-height').value) || 20,
+          spacing: parseInt(document.getElementById('timeline-spacing').value) || -5,
+          showTaskLabels: document.getElementById('show-task-labels').checked,
+          showHourGridLines: document.getElementById('show-hour-grid-lines').checked,
+          showDefaultWorksOnly: document.getElementById('show-default-works-only').checked
+        };
+        
+        // 4. Special time markers
+        const specialMarkers = [];
+        document.querySelectorAll('.special-time-marker-checkbox').forEach(checkbox => {
+          const timeStr = checkbox.getAttribute('data-time');
+          const color = checkbox.getAttribute('data-color');
+          const isChecked = checkbox.checked;
+          const label = checkbox.nextElementSibling.textContent.trim();
+          
+          specialMarkers.push({
+            time: timeStr,
+            color: color,
+            enabled: isChecked,
+            label: label
+          });
+        });
+        
+        return {
+          version: '1.0',
+          aiPrompts: {
+            zh: aiPromptZh,
+            en: aiPromptEn
+          },
+          categoryColors: categoryColors,
+          timelineSettings: timelineSettings,
+          specialMarkers: specialMarkers,
+          defaultWorks: defaultWorks  // Add default works to export
+        };
+      }
+      
+      // Apply imported settings
+      function applyImportedSettings(settings) {
+        try {
+          // Validate settings
+          if (!settings || !settings.version) {
+            throw new Error(currentLanguage === 'zh' ? '無效的設定檔' : 'Invalid settings file');
+          }
+          
+          // 1. Apply AI Prompts
+          if (settings.aiPrompts) {
+            if (settings.aiPrompts.zh) {
+              document.getElementById('ai-prompt-zh').value = settings.aiPrompts.zh;
+            }
+            if (settings.aiPrompts.en) {
+              document.getElementById('ai-prompt-en').value = settings.aiPrompts.en;
+            }
+          }
+          
+          // 2. Apply Category Colors
+          if (settings.categoryColors) {
+            // Update taskTypeColors and taskColors
+            Object.assign(taskTypeColors, settings.categoryColors);
+            Object.assign(taskColors, settings.categoryColors);
+            
+            // Update task colors in the existing tasks
+            tasks.forEach(task => {
+              if (settings.categoryColors[task.name]) {
+                task.color = settings.categoryColors[task.name];
+              }
+            });
+          }
+          
+          // 3. Apply Timeline Settings
+          if (settings.timelineSettings) {
+            const ts = settings.timelineSettings;
+            
+            if (ts.width) document.getElementById('timeline-width').value = ts.width;
+            if (ts.height) document.getElementById('timeline-height').value = ts.height;
+            if (ts.spacing !== undefined) document.getElementById('timeline-spacing').value = ts.spacing;
+            
+            if (ts.showTaskLabels !== undefined) {
+              document.getElementById('show-task-labels').checked = ts.showTaskLabels;
+            }
+            
+            if (ts.showHourGridLines !== undefined) {
+              document.getElementById('show-hour-grid-lines').checked = ts.showHourGridLines;
+            }
+            
+            if (ts.showDefaultWorksOnly !== undefined) {
+              document.getElementById('show-default-works-only').checked = ts.showDefaultWorksOnly;
+            }
+          }
+          
+          // 4. Apply Special Markers
+          if (settings.specialMarkers && settings.specialMarkers.length > 0) {
+            // Clear existing markers first (except the default ones that we want to keep)
+            const markersContainer = document.querySelector('#special-time-markers .grid');
+            const customMarkers = document.querySelectorAll('.special-time-marker-checkbox:not([id^="marker-0"]):not([id^="marker-1"]):not([id^="marker-2"])');
+            
+            customMarkers.forEach(marker => {
+              const container = marker.closest('.flex.items-center');
+              if (container) {
+                container.remove();
+              }
+            });
+            
+            // Update existing markers and add new ones
+            settings.specialMarkers.forEach(marker => {
+              const existingMarker = document.querySelector(`.special-time-marker-checkbox[data-time="${marker.time}"]`);
+              
+              if (existingMarker) {
+                // Update existing marker
+                existingMarker.checked = marker.enabled;
+                existingMarker.setAttribute('data-color', marker.color);
+                
+                // Update color display
+                const colorDisplay = existingMarker.closest('.flex.items-center').querySelector('.color-display');
+                if (colorDisplay) {
+                  colorDisplay.style.backgroundColor = marker.color;
+                }
+                
+                // Update color picker
+                const colorPicker = existingMarker.closest('.flex.items-center').querySelector('.color-picker');
+                if (colorPicker) {
+                  colorPicker.value = marker.color;
+                }
+              } else {
+                // Add new marker
+                const timeStr = marker.time;
+                const formattedTime = formatTime(timeStr);
+                const markerId = `marker-${timeStr}`;
+                
+                // Extract the label part (e.g., "Sleep" from "01:00 Sleep")
+                const labelParts = marker.label.split(' ');
+                const labelText = labelParts.slice(1).join(' ');
+                
+                const markerContainer = document.createElement('div');
+                markerContainer.className = 'flex items-center';
+                
+                markerContainer.innerHTML = `
+                  <input type="checkbox" id="${markerId}" class="w-4 h-4 text-primary border-gray-300 rounded special-time-marker-checkbox" data-time="${timeStr}" data-color="${marker.color}" ${marker.enabled ? 'checked' : ''}>
+                  <label for="${markerId}" class="ml-2 text-sm">${formattedTime} <span data-lang="zh">${labelText}</span><span data-lang="en">${labelText}</span></label>
+                  <div class="color-picker-container">
+                    <input type="color" class="color-picker" value="${marker.color}" data-time="${timeStr}">
+                    <div class="color-display" style="background-color: ${marker.color};"></div>
+                  </div>
+                  <div class="marker-actions">
+                    <button type="button" class="marker-edit-btn" data-time="${timeStr}">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                    </button>
+                    <button type="button" class="marker-delete-btn" data-time="${timeStr}">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
+                  </div>
+                `;
+                
+                markersContainer.appendChild(markerContainer);
+                
+                // Add event listener to the new color picker
+                const newColorPicker = markerContainer.querySelector('.color-picker');
+                newColorPicker.addEventListener('input', handleColorPickerChange);
+              }
+            });
+          }
+          
+          // 5. Apply Default Works List
+          if (settings.defaultWorks && Array.isArray(settings.defaultWorks)) {
+            // Replace the current default works with the imported ones
+            defaultWorks = [...settings.defaultWorks];
+            // Update the UI
+            renderDefaultWorksList();
+          }
+          
+          // Update UI
+          renderTaskTable();
+          initializeTimeMarkers();
+          renderTimelines();
+          
+
+          
+          return true;
+        } catch (error) {
+          console.error('Error applying settings:', error);
+          return false;
+        }
+      }
+      
+      // Export Settings Handler
+      exportSettingsBtn.addEventListener('click', () => {
+        try {
+          // Get all settings
+          const settings = getExportSettings();
+          
+          // Convert to JSON string with proper formatting
+          const settingsJson = JSON.stringify(settings, null, 2);
+          
+          // Create a Blob from the JSON
+          const blob = new Blob([settingsJson], { type: 'application/json' });
+          
+          // Create a download link
+          const downloadLink = document.createElement('a');
+          downloadLink.href = URL.createObjectURL(blob);
+          downloadLink.download = `timeline-settings-${new Date().toISOString().slice(0, 10)}.json`;
+          
+          // Trigger download
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          // Show success message
+          showSettingsStatus(currentLanguage === 'zh' ? '設定已成功匯出' : 'Settings exported successfully');
+        } catch (error) {
+          console.error('Error exporting settings:', error);
+          showSettingsStatus(
+            currentLanguage === 'zh' ? '匯出設定時發生錯誤' : 'Error exporting settings', 
+            true
+          );
+        }
+      });
+      
+      // Import Settings Button Handler
+      importSettingsBtn.addEventListener('click', () => {
+        settingsFileInput.click();
+      });
+      
+      // Import Settings File Handler
+      settingsFileInput.addEventListener('change', event => {
+        const file = event.target.files[0];
+        
+        if (file) {
+          const reader = new FileReader();
+          
+          reader.onload = e => {
+            try {
+              const settings = JSON.parse(e.target.result);
+              
+              // Apply imported settings
+              const success = applyImportedSettings(settings);
+              
+              if (success) {
+                showSettingsStatus(currentLanguage === 'zh' ? '設定已成功匯入' : 'Settings imported successfully');
+              } else {
+                showSettingsStatus(
+                  currentLanguage === 'zh' ? '套用設定時發生錯誤' : 'Error applying settings', 
+                  true
+                );
+              }
+            } catch (error) {
+              console.error('Error parsing settings file:', error);
+              showSettingsStatus(
+                currentLanguage === 'zh' ? '解析設定檔時發生錯誤' : 'Error parsing settings file', 
+                true
+              );
+            }
+            
+            // Reset the file input
+            settingsFileInput.value = '';
+          };
+          
+          reader.onerror = () => {
+            showSettingsStatus(
+              currentLanguage === 'zh' ? '讀取檔案時發生錯誤' : 'Error reading file', 
+              true
+            );
+            settingsFileInput.value = '';
+          };
+          
+          reader.readAsText(file);
+        }
+      });
+
+      // Make sure marker action buttons have event listeners
+      function reattachMarkerEventListeners() {
+        // Attach edit and delete listeners to all marker buttons
+        document.querySelectorAll('.marker-edit-btn').forEach(btn => {
+          // Remove existing listener to prevent duplicates
+          btn.removeEventListener('click', handleMarkerEdit);
+          // Add new listener
+          btn.addEventListener('click', handleMarkerEdit);
+        });
+        
+        document.querySelectorAll('.marker-delete-btn').forEach(btn => {
+          // Remove existing listener to prevent duplicates
+          btn.removeEventListener('click', handleMarkerDelete);
+          // Add new listener
+          btn.addEventListener('click', handleMarkerDelete);
+        });
+      }
+      
+      // Event listeners for default works
+      document.getElementById('add-default-work').addEventListener('click', addDefaultWork);
+      document.getElementById('new-default-work').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          addDefaultWork();
+        }
+      });
+      
+      // Task Edit Modal Functions
+      const editTaskModal = document.getElementById('edit-task-modal');
+      const editTaskForm = editTaskModal.querySelector('.modal-content');
+      const editTaskDateInput = document.getElementById('edit-task-date');
+      const editStartTimeInput = document.getElementById('edit-start-time');
+      const editEndTimeInput = document.getElementById('edit-end-time');
+      const editTaskNameInput = document.getElementById('edit-task-name');
+      const editTaskDescriptionInput = document.getElementById('edit-task-description');
+      const editTaskColorInput = document.getElementById('edit-task-color');
+      const editTaskIdInput = document.getElementById('edit-task-id');
+      const saveTaskBtn = document.getElementById('save-task-btn');
+      const cancelEditBtn = document.getElementById('cancel-edit-btn');
+      const deleteTaskBtn = document.getElementById('delete-task-btn');
+      
+      // Function to show edit modal
+      function showEditTaskModal(taskId) {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // Populate form fields
+        editTaskDateInput.value = task.date;
+        editStartTimeInput.value = task.start;
+        editEndTimeInput.value = task.end;
+        editTaskNameInput.value = task.name;
+        editTaskDescriptionInput.value = task.description || task.name;
+        editTaskColorInput.value = task.color;
+        editTaskIdInput.value = taskId;
+        
+        // Show modal
+        editTaskModal.classList.add('show');
+      }
+      
+      // Function to hide edit modal
+      function hideEditTaskModal() {
+        editTaskModal.classList.remove('show');
+      }
+      
+      // Save edited task
+      function saveEditedTask() {
+        const taskId = parseInt(editTaskIdInput.value);
+        const taskIndex = tasks.findIndex(t => t.id === taskId);
+        
+        if (taskIndex === -1) {
+          showError('任務不存在');
+          return;
+        }
+        
+        // Validate inputs
+        const taskDate = editTaskDateInput.value.trim();
+        const startTime = editStartTimeInput.value.trim();
+        const endTime = editEndTimeInput.value.trim();
+        const taskName = editTaskNameInput.value.trim();
+        const taskDescription = editTaskDescriptionInput.value.trim();
+        const taskColor = editTaskColorInput.value;
+        
+        if (!taskDate || !startTime || !endTime || !taskName) {
+          showError('所有必填欄位都必須填寫');
+          return;
+        }
+        
+        // Validate time format (HHMM)
+        const timeRegex = /^([01]?[0-9]|2[0-3])[0-5][0-9]$/;
+        if (!timeRegex.test(startTime) || !timeRegex.test(endTime)) {
+          showError('時間格式無效，請使用 HHMM 格式（例如：0930、1430）');
+          return;
+        }
+        
+        // Convert to numeric values for comparison
+        const startMinutes = convertTimeToMinutes(startTime);
+        const endMinutes = convertTimeToMinutes(endTime);
+        
+        // Validate time range
+        if (startMinutes >= endMinutes) {
+          showError('結束時間必須晚於開始時間');
+          return;
+        }
+        
+        // 檢查是否要批量修改同個別工作的任務類別
+        const batchUpdate = document.getElementById('batch-update-category').checked;
+        const originalDescription = tasks[taskIndex].description || tasks[taskIndex].name;
+        const originalName = tasks[taskIndex].name;
+        
+        // Update task
+        const updatedTask = {
+          ...tasks[taskIndex],
+          date: taskDate,
+          start: startTime,
+          end: endTime,
+          name: taskName,
+          description: taskDescription || taskName,
+          color: taskColor
+        };
+        
+        // Check if crossing midnight
+        updatedTask.isCrossingMidnight = endMinutes < startMinutes;
+        
+        // If the task category (name) has changed, update the color
+        if (updatedTask.name !== tasks[taskIndex].name) {
+          // If the new category already exists, use its color
+          if (taskColors[updatedTask.name]) {
+            updatedTask.color = taskColors[updatedTask.name];
+          }
+          // Otherwise, keep the current color but update the color mapping
+          else {
+            taskColors[updatedTask.name] = updatedTask.color;
+          }
+        }
+        // If only the color has changed for the same category, update all tasks of that category
+        else if (updatedTask.color !== tasks[taskIndex].color) {
+          const categoryName = updatedTask.name;
+          taskColors[categoryName] = updatedTask.color;
+          
+          // Update color for all tasks in this category
+          tasks.forEach(task => {
+            if (task.name === categoryName) {
+              task.color = updatedTask.color;
+            }
+          });
+        }
+        
+        // Update task in the tasks array
+        tasks[taskIndex] = updatedTask;
+        
+        // 如果勾選了批量修改，更新所有相同個別工作的任務類別
+        if (batchUpdate && originalName !== taskName) {
+          let updatedCount = 0;
+          
+          tasks.forEach((task, idx) => {
+            if (idx !== taskIndex && (task.description === originalDescription || (!task.description && task.name === originalDescription))) {
+              // 更新任務類別和顏色，保留原有的其他屬性
+              task.name = taskName;
+              task.color = updatedTask.color;
+              updatedCount++;
+            }
+          });
+          
+          if (updatedCount > 0) {
+            showSettingsStatus(`已批量更新 ${updatedCount} 個相同個別工作的任務類別`);
+          }
+        }
+        
+        // Update UI
+        hideEditTaskModal();
+        renderTaskTable();
+        renderTimelines();
+      }
+      
+      // Delete Confirmation Modal
+      const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+      const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+      const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+      
+      // Function to show delete confirmation modal
+      function showDeleteConfirmModal() {
+        deleteConfirmModal.classList.add('show');
+      }
+      
+      // Function to hide delete confirmation modal
+      function hideDeleteConfirmModal() {
+        deleteConfirmModal.classList.remove('show');
+      }
+      
+      // Add event listeners for the edit modal
+      cancelEditBtn.addEventListener('click', hideEditTaskModal);
+      saveTaskBtn.addEventListener('click', saveEditedTask);
+      deleteTaskBtn.addEventListener('click', function() {
+        showDeleteConfirmModal();
+      });
+      
+      // Add event listeners for the delete confirmation modal
+      cancelDeleteBtn.addEventListener('click', hideDeleteConfirmModal);
+      confirmDeleteBtn.addEventListener('click', function() {
+        const taskId = parseInt(editTaskIdInput.value);
+        deleteTask(taskId);
+        hideDeleteConfirmModal();
+        hideEditTaskModal();
+      });
+      
+      // Add event listener to the delete confirmation modal backdrop to close on click outside
+      deleteConfirmModal.addEventListener('click', function(e) {
+        if (e.target === deleteConfirmModal) {
+          hideDeleteConfirmModal();
+        }
+      });
+      
+      // Add event listener to the modal backdrop to close on click outside
+      editTaskModal.addEventListener('click', function(e) {
+        if (e.target === editTaskModal) {
+          hideEditTaskModal();
+        }
+      });
+      
+      // Add click event handler for timeline tasks
+      function addTimelineTaskClickHandlers() {
+        document.querySelectorAll('.timeline-task').forEach(taskElement => {
+          taskElement.addEventListener('click', function() {
+            const taskId = parseInt(this.getAttribute('data-id'));
+            showEditTaskModal(taskId);
+          });
+        });
+      }
+      
+      // CSV Export Function
+      function exportTasksToCSV() {
+        // Use original rows if available (to preserve all original column values)
+        if (tasks.some(task => task.originalRow)) {
+          // Get the original header if available
+          const header = window.csvOriginalHeader ? window.csvOriginalHeader + '\n' : 
+            '"User","Email","Client","Project","Task","Description","Billable","Start date","Start time","End date","End time","Duration","Tags"\n';
+          
+          // Helper function to escape CSV values
+          const escapeCsv = (field) => {
+            if (field && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return `"${field || ''}"`;
+          };
+          
+          // For tasks that have originalRow, use that as a base but update Project and Description
+          // For manually added tasks, create a formatted row
+          const rows = tasks.map(task => {
+            if (task.originalRow) {
+              // Parse the original row to extract individual fields
+              const originalFields = parseCSVRow(task.originalRow);
+              
+              // Find project and description column indices from the header
+              const headerFields = parseCSVRow(window.csvOriginalHeader || '"User","Email","Client","Project","Task","Description","Billable","Start date","Start time","End date","End time","Duration","Tags"');
+              const projectIndex = headerFields.indexOf('Project');
+              const descriptionIndex = headerFields.indexOf('Description');
+              
+              // Update the Project and Description fields with the current values
+              if (projectIndex !== -1) {
+                originalFields[projectIndex] = task.name;
+              }
+              if (descriptionIndex !== -1) {
+                originalFields[descriptionIndex] = task.description || task.name;
+              }
+              
+              // Re-join the fields into a CSV row
+              return originalFields.map(field => escapeCsv(field)).join(',');
+            } else {
+              // Format manually added tasks in the same format
+              const startDate = task.date;
+              const startTime = formatTime(task.start);
+              const endDate = task.isCrossingMidnight ? calculateNextDay(startDate) : startDate;
+              const endTime = formatTime(task.end);
+              
+              // Calculate duration
+              const durationMinutes = calculateDuration(task.start, task.end);
+              const hours = Math.floor(durationMinutes / 60);
+              const minutes = durationMinutes % 60;
+              const duration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+              
+              return [
+                '""', // User
+                '""', // Email
+                '""', // Client
+                escapeCsv(task.name), // Project
+                '""', // Task
+                escapeCsv(task.description || ''), // Description
+                '"No"', // Billable
+                `"${startDate}"`, // Start date
+                `"${startTime}"`, // Start time
+                `"${endDate}"`, // End date
+                `"${endTime}"`, // End time
+                `"${duration}"`, // Duration
+                '""' // Tags
+              ].join(',');
+            }
+          });
+          
+          // Combine header and rows
+          const csv = header + rows.join('\n');
+          
+          // Create blob and download link
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.setAttribute('href', url);
+          link.setAttribute('download', `time_tracking_export_${new Date().toISOString().slice(0, 10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+        
+        // Fallback to standard export if no original rows exist
+        const header = '"User","Email","Client","Project","Task","Description","Billable","Start date","Start time","End date","End time","Duration","Tags"\n';
+        
+        // Process each task into CSV rows
+        const rows = tasks.map(task => {
+          const startDate = task.date;
+          const startTime = formatTime(task.start);
+          
+          // Calculate end date (same as start date unless crossing midnight)
+          const endDate = task.isCrossingMidnight ? calculateNextDay(startDate) : startDate;
+          const endTime = formatTime(task.end);
+          
+          // Calculate duration
+          const durationMinutes = calculateDuration(task.start, task.end);
+          const hours = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          const duration = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+          
+          // Escape fields that may contain commas
+          const escapeCsv = (field) => {
+            if (field && (field.includes(',') || field.includes('"') || field.includes('\n'))) {
+              return `"${field.replace(/"/g, '""')}"`;
+            }
+            return `"${field || ''}"`;
+          };
+          
+          // Get username if stored, otherwise empty
+          const userName = task.user || '';
+          const userEmail = task.email || '';
+          const client = task.client || '';
+          const projectName = task.name || '';
+          const taskName = task.taskName || ''; // Toggl has a "Task" column
+          const description = task.description || '';
+          const billable = task.billable ? 'Yes' : 'No';
+          const tags = task.tags || '';
+          
+          return [
+            escapeCsv(userName),
+            escapeCsv(userEmail),
+            escapeCsv(client),
+            escapeCsv(projectName),
+            escapeCsv(taskName),
+            escapeCsv(description),
+            escapeCsv(billable),
+            `"${startDate}"`,
+            `"${startTime}"`,
+            `"${endDate}"`,
+            `"${endTime}"`,
+            `"${duration}"`,
+            escapeCsv(tags)
+          ].join(',');
+        });
+        
+        // Combine header and rows
+        const csv = header + rows.join('\n');
+        
+        // Create blob and download link
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `time_tracking_export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      
+      // Helper function to calculate next day
+      function calculateNextDay(dateStr) {
+        const date = new Date(dateStr);
+        date.setDate(date.getDate() + 1);
+        return date.toISOString().split('T')[0];
+      }
+      
+      // Add event listener for CSV export button
+      document.getElementById('export-csv').addEventListener('click', exportTasksToCSV);
+      
+      // Function to update all default works related UI
+      function updateDefaultWorksUI() {
+        // Update the default works summary section
+        renderDefaultWorksSummary();
+        
+        // Update the total time display
+        updateDefaultWorksTotalTime();
+      }
+      
+      // Initialize
+      initializeTimeMarkers();
+      addExampleTasks();
+      renderDefaultWorksList();
+      renderDefaultWorksSummary(); // Initial render of default works summary
+      
+      // Attach marker event listeners after initial page load
+      reattachMarkerEventListeners();
+    });
+  </script>
+</body>
+</html>
