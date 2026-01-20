@@ -1,0 +1,95 @@
+{
+  "llms": [
+    {
+      "id": "l1",
+      "name": "GPT-5.2",
+      "description": "OpenAI 最新旗艦模型，400k context，支援網路搜尋",
+      "category": "text",
+      "isPinned": true
+    },
+    {
+      "id": "l2",
+      "name": "Claude-Sonnet-4.5",
+      "description": "Anthropic 模型，200k context，適合程式開發",
+      "category": "text",
+      "isPinned": true
+    },
+    {
+      "id": "l4",
+      "name": "Gemini-3.0-Pro",
+      "description": "Google 進階模型，1M context，支援影片輸入",
+      "category": "text",
+      "isPinned": false
+    },
+    {
+      "id": "l5",
+      "name": "Gemini-2.5-Flash",
+      "description": "Google 快速模型，1M context，低成本",
+      "category": "text",
+      "isPinned": false
+    },
+    {
+      "id": "l11",
+      "name": "Nano-Banana",
+      "description": "Gemini 圖片編輯，支援多輪對話",
+      "category": "image",
+      "isPinned": false
+    },
+    {
+      "id": "l14",
+      "name": "Sora-2",
+      "description": "OpenAI 影片生成，支援 text/image to video",
+      "category": "video",
+      "isPinned": false
+    },
+    {
+      "id": "l15",
+      "name": "Veo-v3.1",
+      "description": "Google 影片生成，帶原生音訊",
+      "category": "video",
+      "isPinned": false
+    },
+    {
+      "id": "l16",
+      "name": "ElevenLabs-v2.5-Turbo",
+      "description": "文字轉語音，支援 40k 字元",
+      "category": "audio",
+      "isPinned": false
+    },
+    {
+      "id": "l17",
+      "name": "ElevenLabs-v3",
+      "description": "多人對話語音，支援情緒控制",
+      "category": "audio",
+      "isPinned": false
+    },
+    {
+      "id": "l18",
+      "name": "ElevenLabs-Music",
+      "description": "音樂生成，最長 5 分鐘",
+      "category": "audio",
+      "isPinned": false
+    },
+    {
+      "id": "l19",
+      "name": "Claude-Code",
+      "description": "代理模型，可執行 Python、操作檔案",
+      "category": "agent",
+      "isPinned": false
+    },
+    {
+      "id": "l20",
+      "name": "Whisper-V3-Large-T",
+      "description": "語音轉文字",
+      "category": "agent",
+      "isPinned": false
+    },
+    {
+      "id": "l21",
+      "name": "remove-background",
+      "description": "移除圖片背景",
+      "category": "agent",
+      "isPinned": false
+    }
+  ]
+}
