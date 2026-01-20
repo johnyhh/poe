@@ -1,0 +1,148 @@
+{
+  "apps": [
+    {
+      "id": "1",
+      "name": "togglTimeline",
+      "description": "Timesheet Timeline display",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "2",
+      "name": "SmarterxToggl",
+      "description": "Smarter Time to Toggl csv",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "3",
+      "name": "txn_pivot",
+      "description": "以 Pivot table 去 review 及編輯交易紀錄",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "4",
+      "name": "monthly_analysis",
+      "description": "月總分析, 日記字數",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "5",
+      "name": "gcc_songlist",
+      "description": "主恩會詩歌集搜尋",
+      "category": "faith",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "6",
+      "name": "bibleStudy3",
+      "description": "",
+      "category": "faith",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "7",
+      "name": "diarySonglist",
+      "description": "心情聽歌助理",
+      "category": "music",
+      "isPinned": true,
+      "isPrivate": false
+    },
+    {
+      "id": "9",
+      "name": "WordToMD",
+      "description": "",
+      "category": "docs",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "10",
+      "name": "rpt_section_edit",
+      "description": "Edit section by section",
+      "category": "docs",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "11",
+      "name": "TaskPlannerUI",
+      "description": "",
+      "category": "work",
+      "isPinned": true,
+      "isPrivate": false
+    },
+    {
+      "id": "12",
+      "name": "TicktickHabiter",
+      "description": "",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "13",
+      "name": "Apply_Leave_Helper",
+      "description": "請假小幫手",
+      "category": "work",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "14",
+      "name": "EngChkExplain",
+      "description": "Correct you English, with reasoning explain how to correct your English, so you can learn from it.",
+      "category": "work",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "15",
+      "name": "SizingHelper",
+      "description": "Effort estimation and proposed schedule for mini application development project",
+      "category": "work",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "16",
+      "name": "log_fdate",
+      "description": "Filter log by date range",
+      "category": "tools",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "17",
+      "name": "Existio_api",
+      "description": "",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": true
+    },
+    {
+      "id": "18",
+      "name": "AI_mapping",
+      "description": "",
+      "category": "tools",
+      "isPinned": false,
+      "isPrivate": false
+    },
+    {
+      "id": "20",
+      "name": "GTP-4-mini-pay",
+      "description": "Fast and cover most daily use",
+      "category": "tools",
+      "isPinned": true,
+      "isPrivate": false
+    }
+  ]
+}
