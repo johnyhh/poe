@@ -143,6 +143,14 @@
       "category": "tools",
       "isPinned": true,
       "isPrivate": false
-    }
+    },
+    {
+      "id": "21",
+      "name": "Youtube_watchlog",
+      "description": "YouTube 觀看記錄分析器",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": false
+    }    
   ]
 }
