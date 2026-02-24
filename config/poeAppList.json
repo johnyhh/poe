@@ -151,6 +151,14 @@
       "category": "life",
       "isPinned": false,
       "isPrivate": false
-    }    
+    },
+    {
+      "id": "22",
+      "name": "noti_analysis",
+      "description": "通知記錄分析器",
+      "category": "tools",
+      "isPinned": false,
+      "isPrivate": false
+    }       
   ]
 }
