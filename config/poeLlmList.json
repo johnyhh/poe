@@ -1,18 +1,20 @@
 {
-  "llms": [
+  "items": [
     {
       "id": "l1",
       "name": "GPT-5.4",
       "description": "OpenAI 最新旗艦模型，400k context，支援網路搜尋",
       "category": "text",
-      "isPinned": true
+      "isPinned": true,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-3059-200-ftfdcmjibjzhyaworsxmtkykumwdemnw.jpeg"
     },
     {
       "id": "l2",
       "name": "Claude-Sonnet-4.6",
       "description": "Anthropic 模型，1M context，適合程式開發",
       "category": "text",
-      "isPinned": true
+      "isPinned": true,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
     },
     {
       "id": "l4",
@@ -54,7 +56,8 @@
       "name": "ElevenLabs-v2.5-Turbo",
       "description": "文字轉語音，支援 40k 字元",
       "category": "audio",
-      "isPinned": false
+      "isPinned": false,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-5176044-200-ixsrhozcvbrhrvwgdxghshtrqpjjashv.jpeg"
     },
     {
       "id": "l17",
@@ -68,14 +71,16 @@
       "name": "ElevenLabs-Music",
       "description": "音樂生成，最長 5 分鐘",
       "category": "audio",
-      "isPinned": false
+      "isPinned": false,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6372089-200-yuwvwbjdljzmykjpdzbxizuqqgowdgzq.jpeg"
     },
     {
       "id": "l19",
       "name": "Claude-Code",
       "description": "代理模型，可執行 Python、操作檔案",
       "category": "agent",
-      "isPinned": false
+      "isPinned": false,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6624122-200-eqzlivkawkxozndgzdufnolrgzrwlgko.jpeg"
     },
     {
       "id": "l20",
@@ -90,6 +95,38 @@
       "description": "移除圖片背景",
       "category": "agent",
       "isPinned": false
+    }
+  ],
+  "categories": [
+    {
+      "id": "text",
+      "name": "💬 文字生成",
+      "icon": "ri-chat-3-line",
+      "color": "#2563eb"
+    },
+    {
+      "id": "image",
+      "name": "🖼️ 圖片生成",
+      "icon": "ri-image-line",
+      "color": "#db2777"
+    },
+    {
+      "id": "video",
+      "name": "🎬 影片生成",
+      "icon": "ri-video-line",
+      "color": "#059669"
+    },
+    {
+      "id": "audio",
+      "name": "🔊 語音音樂",
+      "icon": "ri-volume-up-line",
+      "color": "#d97706"
+    },
+    {
+      "id": "agent",
+      "name": "🤖 代理工具",
+      "icon": "ri-cpu-line",
+      "color": "#4f46e5"
     }
   ]
 }
