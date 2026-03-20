@@ -177,14 +177,23 @@
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6829092-200-rdpbgsmlxevtdwfiixnbajwnlfbedgkw.jpeg"
     },
     {
-      "id": "1772778293258",
+      "id": "23",
       "name": "Health_train",
       "description": "AI 驟動之運動教練",
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6851821-200-gxdmsnwaliwfytxifzdwslkhayrlfmzh.jpeg",
       "category": "tools",
       "isPinned": true,
       "isPrivate": false
-    }
+    },
+    {
+      "id": "24",
+      "name": "ChromeHist",
+      "description": "CHROME 瀏覽記錄分析器",
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6888494-200-zntjqpeiqbldcfaentmvilylgqqlkapg.jpeg",
+      "category": "life",
+      "isPinned": false,
+      "isPrivate": false
+    }    
   ],
   "categories": [
     {
