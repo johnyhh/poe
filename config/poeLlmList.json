@@ -2,7 +2,7 @@
   "items": [
     {
       "id": "l1",
-      "name": "GPT-5.4",
+      "name": "GPT-5.5",
       "description": "OpenAI 最新旗艦模型，400k context，支援網路搜尋",
       "category": "text",
       "isPinned": true,
@@ -10,12 +10,28 @@
     },
     {
       "id": "l2",
+      "name": "Claude-Sonnet-4.5",
+      "description": "Anthropic 模型，1M context",
+      "category": "text",
+      "isPinned": false,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
+    },
+    {
+      "id": "l6",
       "name": "Claude-Sonnet-4.6",
-      "description": "Anthropic 模型，1M context，適合程式開發",
+      "description": "Anthropic 模型，1M context，預設思考",
+      "category": "text",
+      "isPinned": false,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
+    },    
+    {
+      "id": "l7",
+      "name": "Claude-Opus-4.8",
+      "description": "Anthropic 模型，1M context，預設思考",
       "category": "text",
       "isPinned": true,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
-    },
+    },       
     {
       "id": "l4",
       "name": "Gemini-3.0-Pro",
