@@ -152,7 +152,7 @@
     },
     {
       "id": "20",
-      "name": "GTP-4-mini-pay",
+      "name": "GTP-mini-pay",
       "description": "Fast and cover most daily use",
       "category": "tools",
       "isPinned": true,
