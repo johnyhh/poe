@@ -1,9 +1,17 @@
 {
   "items": [
     {
+      "id": "l0",
+      "name": "GPT-5.3",
+      "description": "OpenAI 2026年3月的旗艦模型",
+      "category": "text",
+      "isPinned": true,
+      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-3059-200-ftfdcmjibjzhyaworsxmtkykumwdemnw.jpeg"
+    },
+    {
       "id": "l1",
       "name": "GPT-5.5",
-      "description": "OpenAI 最新旗艦模型，400k context，支援網路搜尋",
+      "description": "OpenAI 2026年4月的旗艦模型",
       "category": "text",
       "isPinned": true,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-3059-200-ftfdcmjibjzhyaworsxmtkykumwdemnw.jpeg"
@@ -11,7 +19,7 @@
     {
       "id": "l2",
       "name": "Claude-Sonnet-4.5",
-      "description": "Anthropic 模型，1M context",
+      "description": "Anthropic 2025年9月的旗艦模型",
       "category": "text",
       "isPinned": false,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
@@ -19,7 +27,7 @@
     {
       "id": "l6",
       "name": "Claude-Sonnet-4.6",
-      "description": "Anthropic 模型，1M context，預設思考",
+      "description": "Anthropic 2026年2月的旗艦模型",
       "category": "text",
       "isPinned": false,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
@@ -27,7 +35,7 @@
     {
       "id": "l7",
       "name": "Claude-Opus-4.8",
-      "description": "Anthropic 模型，1M context，預設思考",
+      "description": "Anthropic 2026年6月的旗艦模型",
       "category": "text",
       "isPinned": true,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
@@ -92,8 +100,8 @@
     },
     {
       "id": "l19",
-      "name": "Claude-Code",
-      "description": "代理模型，可執行 Python、操作檔案",
+      "name": "GPT-5.3-Codex",
+      "description": "軟體開發模型",
       "category": "agent",
       "isPinned": false,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6624122-200-eqzlivkawkxozndgzdufnolrgzrwlgko.jpeg"
