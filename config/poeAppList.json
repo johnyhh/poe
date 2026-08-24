@@ -37,14 +37,6 @@
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6197315-200-xpqrkxpiozshpycpeifuvqzaqjgzhspq.jpeg"
     },
     {
-      "id": "5",
-      "name": "gcc_songlist",
-      "description": "主恩會詩歌集搜尋",
-      "category": "faith",
-      "isPinned": false,
-      "isPrivate": false
-    },
-    {
       "id": "6",
       "name": "bibleStudy4",
       "description": "",
@@ -52,15 +44,6 @@
       "isPinned": false,
       "isPrivate": false,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6299572-200-vktsoghrwsgzxqkfoaeiuvubgpwvygpl.jpeg"
-    },
-    {
-      "id": "7",
-      "name": "diarySonglist",
-      "description": "心情聽歌助理",
-      "category": "music",
-      "isPinned": true,
-      "isPrivate": false,
-      "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6676925-200-qaekdnxamuumnwjeqshlawiaqcdqeqpg.jpeg"
     },
     {
       "id": "9",
