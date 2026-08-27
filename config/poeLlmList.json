@@ -2,7 +2,7 @@
   "items": [
     {
       "id": "l0",
-      "name": "GPT-5.3",
+      "name": "GPT-5.2",
       "description": "OpenAI 2026年3月的旗艦模型",
       "category": "text",
       "isPinned": true,
@@ -18,8 +18,8 @@
     },
     {
       "id": "l2",
-      "name": "Claude-Sonnet-4.5",
-      "description": "Anthropic 2025年9月的旗艦模型",
+      "name": "Claude-Sonnet-5",
+      "description": "Anthropic 2026年8月的輕量模型",
       "category": "text",
       "isPinned": false,
       "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
