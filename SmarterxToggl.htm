@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Converter: Smarter Time to Toggl</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            },
+            darkMode: 'class',
+        };
+    </script>
+    <style>
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .dark .dark\:bg-dark {
+            background-color: #181818;
+        }
+
+        .dark .dark\:text-white {
+            color: #FFFFFF;
+        }
+
+        .dark .dark\:border-gray-700 {
+            border-color: #374151;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-dark text-gray-900 dark:text-white min-h-screen">
+    <div class="container mx-auto p-4 max-w-6xl">
+        <h1 class="text-3xl font-bold text-primary mb-6">CSV Converter: Smarter Time to Toggl</h1>
+
+        <div class="mb-6">
+            <div class="flex flex-wrap border-b border-gray-200 dark:border-gray-700">
+                <button id="tab-input" class="tab-btn px-6 py-3 text-primary border-b-2 border-primary">Input</button>
+                <button id="tab-mapping" class="tab-btn px-6 py-3 text-gray-500 dark:text-gray-300">Mapping</button>
+                <button id="tab-output" class="tab-btn px-6 py-3 text-gray-500 dark:text-gray-300">Output</button>
+            </div>
+        </div>
+
+        <!-- Input Tab -->
+        <div id="content-input" class="tab-content active">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Smarter Time CSV Input</h2>
+                <p class="mb-4 text-gray-600 dark:text-gray-300">Paste your Smarter Time CSV data below:</p>
+
+                <textarea
+                    id="input-csv"
+                    rows="12"
+                    class="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg text-base"
+                    placeholder="Paste your Smarter Time CSV here..."
+                ></textarea>
+
+                <div class="mt-4 flex flex-wrap gap-4">
+                    <button id="parse-btn" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition">
+                        Parse CSV
+                    </button>
+
+                    <label for="load-csv-input" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-opacity-90 transition cursor-pointer">
+                        Load from CSV file
+                    </label>
+
+                    <input id="load-csv-input" type="file" accept=".csv" class="hidden">
+                </div>
+
+                <div id="parse-result" class="mt-4 hidden">
+                    <div class="p-4 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 rounded-lg">
+                        CSV parsed successfully. <span id="row-count">0</span> rows found.
+                    </div>
+                </div>
+
+                <div id="parse-error" class="mt-4 hidden">
+                    <div class="p-4 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded-lg whitespace-pre-wrap">
+                        Error: <span id="error-message"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapping Tab -->
+        <div id="content-mapping" class="tab-content">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Field Mapping Configuration</h2>
+                <p class="mb-4 text-gray-600 dark:text-gray-300">Configure how Smarter Time fields map to Toggl fields:</p>
+
+                <div id="llm-config-status-box" class="mb-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div class="font-medium text-blue-800 dark:text-blue-100 mb-1">AI Analysis LLM</div>
+                    <div class="text-sm text-blue-700 dark:text-blue-200">
+                        Current model:
+                        <span id="current-ai-llm" class="font-semibold">Loading...</span>
+                    </div>
+                    <div id="llm-config-message" class="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                        Loading model configuration from jsDelivr...
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Required mappings -->
+                    <div>
+                        <h3 class="font-medium mb-3">Required Mappings</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <span class="w-1/3 text-gray-600 dark:text-gray-300">Activity →</span>
+                                <span class="w-2/3 font-medium">Description</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-1/3 text-gray-600 dark:text-gray-300">Day →</span>
+                                <span class="w-2/3 font-medium">Start date</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-1/3 text-gray-600 dark:text-gray-300">Timestamp UTC ms →</span>
+                                <span class="w-2/3 font-medium">Start time</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-1/3 text-gray-600 dark:text-gray-300">Duration ms →</span>
+                                <span class="w-2/3 font-medium">Duration</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configurable mappings -->
+                    <div>
+                        <h3 class="font-medium mb-3">Configurable Mappings</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">User</label>
+                                <input type="text" id="mapping-user" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default user">
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Email</label>
+                                <input type="text" id="mapping-email" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default email">
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Client</label>
+                                <input type="text" id="mapping-client" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default client">
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Project</label>
+                                <select id="mapping-project" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base">
+                                    <option value="default">Default value</option>
+                                    <option value="activity_category">Activity Category</option>
+                                    <option value="place">Place</option>
+                                </select>
+                            </div>
+
+                            <div id="mapping-project-default-container" class="flex items-center pl-8">
+                                <input type="text" id="mapping-project-default" class="w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default project">
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Task</label>
+                                <input type="text" id="mapping-task" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default task">
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Billable</label>
+                                <select id="mapping-billable" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base">
+                                    <option value="No">No</option>
+                                    <option value="Yes">Yes</option>
+                                </select>
+                            </div>
+
+                            <div class="flex items-center">
+                                <label class="w-1/3 text-gray-600 dark:text-gray-300">Tags</label>
+                                <input type="text" id="mapping-tags" class="w-2/3 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base" placeholder="Default tags">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Assisted Mapping Section -->
+                <div class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 class="text-xl font-semibold mb-4">Mapping Management</h3>
+                    <p class="mb-4 text-gray-600 dark:text-gray-300">Manage your mapping configuration:</p>
+
+                    <div class="flex flex-wrap gap-4 mb-6">
+                        <button id="add-project-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition text-sm">
+                            Manage Projects
+                        </button>
+                        <button id="add-activity-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition text-sm">
+                            Manage Description
+                        </button>
+                        <button id="add-description-to-project-btn" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition text-sm">
+                            Manage D to P
+                        </button>
+                    </div>
+
+                    <div id="mapping-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+                        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 id="modal-title" class="text-xl font-semibold">Edit Mapping</h3>
+                                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div id="modal-content"></div>
+                        </div>
+                    </div>
+
+                    <div id="ai-assistant-section" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- Category Mappings -->
+                        <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium">Activity Category → Project Mappings</h4>
+                                <button id="add-category-mapping-btn" class="text-primary hover:text-opacity-80 text-sm">+ Add</button>
+                            </div>
+                            <div id="category-mappings-container" class="max-h-60 overflow-y-auto space-y-2 mb-3">
+                                <div class="text-gray-500 dark:text-gray-400 text-sm italic">
+                                    No category mappings yet. Add manually or use AI analysis.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity Mappings -->
+                        <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium">Activity → Description Mappings</h4>
+                                <button id="add-activity-mapping-btn" class="text-primary hover:text-opacity-80 text-sm">+ Add</button>
+                            </div>
+                            <div id="activity-mappings-container" class="max-h-60 overflow-y-auto space-y-2 mb-3">
+                                <div class="text-gray-500 dark:text-gray-400 text-sm italic">
+                                    No activity mappings yet. Add manually or use AI analysis.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description to Project Mappings Section -->
+                    <div class="mb-6">
+                        <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-medium">Description → Project Mappings</h4>
+                                <button id="add-description-to-project-mapping-btn" class="text-primary hover:text-opacity-80 text-sm">+ Add</button>
+                            </div>
+                            <div id="description-to-project-mappings-container" class="max-h-60 overflow-y-auto space-y-2 mb-3">
+                                <div class="text-gray-500 dark:text-gray-400 text-sm italic">
+                                    No description to project mappings yet. Add them manually.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 mb-4">
+                        <button id="ai-analyze-btn" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-opacity-90 transition">
+                            Analyze with AI
+                        </button>
+
+                        <button id="clear-highlights-btn" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-opacity-90 transition hidden">
+                            Clear Highlights
+                        </button>
+
+                        <div id="ai-analysis-status" class="hidden items-center">
+                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-2"></div>
+                            <span>AI is analyzing your data...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <button id="convert-btn" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition">
+                            Convert CSV
+                        </button>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="filter-mapped-only" class="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <label for="filter-mapped-only" class="text-sm text-gray-600 dark:text-gray-300">
+                                只匯出已有 Description Mappings 的項目
+                            </label>
+                        </div>
+                    </div>
+
+                    <button id="save-mapping-btn" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-opacity-90 transition">
+                        Save Mapping
+                    </button>
+
+                    <label for="load-mapping-input" class="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg hover:bg-opacity-90 transition cursor-pointer">
+                        Load Mapping
+                    </label>
+
+                    <input id="load-mapping-input" type="file" accept=".json" class="hidden">
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Tab -->
+        <div id="content-output" class="tab-content">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Toggl CSV Output</h2>
+                <p class="mb-4 text-gray-600 dark:text-gray-300">Converted Toggl CSV data:</p>
+
+                <textarea
+                    id="output-csv"
+                    rows="12"
+                    class="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg text-base"
+                    placeholder="Converted data will appear here..."
+                    readonly
+                ></textarea>
+
+                <div class="mt-4">
+                    <button id="download-btn" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition">
+                        Download CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ======================================================
+        // LLM CONFIGURATION
+        // ======================================================
+
+        const LLM_CONFIG_URL = `https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json?t=${Date.now()}`;
+        const DEFAULT_AI_LLM = 'Claude-Sonnet-4';
+
+        let aiAnalysisLlm = DEFAULT_AI_LLM;
+        let llmConfigLoaded = false;
+        let llmConfigItems = [];
+
+        async function loadLlmConfiguration() {
+            const currentLlmEl = document.getElementById('current-ai-llm');
+            const messageEl = document.getElementById('llm-config-message');
+
+            try {
+                currentLlmEl.textContent = 'Loading...';
+                messageEl.textContent = 'Loading model configuration from jsDelivr...';
+
+                const response = await fetch(LLM_CONFIG_URL, {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const config = await response.json();
+
+                if (!config || !Array.isArray(config.items)) {
+                    throw new Error('Invalid LLM configuration format: missing items array.');
+                }
+
+                llmConfigItems = config.items;
+
+                const textModels = config.items.filter(item => item.category === 'text');
+                const pinnedTextModel = textModels.find(item => item.isPinned === true);
+                const selectedModel = pinnedTextModel || textModels[0];
+
+                if (!selectedModel || !selectedModel.name) {
+                    throw new Error('No text model found in configuration.');
+                }
+
+                aiAnalysisLlm = selectedModel.name;
+                llmConfigLoaded = true;
+
+                currentLlmEl.textContent = aiAnalysisLlm;
+                messageEl.textContent = `Loaded from jsDelivr successfully. Source: ${selectedModel.isPinned ? 'pinned text model' : 'first text model'}.`;
+            } catch (error) {
+                aiAnalysisLlm = DEFAULT_AI_LLM;
+                llmConfigLoaded = false;
+                llmConfigItems = [];
+
+                currentLlmEl.textContent = aiAnalysisLlm;
+                messageEl.textContent = `Failed to load external config. Using default model. Reason: ${error.message}`;
+            }
+        }
+
+        // ======================================================
+        // Dark mode detection
+        // ======================================================
+
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // ======================================================
+        // Tab functionality
+        // ======================================================
+
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.remove('text-primary', 'border-b-2', 'border-primary');
+                    btn.classList.add('text-gray-500', 'dark:text-gray-300');
+                });
+
+                button.classList.remove('text-gray-500', 'dark:text-gray-300');
+                button.classList.add('text-primary', 'border-b-2', 'border-primary');
+
+                const tabId = button.id.replace('tab-', '');
+
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+
+                document.getElementById(`content-${tabId}`).classList.add('active');
+            });
+        });
+
+        // ======================================================
+        // Default mapping values (from csv_mapping.json)
+        // ======================================================
+
+        const DEFAULT_CONFIG = {
+            user: "John YEUNG",
+            email: "johnyhh@gmail.com",
+            client: "",
+            project: "default",
+            projectDefault: "",
+            task: "",
+            billable: "No",
+            tags: "",
+            categoryMappings: {
+                "工作": [
+                    "Professional Life"
+                ],
+                "生命": [
+                    "Personal Life",
+                    "Life"
+                ],
+                "生活": [
+                    "Chores",
+                    "Personal Life"
+                ],
+                "業餘": [
+                    "Hobbies"
+                ],
+                "健康": [
+                    "Sport & Fitness",
+                    "Health & Hygiene",
+                    "Walk"
+                ],
+                "網賺": [],
+                "關係": [
+                    "Social"
+                ],
+                "HKCOC": [],
+                "其他": [
+                    "No category"
+                ],
+                "休息": [
+                    "Resting"
+                ],
+                "交通": [
+                    "Transport"
+                ],
+                "娛樂": [
+                    "Art & Entertainment",
+                    "H-Channel"
+                ]
+            },
+            activityMappings: {
+                "讀經": [
+                    "phone: 聖經書籤",
+                    "phone: Google Play 圖書"
+                ],
+                "每月相片管理": [
+                    "phone: 相簿",
+                    "phone: 相機",
+                    "phone: 媒體瀏覽器",
+                    "phone: 相片和影片"
+                ],
+                "Facebook": [
+                    "phone: Facebook",
+                    "phone: Messenger"
+                ],
+                "傳說對決": [
+                    "phone: 傳說對決"
+                ],
+                "H-Channel": [
+                    "H-Channel",
+                    "phone: Netflix",
+                    "phone: YouTube",
+                    "movies",
+                    "phone: 動畫瘋"
+                ],
+                "步行": [
+                    "walk",
+                    "Walk",
+                    "run"
+                ],
+                "手機上的理財活動": [
+                    "phone: 理財幫手AndroMoney",
+                    "phone: Citibank HK",
+                    "phone: HSBC HK",
+                    "phone: 幣安",
+                    "phone: Carbon Wallet",
+                    "phone: 恒生香港",
+                    "phone: SC Mobile",
+                    "phone: Planto",
+                    "phone: BOCHK 中銀香港",
+                    "phone: Samsung Wallet",
+                    "phone: AlipayHK",
+                    "phone: 萬通保險YFLink",
+                    "phone: PayMe",
+                    "phone: RentSmart",
+                    "phone: MyLink",
+                    "phone: 八達通",
+                    "phone: OmyCard",
+                    "phone: PayPal"
+                ],
+                "手機上網賺活動": [
+                    "phone: Honeygain",
+                    "phone: Sweat Wallet",
+                    "phone: Nodle",
+                    "phone: AttaPoll",
+                    "phone: McMoney",
+                    "phone: Pawns.app",
+                    "phone: Repocket",
+                    "phone: Sweatcoin",
+                    "phone: surveyon",
+                    "phone: ShopBack",
+                    "phone: Packetshare",
+                    "phone: SoSIM",
+                    "phone: Cointiply",
+                    "phone: The Point",
+                    "phone: RewardMe",
+                    "phone: MTR Mobile",
+                    "phone: MoneyBack",
+                    "phone: CoinGecko",
+                    "phone: Reward+",
+                    "phone: Premise",
+                    "phone: Google 意見反映獎賞",
+                    "phone: MetaMask",
+                    "phone: Carousell",
+                    "phone: Cointiply",
+                    "phone: yuu",
+                    "phone: Earn.FM",
+                    "phone: JAG",
+                    "phone: 綠綠賞",
+                    "phone: Votee",
+                    "phone: NielsenIQ Panel",
+                    "phone: S⁺ REWARDS",
+                    "phone: Blua Health"
+                ],
+                "日記": [
+                    "phone: Daylio",
+                    "phone: Diarium"
+                ],
+                "交通": [
+                    "vehicle",
+                    "bike",
+                    "phone: Uber",
+                    "phone: 香港巴士到站預報",
+                    "phone: 巴士預報",
+                    "phone: APP1933 - KMB . LWB"
+                ],
+                "娛樂": [
+                    "phone: 皇室戰爭",
+                    "phone: MysteryHike"
+                ],
+                "不分類": [
+                    "phone: COIN",
+                    "phone: TickTick",
+                    "phone: 日曆",
+                    "phone: Toggl Track",
+                    "phone: 三星瀏覽器",
+                    "eat out",
+                    "phone: App Usage",
+                    "phone: AppDialer Pro",
+                    "meeting",
+                    "work",
+                    "groceries",
+                    "phone: Galaxy Watch7 Manager",
+                    "phone: Samsung Find",
+                    "博康家飯",
+                    "崇拜",
+                    "sport",
+                    "phone: EAGLE PRO AI",
+                    "drinks",
+                    "phone: 訊息",
+                    "phone: IntentResolver",
+                    "phone: 設定",
+                    "phone: Chrome",
+                    "phone: Google Play 商店",
+                    "phone: Whoscall",
+                    "phone: 通話",
+                    "phone: 電話",
+                    "phone: 時鐘",
+                    "phone: Bixby",
+                    "phone: Birday",
+                    "phone: Giant clock",
+                    "phone: 智方便",
+                    "phone: 試算表",
+                    "phone: Dropbox",
+                    "phone: Automate",
+                    "phone: 雲端硬碟",
+                    "phone: Autosync",
+                    "phone: 軟件更新",
+                    "phone: Keep 筆記",
+                    "phone: Notion",
+                    "home time",
+                    "phone: 地圖",
+                    "parks and recreation",
+                    "tourism",
+                    "phone: Smarter Time",
+                    "phone: RescueTime Classic",
+                    "phone: YourHour",
+                    "phone: Galaxy Buds3 Pro Manager",
+                    "phone: SafeInCloud 2",
+                    "phone: Google",
+                    "phone: AnyList",
+                    "phone: 緊急 SOS",
+                    "司事",
+                    "phone: 語音翻譯",
+                    "phone: GroomTribe",
+                    "phone: Zepp Life",
+                    "phone: My﻿Dyson",
+                    "phone: 自訂服務",
+                    "phone: Adobe Acrobat",
+                    "phone: 螢幕牆紙與樣式",
+                    "phone: 我的檔案",
+                    "phone: Home",
+                    "party",
+                    "phone: Ampere",
+                    "phone: CafedeCoral",
+                    "phone: 米家",
+                    "phone: 健身",
+                    "phone: Chiikawa Pocket",
+                    "phone: 文件",
+                    "phone: DontKillMyApp",
+                    "phone: 裝置維護",
+                    "phone: 模式與日常行程",
+                    "phone: 媒體選擇器",
+                    "personal admin",
+                    "phone: Windy",
+                    "phone: Zoom Earth",
+                    "exhibition",
+                    "phone: 1945 Air Force",
+                    "phone: Ephemeris",
+                    "phone: Trip.com",
+                    "phone: Exist",
+                    "phone: Duo Mobile",
+                    "phone: Google One",
+                    "phone: Samsung Members",
+                    "phone: Teams",
+                    "phone: URBTIX",
+                    "phone: Threads",
+                    "phone: 憑證管理工具",
+                    "phone: Analytics",
+                    "phone: CLP HK",
+                    "sleep",
+                    "phone: Zoom",
+                    "phone: 附近裝置掃描",
+                    "phone: Samsung Notes",
+                    "phone: 簡報",
+                    "phone: plop",
+                    "phone: 計算機",
+                    "phone: Habitica",
+                    "phone: 權限控制器",
+                    "phone: Galaxy Wearable",
+                    "phone: 順豐速運",
+                    "phone: 漢語聖經",
+                    "phone: 提示",
+                    "phone: One UI 主螢幕",
+                    "phone: 相片編輯器",
+                    "phone: MacroDroid",
+                    "phone: THE GULU",
+                    "phone: 檔案",
+                    "phone: IFTTT",
+                    "phone: 標籤",
+                    "phone: 1688",
+                    "phone: 單字庫",
+                    "phone: Okta Verify",
+                    "phone: Tasks",
+                    "phone: 港話通",
+                    "phone: 錄音機",
+                    "phone: Base",
+                    "phone: Smart Switch",
+                    "phone: iSmart Printer",
+                    "phone: Call 師傅 (用戶版)",
+                    "phone: Token+",
+                    "phone: 一線通智守護",
+                    "phone: 快速共享",
+                    "phone: 三星擷取"
+                ],
+                "Slowly 筆友": [
+                    "phone: Slowly",
+                    "phone: Gmail"
+                ],
+                "IM": [
+                    "phone: Messenger",
+                    "phone: WhatsApp",
+                    "phone: WeChat",
+                    "phone: Signal",
+                    "phone: Telegram",
+                    "phone: Instagram"
+                ],
+                "AI Study": [
+                    "phone: Perplexity",
+                    "phone: Poe"
+                ],
+                "閱讀新聞": [
+                    "phone: 我的天文台",
+                    "phone: Google 新聞",
+                    "phone: 明報新聞",
+                    "phone: Instapaper",
+                    "phone: Samsung News"
+                ],
+                "飲食": [
+                    "phone: McDonald's",
+                    "phone: KFC HK & Macau",
+                    "phone: Pizza Hut HK & Macau",
+                    "phone: Fairwood",
+                    "phone: foodpanda",
+                    "phone: 太興集團",
+                    "phone: OpenRice",
+                    "phone: 譚仔雲南米線",
+                    "phone: 聖安娜香港",
+                    "phone: Keeta",
+                    "phone: 吉野家 Yoshinoya",
+                    "phone: 譚仔三哥",
+                    "phone: Food Department"
+                ],
+                "家長角色": [
+                    "phone: eClass Parent App",
+                    "phone: 活力午餐",
+                    "phone: 學前教育服務"
+                ],
+                "採購": [
+                    "phone: 拼多多",
+                    "phone: HKTVmall",
+                    "phone: 淘宝"
+                ],
+                "健康": [
+                    "phone: Nike Training",
+                    "phone: Health Connect",
+                    "phone: 自律茄子",
+                    "phone: HA Go",
+                    "phone: Samsung Health",
+                    "phone: 睡眠追蹤",
+                    "phone: 數位健康",
+                    "phone: Health"
+                ],
+                "關係": [],
+                "HKCOC": [],
+                "工作": [
+                    "phone: Rocket.Chat"
+                ],
+                "生活": [
+                    "phone: HouseBook",
+                    "phone: SwitchBot"
+                ],
+                "親子打機": [
+                    "phone: 1 2 3 4 Player Games",
+                    "phone: LogicLike",
+                    "phone: Maze for Kids",
+                    "phone: LEGO Tower"
+                ]
+            },
+            descriptionToProjectMappings: {
+                "讀經": "生命",
+                "每月相片管理": "生活",
+                "Facebook": "關係",
+                "傳說對決": "娛樂",
+                "H-Channel": "娛樂",
+                "Slowly 筆友": "生命",
+                "步行": "健康",
+                "交通": "交通",
+                "手機上的理財活動": "生活",
+                "手機上網賺活動": "網賺",
+                "日記": "生命",
+                "娛樂": "娛樂",
+                "IM": "關係",
+                "AI Study": "業餘",
+                "閱讀新聞": "生活",
+                "飲食": "生活",
+                "家長角色": "生活",
+                "採購": "生活",
+                "健康": "健康",
+                "關係": "關係",
+                "HKCOC": "HKCOC",
+                "工作": "工作",
+                "生活": "生活",
+                "親子打機": "娛樂"
+            }
+        };
+
+        let mapping = {
+            user: DEFAULT_CONFIG.user,
+            email: DEFAULT_CONFIG.email,
+            client: DEFAULT_CONFIG.client,
+            project: DEFAULT_CONFIG.project,
+            projectDefault: DEFAULT_CONFIG.projectDefault,
+            task: DEFAULT_CONFIG.task,
+            billable: DEFAULT_CONFIG.billable,
+            tags: DEFAULT_CONFIG.tags
+        };
+
+        let parsedData = null;
+
+        let descriptionToProjectMappings = JSON.parse(JSON.stringify(DEFAULT_CONFIG.descriptionToProjectMappings));
+
+        let newlyAddedActivityMappings = new Set();
+        let newlyAddedCategoryMappings = new Set();
+
+        let categoryMappings = JSON.parse(JSON.stringify(DEFAULT_CONFIG.categoryMappings));
+        let activityMappings = JSON.parse(JSON.stringify(DEFAULT_CONFIG.activityMappings));
+
+        // ======================================================
+        // CSV loading and parsing
+        // ======================================================
+
+        document.getElementById('load-csv-input').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('parse-result').classList.add('hidden');
+            document.getElementById('parse-error').classList.add('hidden');
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    document.getElementById('input-csv').value = e.target.result;
+                    document.getElementById('parse-btn').click();
+                } catch (error) {
+                    showParseError('Error reading file: ' + error.message);
+                }
+            };
+
+            reader.onerror = function() {
+                showParseError('Error reading file');
+            };
+
+            reader.readAsText(file);
+            event.target.value = '';
+        });
+
+        document.getElementById('mapping-project').addEventListener('change', function() {
+            const defaultContainer = document.getElementById('mapping-project-default-container');
+            defaultContainer.style.display = this.value === 'default' ? 'flex' : 'none';
+        });
+
+        function preprocessCSV(csvText) {
+            let processedText = csvText;
+
+            processedText = processedText.replace(/"([^"]*)"([^"]*?)"/g, (match, part1, part2) => {
+                if (part2.trim() && !part2.startsWith(',')) {
+                    return `"${part1}""${part2}"`;
+                }
+
+                return match;
+            });
+
+            return processedText;
+        }
+
+        document.getElementById('parse-btn').addEventListener('click', () => {
+            const csvInput = document.getElementById('input-csv').value.trim();
+
+            if (!csvInput) {
+                showParseError('Please enter CSV data');
+                return;
+            }
+
+            let parsedSuccessfully = false;
+            let allErrors = [];
+
+            try {
+                const preprocessedCSV = preprocessCSV(csvInput);
+
+                Papa.parse(preprocessedCSV, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        if (!results.errors || results.errors.length === 0) {
+                            parsedData = results.data;
+                            document.getElementById('row-count').textContent = parsedData.length;
+                            document.getElementById('parse-result').classList.remove('hidden');
+                            document.getElementById('parse-error').classList.add('hidden');
+                            document.getElementById('tab-mapping').click();
+                            parsedSuccessfully = true;
+                            return;
+                        }
+
+                        allErrors.push(...results.errors);
+                        tryStrategy2();
+                    },
+                    error: function(error) {
+                        allErrors.push(error);
+                        tryStrategy2();
+                    }
+                });
+            } catch (e) {
+                allErrors.push(e);
+                tryStrategy2();
+            }
+
+            function tryStrategy2() {
+                if (parsedSuccessfully) return;
+
+                try {
+                    Papa.parse(csvInput, {
+                        header: true,
+                        skipEmptyLines: true,
+                        quoteChar: '',
+                        complete: function(results) {
+                            if (!results.errors || results.errors.length === 0) {
+                                parsedData = results.data;
+                                document.getElementById('row-count').textContent = parsedData.length;
+                                document.getElementById('parse-result').classList.remove('hidden');
+                                document.getElementById('parse-error').classList.add('hidden');
+                                document.getElementById('tab-mapping').click();
+                                parsedSuccessfully = true;
+                                return;
+                            }
+
+                            allErrors.push(...results.errors);
+                            tryStrategy3();
+                        },
+                        error: function(error) {
+                            allErrors.push(error);
+                            tryStrategy3();
+                        }
+                    });
+                } catch (e) {
+                    allErrors.push(e);
+                    tryStrategy3();
+                }
+            }
+
+            function tryStrategy3() {
+                if (parsedSuccessfully) return;
+
+                try {
+                    const lines = csvInput.split('\n').filter(line => line.trim());
+
+                    if (lines.length === 0) {
+                        showParseError('No data found in CSV');
+                        return;
+                    }
+
+                    const headerLine = lines[0];
+                    const headers = headerLine.split(',').map(h => h.replace(/^"|"$/g, '').trim());
+                    const data = [];
+
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i];
+                        const fields = [];
+                        let current = '';
+                        let inQuotes = false;
+
+                        for (let j = 0; j < line.length; j++) {
+                            const char = line[j];
+                            const nextChar = line[j + 1];
+
+                            if (char === '"' && !inQuotes) {
+                                inQuotes = true;
+                            } else if (char === '"' && inQuotes && nextChar === ',') {
+                                inQuotes = false;
+                            } else if (char === '"' && inQuotes && nextChar === '"') {
+                                current += '"';
+                                j++;
+                            } else if (char === ',' && !inQuotes) {
+                                fields.push(current.trim());
+                                current = '';
+                            } else if (char !== '"' || (char === '"' && inQuotes)) {
+                                current += char;
+                            }
+                        }
+
+                        fields.push(current.trim());
+
+                        const row = {};
+                        headers.forEach((header, index) => {
+                            row[header] = fields[index] || '';
+                        });
+
+                        data.push(row);
+                    }
+
+                    parsedData = data;
+                    document.getElementById('row-count').textContent = parsedData.length;
+                    document.getElementById('parse-result').classList.remove('hidden');
+                    document.getElementById('parse-error').classList.add('hidden');
+                    document.getElementById('tab-mapping').click();
+                    parsedSuccessfully = true;
+                } catch (e) {
+                    allErrors.push(e);
+
+                    const errorMsg = 'All parsing strategies failed:\n' +
+                        allErrors.map((err, i) => `Strategy ${i + 1}: ${err.message || err}`).join('\n');
+
+                    showParseError(errorMsg);
+                }
+            }
+        });
+
+        function showParseError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('parse-error').classList.remove('hidden');
+            document.getElementById('parse-result').classList.add('hidden');
+        }
+
+        // ======================================================
+        // Conversion helpers
+        // ======================================================
+
+        function msToHHMMSS(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+
+            return [
+                h.toString().padStart(2, '0'),
+                m.toString().padStart(2, '0'),
+                s.toString().padStart(2, '0')
+            ].join(':');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr || dateStr.length !== 8) return '';
+
+            return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+        }
+
+        function timestampToTime(timestamp) {
+            const date = new Date(parseInt(timestamp));
+
+            return [
+                date.getHours().toString().padStart(2, '0'),
+                date.getMinutes().toString().padStart(2, '0'),
+                date.getSeconds().toString().padStart(2, '0')
+            ].join(':');
+        }
+
+        function calculateEndDateTime(startDate, startTimestamp, durationMs) {
+            const startDateTime = new Date(parseInt(startTimestamp));
+            const endDateTime = new Date(startDateTime.getTime() + parseInt(durationMs));
+
+            const endYear = endDateTime.getFullYear();
+            const endMonth = (endDateTime.getMonth() + 1).toString().padStart(2, '0');
+            const endDay = endDateTime.getDate().toString().padStart(2, '0');
+            const endDate = `${endYear}-${endMonth}-${endDay}`;
+
+            const endTime = [
+                endDateTime.getHours().toString().padStart(2, '0'),
+                endDateTime.getMinutes().toString().padStart(2, '0'),
+                endDateTime.getSeconds().toString().padStart(2, '0')
+            ].join(':');
+
+            return { endDate, endTime };
+        }
+
+        function updateMappingFromUI() {
+            mapping.user = document.getElementById('mapping-user').value;
+            mapping.email = document.getElementById('mapping-email').value;
+            mapping.client = document.getElementById('mapping-client').value;
+            mapping.project = document.getElementById('mapping-project').value;
+            mapping.projectDefault = document.getElementById('mapping-project-default').value;
+            mapping.task = document.getElementById('mapping-task').value;
+            mapping.billable = document.getElementById('mapping-billable').value;
+            mapping.tags = document.getElementById('mapping-tags').value;
+        }
+
+        function updateUIFromMapping() {
+            document.getElementById('mapping-user').value = mapping.user || '';
+            document.getElementById('mapping-email').value = mapping.email || '';
+            document.getElementById('mapping-client').value = mapping.client || '';
+            document.getElementById('mapping-project').value = mapping.project || 'default';
+            document.getElementById('mapping-project-default').value = mapping.projectDefault || '';
+            document.getElementById('mapping-task').value = mapping.task || '';
+            document.getElementById('mapping-billable').value = mapping.billable || 'No';
+            document.getElementById('mapping-tags').value = mapping.tags || '';
+
+            const projectSelect = document.getElementById('mapping-project');
+            const defaultContainer = document.getElementById('mapping-project-default-container');
+            defaultContainer.style.display = projectSelect.value === 'default' ? 'flex' : 'none';
+        }
+
+        // ======================================================
+        // Convert CSV
+        // ======================================================
+
+        document.getElementById('convert-btn').addEventListener('click', () => {
+            if (!parsedData || parsedData.length === 0) {
+                document.getElementById('tab-input').click();
+                showParseError('Please parse CSV data first');
+                return;
+            }
+
+            updateMappingFromUI();
+
+            const filterMappedOnly = document.getElementById('filter-mapped-only').checked;
+            const toggleHeaders = [
+                "User",
+                "Email",
+                "Client",
+                "Project",
+                "Task",
+                "Description",
+                "Billable",
+                "Start date",
+                "Start time",
+                "End date",
+                "End time",
+                "Duration",
+                "Tags"
+            ];
+
+            let convertedData = parsedData.map(row => {
+                let projectValue = '';
+
+                const category = row['Activity Category'] || '';
+
+                for (const [project, categories] of Object.entries(categoryMappings)) {
+                    if (categories.includes(category)) {
+                        projectValue = project;
+                        break;
+                    }
+                }
+
+                if (!projectValue) {
+                    if (mapping.project === 'default') {
+                        projectValue = mapping.projectDefault;
+                    } else if (mapping.project === 'activity_category') {
+                        projectValue = row['Activity Category'] || '';
+                    } else if (mapping.project === 'place') {
+                        projectValue = row['Place'] || '';
+                    }
+                }
+
+                const activity = row['Activity'] || '';
+
+                const startDate = formatDate(row['Day']);
+                const startTime = timestampToTime(row['Timestamp UTC ms']);
+                const { endDate, endTime } = calculateEndDateTime(row['Day'], row['Timestamp UTC ms'], row['Duration ms']);
+                const duration = msToHHMMSS(row['Duration ms']);
+
+                let descriptionValue = row['Activity'];
+                let hasDescriptionMapping = false;
+
+                for (const [description, activities] of Object.entries(activityMappings)) {
+                    if (activities.some(a => activity.includes(a))) {
+                        descriptionValue = description;
+                        hasDescriptionMapping = true;
+                        break;
+                    }
+                }
+
+                if (hasDescriptionMapping && descriptionToProjectMappings[descriptionValue]) {
+                    projectValue = descriptionToProjectMappings[descriptionValue];
+                }
+
+                return {
+                    "User": mapping.user,
+                    "Email": mapping.email,
+                    "Client": mapping.client,
+                    "Project": projectValue,
+                    "Task": mapping.task,
+                    "Description": descriptionValue,
+                    "Billable": mapping.billable,
+                    "Start date": startDate,
+                    "Start time": startTime,
+                    "End date": endDate,
+                    "End time": endTime,
+                    "Duration": duration,
+                    "Tags": mapping.tags,
+                    "_hasDescriptionMapping": hasDescriptionMapping
+                };
+            });
+
+            if (filterMappedOnly) {
+                convertedData = convertedData.filter(record => {
+                    return record._hasDescriptionMapping && record.Description !== "不分類";
+                });
+            }
+
+            convertedData = convertedData.map(record => {
+                const { _hasDescriptionMapping, ...cleanRecord } = record;
+                return cleanRecord;
+            });
+
+            const outputCSV = Papa.unparse({
+                fields: toggleHeaders,
+                data: convertedData
+            }, {
+                quotes: true
+            });
+
+            const outputRowCount = convertedData.length;
+            const originalRowCount = parsedData.length;
+
+            const outputMessage = filterMappedOnly
+                ? `已匯出 ${outputRowCount} / ${originalRowCount} 條記錄（只包含已映射的項目）`
+                : `已匯出全部 ${outputRowCount} 條記錄`;
+
+            document.getElementById('output-csv').value = outputCSV;
+            document.getElementById('tab-output').click();
+
+            const outputTab = document.getElementById('content-output');
+            const existingNotification = outputTab.querySelector('.export-notification');
+
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = 'p-4 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded-lg mb-4 export-notification';
+            notification.textContent = outputMessage;
+
+            const outputContainer = outputTab.querySelector('div');
+            outputContainer.insertBefore(notification, outputContainer.firstChild);
+        });
+
+        // ======================================================
+        // Download CSV
+        // ======================================================
+
+        document.getElementById('download-btn').addEventListener('click', () => {
+            const csvData = document.getElementById('output-csv').value;
+
+            if (!csvData) return;
+
+            let filename = 'toggl_converted.csv';
+
+            if (parsedData && parsedData.length > 0) {
+                const dates = parsedData.map(row => row['Day']).filter(Boolean);
+
+                if (dates.length > 0) {
+                    const sortedDates = dates.sort();
+                    const minDate = sortedDates[0];
+                    const maxDate = sortedDates[sortedDates.length - 1];
+
+                    const formatDateForFilename = (dateStr) => {
+                        if (dateStr && dateStr.length === 8) {
+                            return `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+                        }
+
+                        return dateStr;
+                    };
+
+                    const formattedMinDate = formatDateForFilename(minDate);
+                    const formattedMaxDate = formatDateForFilename(maxDate);
+
+                    if (formattedMinDate === formattedMaxDate) {
+                        filename = `toggl_converted_${formattedMinDate}.csv`;
+                    } else {
+                        filename = `toggl_converted_${formattedMinDate}_to_${formattedMaxDate}.csv`;
+                    }
+                }
+            }
+
+            const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // ======================================================
+        // AI Analysis
+        // ======================================================
+
+        window.Poe.registerHandler("ai-mapping-handler", (result, context) => {
+            document.getElementById('ai-analysis-status').classList.add('hidden');
+
+            if (result.status === "error") {
+                showParseError("Error analyzing data with AI: " + (result.responses[0]?.statusText || "Unknown error"));
+                return;
+            }
+
+            if (result.status === "complete" && result.responses[0]) {
+                try {
+                    const response = result.responses[0].content;
+
+                    const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) ||
+                        response.match(/```\n([\s\S]*?)\n```/) ||
+                        response.match(/{[\s\S]*}/);
+
+                    if (jsonMatch) {
+                        let jsonStr = jsonMatch[1] || jsonMatch[0];
+                        const mappingResult = JSON.parse(jsonStr);
+
+                        if (mappingResult.categoryMappings) {
+                            newlyAddedCategoryMappings.clear();
+
+                            Object.entries(mappingResult.categoryMappings).forEach(([project, categories]) => {
+                                if (!categoryMappings[project]) {
+                                    categoryMappings[project] = [];
+                                }
+
+                                categories.forEach(category => {
+                                    if (!categoryMappings[project].includes(category)) {
+                                        categoryMappings[project].push(category);
+                                        newlyAddedCategoryMappings.add(`${project}|${category}`);
+                                    }
+                                });
+                            });
+
+                            renderCategoryMappings();
+                        }
+
+                        if (mappingResult.activityMappings) {
+                            newlyAddedActivityMappings.clear();
+
+                            Object.entries(mappingResult.activityMappings).forEach(([project, activities]) => {
+                                if (!activityMappings[project]) {
+                                    activityMappings[project] = [];
+                                }
+
+                                activities.forEach(activity => {
+                                    if (!activityMappings[project].includes(activity)) {
+                                        activityMappings[project].push(activity);
+                                        newlyAddedActivityMappings.add(`${project}|${activity}`);
+                                    }
+                                });
+                            });
+
+                            renderActivityMappings();
+                        }
+
+                        if (newlyAddedActivityMappings.size > 0 || newlyAddedCategoryMappings.size > 0) {
+                            document.getElementById('clear-highlights-btn').classList.remove('hidden');
+                        }
+                    } else {
+                        showParseError("Could not parse AI response as JSON.");
+                    }
+                } catch (error) {
+                    showParseError("Error processing AI response: " + error.message);
+                }
+            }
+        });
+
+        document.getElementById('ai-analyze-btn').addEventListener('click', async () => {
+            if (!parsedData || parsedData.length === 0) {
+                showParseError('Please parse CSV data first');
+                return;
+            }
+
+            const categories = [...new Set(parsedData.map(row => row['Activity Category']))].filter(Boolean);
+            const activities = [...new Set(parsedData.map(row => row['Activity']))].filter(Boolean);
+
+            const alreadyMappedCategories = new Set();
+            const alreadyMappedActivities = new Set();
+
+            Object.entries(categoryMappings).forEach(([project, mappedCategories]) => {
+                mappedCategories.forEach(category => {
+                    alreadyMappedCategories.add(category);
+                });
+            });
+
+            Object.entries(activityMappings).forEach(([project, mappedActivities]) => {
+                mappedActivities.forEach(activity => {
+                    alreadyMappedActivities.add(activity);
+                });
+            });
+
+            const unmappedCategories = categories.filter(category => !alreadyMappedCategories.has(category));
+
+            const unmappedActivities = activities.filter(activity =>
+                !alreadyMappedActivities.has(activity) &&
+                !activities.some(a => alreadyMappedActivities.has(a) && activity.includes(a))
+            );
+
+            if (unmappedCategories.length === 0 && unmappedActivities.length === 0) {
+                showParseError('All items are already mapped. No need for AI analysis.');
+                return;
+            }
+
+            document.getElementById('ai-analysis-status').classList.remove('hidden');
+            document.getElementById('ai-analysis-status').classList.add('flex');
+
+            const currentMappingsInfo = [];
+
+            if (Object.keys(categoryMappings).some(project => categoryMappings[project].length > 0)) {
+                currentMappingsInfo.push("Current category mappings:");
+
+                Object.entries(categoryMappings).forEach(([project, categories]) => {
+                    if (categories.length > 0) {
+                        currentMappingsInfo.push(`- ${project}: ${categories.join(", ")}`);
+                    }
+                });
+            }
+
+            if (Object.keys(activityMappings).some(project => activityMappings[project].length > 0)) {
+                currentMappingsInfo.push("\nCurrent activity mappings:");
+
+                Object.entries(activityMappings).forEach(([project, activities]) => {
+                    if (activities.length > 0) {
+                        currentMappingsInfo.push(`- ${project}: ${activities.join(", ")}`);
+                    }
+                });
+            }
+
+            const projectKeys = Object.keys(categoryMappings);
+            const activityKeys = Object.keys(activityMappings);
+
+            try {
+                const prompt = `I need help mapping data from Smarter Time CSV to Toggl CSV.
+
+${currentMappingsInfo.length > 0 ? currentMappingsInfo.join('\n') + "\n\n" : ""}Here are the unmapped Activity Categories from the CSV: ${JSON.stringify(unmappedCategories)}
+
+Here are the unmapped Activities from the CSV: ${JSON.stringify(unmappedActivities)}
+
+Please help me map:
+1. Each Activity Category to one of these Toggl Projects: ${projectKeys.join(', ')}
+2. Each Activity that matches any of these names to their corresponding Toggl Description values: ${activityKeys.join(', ')}
+
+Return your answer as a JSON object with the following format:
+{
+  "categoryMappings": {
+    "${projectKeys[0]}": ["Example Category 1", "Example Category 2"]
+  },
+  "activityMappings": {
+    "${activityKeys[0]}": ["Example Activity 1", "Example Activity 2"]
+  }
+}
+
+Important guidelines:
+- Only map unmapped items.
+- Do not include items already in current mappings.
+- Map each Smarter Time Category to exactly one Toggl Project.
+- For Activity mappings, only match activities that are clearly related to the specified Description values.
+- Use Chinese characters when they appear in the original data.
+- Provide ONLY raw JSON in your response.
+- Do not use markdown code fences.
+- Only include project or description keys that have at least one mapping in your response.
+`;
+
+                await window.Poe.sendUserMessage(
+                    "@" + aiAnalysisLlm + " " + prompt,
+                    {
+                        handler: "ai-mapping-handler",
+                        stream: false,
+                        openChat: false
+                    }
+                );
+            } catch (err) {
+                document.getElementById('ai-analysis-status').classList.add('hidden');
+                showParseError("Error requesting AI analysis with @" + aiAnalysisLlm + ": " + err.message);
+            }
+        });
+
+        // ======================================================
+        // Render mapping lists
+        // ======================================================
+
+        function renderCategoryMappings() {
+            const container = document.getElementById('category-mappings-container');
+            container.innerHTML = '';
+
+            for (const [project, categories] of Object.entries(categoryMappings)) {
+                if (categories.length === 0) continue;
+
+                const mappingGroup = document.createElement('div');
+                mappingGroup.className = 'mb-3';
+
+                const projectHeader = document.createElement('div');
+                projectHeader.className = 'font-medium text-primary mb-1';
+                projectHeader.textContent = project;
+                mappingGroup.appendChild(projectHeader);
+
+                categories.forEach(category => {
+                    const categoryItem = document.createElement('div');
+                    const isNewlyAdded = newlyAddedCategoryMappings.has(`${project}|${category}`);
+
+                    categoryItem.className = `flex justify-between items-center text-sm pl-3 py-1 ${
+                        isNewlyAdded ? 'bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-400 pl-2' : ''
+                    }`;
+
+                    const categoryText = document.createElement('span');
+                    categoryText.textContent = category;
+
+                    if (isNewlyAdded) {
+                        categoryText.className = 'font-medium';
+                    }
+
+                    categoryItem.appendChild(categoryText);
+
+                    const actionsContainer = document.createElement('div');
+                    actionsContainer.className = 'flex gap-2';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'text-blue-600 dark:text-blue-400 hover:text-blue-800 text-xs';
+                    editBtn.textContent = 'Edit';
+                    editBtn.addEventListener('click', () => {
+                        showEditMapping('category', project, category);
+                    });
+                    actionsContainer.appendChild(editBtn);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 text-xs';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('click', () => {
+                        categoryMappings[project] = categoryMappings[project].filter(item => item !== category);
+                        renderCategoryMappings();
+                    });
+                    actionsContainer.appendChild(removeBtn);
+
+                    categoryItem.appendChild(actionsContainer);
+                    mappingGroup.appendChild(categoryItem);
+                });
+
+                container.appendChild(mappingGroup);
+            }
+
+            if (container.children.length === 0) {
+                const noMappings = document.createElement('div');
+                noMappings.className = 'text-gray-500 dark:text-gray-400 text-sm italic';
+                noMappings.textContent = 'No category mappings created yet.';
+                container.appendChild(noMappings);
+            }
+        }
+
+        function renderActivityMappings() {
+            const container = document.getElementById('activity-mappings-container');
+            container.innerHTML = '';
+
+            for (const [project, activities] of Object.entries(activityMappings)) {
+                if (activities.length === 0) continue;
+
+                const mappingGroup = document.createElement('div');
+                mappingGroup.className = 'mb-3';
+
+                const projectHeader = document.createElement('div');
+                projectHeader.className = 'font-medium text-primary mb-1';
+                projectHeader.textContent = project;
+                mappingGroup.appendChild(projectHeader);
+
+                activities.forEach(activity => {
+                    const activityItem = document.createElement('div');
+                    const isNewlyAdded = newlyAddedActivityMappings.has(`${project}|${activity}`);
+
+                    activityItem.className = `flex justify-between items-center text-sm pl-3 py-1 ${
+                        isNewlyAdded ? 'bg-yellow-100 dark:bg-yellow-900 border-l-4 border-yellow-400 pl-2' : ''
+                    }`;
+
+                    const activityText = document.createElement('span');
+                    activityText.textContent = activity;
+
+                    if (isNewlyAdded) {
+                        activityText.className = 'font-medium';
+                    }
+
+                    activityItem.appendChild(activityText);
+
+                    const actionsContainer = document.createElement('div');
+                    actionsContainer.className = 'flex gap-2';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'text-blue-600 dark:text-blue-400 hover:text-blue-800 text-xs';
+                    editBtn.textContent = 'Edit';
+                    editBtn.addEventListener('click', () => {
+                        showEditMapping('activity', project, activity);
+                    });
+                    actionsContainer.appendChild(editBtn);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 text-xs';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('click', () => {
+                        activityMappings[project] = activityMappings[project].filter(item => item !== activity);
+                        renderActivityMappings();
+                    });
+                    actionsContainer.appendChild(removeBtn);
+
+                    activityItem.appendChild(actionsContainer);
+                    mappingGroup.appendChild(activityItem);
+                });
+
+                container.appendChild(mappingGroup);
+            }
+
+            if (container.children.length === 0) {
+                const noMappings = document.createElement('div');
+                noMappings.className = 'text-gray-500 dark:text-gray-400 text-sm italic';
+                noMappings.textContent = 'No activity mappings created yet.';
+                container.appendChild(noMappings);
+            }
+        }
+
+        // ======================================================
+        // Modal helpers
+        // ======================================================
+
+        function showEditMapping(type, project, item) {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = type === 'category' ? 'Edit Category Mapping' : 'Edit Activity Mapping';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const newProject = form.querySelector('#edit-project').value;
+                const newItem = form.querySelector('#edit-item').value;
+
+                if (!newProject || !newItem) return;
+
+                if (type === 'category') {
+                    categoryMappings[project] = categoryMappings[project].filter(i => i !== item);
+
+                    if (!categoryMappings[newProject]) {
+                        categoryMappings[newProject] = [];
+                    }
+
+                    categoryMappings[newProject].push(newItem);
+                    renderCategoryMappings();
+                } else {
+                    activityMappings[project] = activityMappings[project].filter(i => i !== item);
+
+                    if (!activityMappings[newProject]) {
+                        activityMappings[newProject] = [];
+                    }
+
+                    activityMappings[newProject].push(newItem);
+                    renderActivityMappings();
+                }
+
+                hideModal();
+            });
+
+            const projectLabel = document.createElement('label');
+            projectLabel.setAttribute('for', 'edit-project');
+            projectLabel.className = 'block text-sm font-medium mb-1';
+            projectLabel.textContent = 'Project';
+            form.appendChild(projectLabel);
+
+            const projectSelect = document.createElement('select');
+            projectSelect.id = 'edit-project';
+            projectSelect.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded';
+
+            const projects = type === 'category' ? Object.keys(categoryMappings) : Object.keys(activityMappings);
+
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                option.selected = p === project;
+                projectSelect.appendChild(option);
+            });
+
+            form.appendChild(projectSelect);
+
+            const itemLabel = document.createElement('label');
+            itemLabel.setAttribute('for', 'edit-item');
+            itemLabel.className = 'block text-sm font-medium mb-1';
+            itemLabel.textContent = type === 'category' ? 'Category' : 'Activity';
+            form.appendChild(itemLabel);
+
+            const itemInput = document.createElement('input');
+            itemInput.type = 'text';
+            itemInput.id = 'edit-item';
+            itemInput.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+            itemInput.value = item;
+            form.appendChild(itemInput);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-4';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', hideModal);
+            buttonContainer.appendChild(cancelBtn);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'submit';
+            saveBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            saveBtn.textContent = 'Save';
+            buttonContainer.appendChild(saveBtn);
+
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function showAddMapping(type) {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = type === 'category' ? 'Add Category Mapping' : 'Add Activity Mapping';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const project = form.querySelector('#edit-project').value;
+                const item = form.querySelector('#edit-item').value;
+
+                if (!project || !item) return;
+
+                if (type === 'category') {
+                    if (!categoryMappings[project]) {
+                        categoryMappings[project] = [];
+                    }
+
+                    if (!categoryMappings[project].includes(item)) {
+                        categoryMappings[project].push(item);
+                        renderCategoryMappings();
+                    }
+                } else {
+                    if (!activityMappings[project]) {
+                        activityMappings[project] = [];
+                    }
+
+                    if (!activityMappings[project].includes(item)) {
+                        activityMappings[project].push(item);
+                        renderActivityMappings();
+                    }
+                }
+
+                hideModal();
+            });
+
+            const projectLabel = document.createElement('label');
+            projectLabel.setAttribute('for', 'edit-project');
+            projectLabel.className = 'block text-sm font-medium mb-1';
+            projectLabel.textContent = 'Project';
+            form.appendChild(projectLabel);
+
+            const projectSelect = document.createElement('select');
+            projectSelect.id = 'edit-project';
+            projectSelect.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded';
+
+            const projects = type === 'category' ? Object.keys(categoryMappings) : Object.keys(activityMappings);
+
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                projectSelect.appendChild(option);
+            });
+
+            form.appendChild(projectSelect);
+
+            const itemLabel = document.createElement('label');
+            itemLabel.setAttribute('for', 'edit-item');
+            itemLabel.className = 'block text-sm font-medium mb-1';
+            itemLabel.textContent = type === 'category' ? 'Category' : 'Activity';
+            form.appendChild(itemLabel);
+
+            const itemInput = document.createElement('input');
+            itemInput.type = 'text';
+            itemInput.id = 'edit-item';
+            itemInput.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+            itemInput.placeholder = type === 'category' ? 'Enter category name' : 'Enter activity name';
+            form.appendChild(itemInput);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-4';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', hideModal);
+            buttonContainer.appendChild(cancelBtn);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'submit';
+            saveBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            saveBtn.textContent = 'Add';
+            buttonContainer.appendChild(saveBtn);
+
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('mapping-modal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        // ======================================================
+        // Project / Description Management
+        // ======================================================
+
+        function showProjectManagement() {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = 'Manage Projects';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            const description = document.createElement('p');
+            description.className = 'text-gray-600 dark:text-gray-300 text-sm mb-4';
+            description.textContent = 'Add, edit, or remove projects for mapping categories and activities.';
+            form.appendChild(description);
+
+            const projectListContainer = document.createElement('div');
+            projectListContainer.className = 'space-y-2 max-h-60 overflow-y-auto mb-4';
+
+            const projectKeys = Object.keys(categoryMappings);
+
+            projectKeys.forEach(project => {
+                const projectItem = document.createElement('div');
+                projectItem.className = 'flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2';
+
+                const projectInput = document.createElement('input');
+                projectInput.type = 'text';
+                projectInput.value = project;
+                projectInput.className = 'flex-grow p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+                projectInput.dataset.originalValue = project;
+                projectItem.appendChild(projectInput);
+
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'flex ml-2';
+
+                const saveBtn = document.createElement('button');
+                saveBtn.type = 'button';
+                saveBtn.className = 'text-green-600 dark:text-green-400 hover:text-green-800 ml-2';
+                saveBtn.innerHTML = '✓';
+
+                saveBtn.addEventListener('click', () => {
+                    const newValue = projectInput.value.trim();
+                    const originalValue = projectInput.dataset.originalValue;
+
+                    if (newValue && newValue !== originalValue) {
+                        if (categoryMappings[originalValue]) {
+                            categoryMappings[newValue] = [...categoryMappings[originalValue]];
+                            delete categoryMappings[originalValue];
+                        }
+
+                        if (activityMappings[originalValue]) {
+                            activityMappings[newValue] = [...activityMappings[originalValue]];
+                            delete activityMappings[originalValue];
+                        }
+
+                        projectInput.dataset.originalValue = newValue;
+                        projectInput.value = newValue;
+                    }
+                });
+
+                btnContainer.appendChild(saveBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 ml-2';
+                deleteBtn.innerHTML = '×';
+
+                deleteBtn.addEventListener('click', () => {
+                    const project = projectInput.dataset.originalValue;
+                    delete categoryMappings[project];
+                    delete activityMappings[project];
+                    projectItem.remove();
+                });
+
+                btnContainer.appendChild(deleteBtn);
+
+                projectItem.appendChild(btnContainer);
+                projectListContainer.appendChild(projectItem);
+            });
+
+            form.appendChild(projectListContainer);
+
+            const newProjectContainer = document.createElement('div');
+            newProjectContainer.className = 'mt-4 flex items-center';
+
+            const newProjectInput = document.createElement('input');
+            newProjectInput.type = 'text';
+            newProjectInput.id = 'new-project';
+            newProjectInput.className = 'flex-grow p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+            newProjectInput.placeholder = 'Enter new project name';
+            newProjectContainer.appendChild(newProjectInput);
+
+            const addProjectBtn = document.createElement('button');
+            addProjectBtn.type = 'button';
+            addProjectBtn.className = 'ml-2 px-4 py-2 bg-primary text-white rounded';
+            addProjectBtn.textContent = 'Add';
+
+            addProjectBtn.addEventListener('click', () => {
+                const newProject = newProjectInput.value.trim();
+
+                if (newProject && !categoryMappings[newProject]) {
+                    categoryMappings[newProject] = [];
+                    activityMappings[newProject] = [];
+                    newProjectInput.value = '';
+                    showProjectManagement();
+                }
+            });
+
+            newProjectContainer.appendChild(addProjectBtn);
+            form.appendChild(newProjectContainer);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-6';
+
+            const doneBtn = document.createElement('button');
+            doneBtn.type = 'button';
+            doneBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            doneBtn.textContent = 'Done';
+
+            doneBtn.addEventListener('click', () => {
+                renderCategoryMappings();
+                renderActivityMappings();
+                hideModal();
+            });
+
+            buttonContainer.appendChild(doneBtn);
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function showActivityCategoryManagement() {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = 'Manage Description Values';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            const description = document.createElement('p');
+            description.className = 'text-gray-600 dark:text-gray-300 text-sm mb-4';
+            description.textContent = 'Add, edit, or remove description values for activity mapping.';
+            form.appendChild(description);
+
+            const activityListContainer = document.createElement('div');
+            activityListContainer.className = 'space-y-2 max-h-60 overflow-y-auto mb-4';
+
+            const activityKeys = Object.keys(activityMappings);
+
+            activityKeys.forEach(activity => {
+                const activityItem = document.createElement('div');
+                activityItem.className = 'flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2';
+
+                const activityInput = document.createElement('input');
+                activityInput.type = 'text';
+                activityInput.value = activity;
+                activityInput.className = 'flex-grow p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+                activityInput.dataset.originalValue = activity;
+                activityItem.appendChild(activityInput);
+
+                const btnContainer = document.createElement('div');
+                btnContainer.className = 'flex ml-2';
+
+                const saveBtn = document.createElement('button');
+                saveBtn.type = 'button';
+                saveBtn.className = 'text-green-600 dark:text-green-400 hover:text-green-800 ml-2';
+                saveBtn.innerHTML = '✓';
+
+                saveBtn.addEventListener('click', () => {
+                    const newValue = activityInput.value.trim();
+                    const originalValue = activityInput.dataset.originalValue;
+
+                    if (newValue && newValue !== originalValue) {
+                        if (activityMappings[originalValue]) {
+                            activityMappings[newValue] = [...activityMappings[originalValue]];
+                            delete activityMappings[originalValue];
+                        }
+
+                        if (descriptionToProjectMappings[originalValue]) {
+                            descriptionToProjectMappings[newValue] = descriptionToProjectMappings[originalValue];
+                            delete descriptionToProjectMappings[originalValue];
+                        }
+
+                        activityInput.dataset.originalValue = newValue;
+                        activityInput.value = newValue;
+                    }
+                });
+
+                btnContainer.appendChild(saveBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 ml-2';
+                deleteBtn.innerHTML = '×';
+
+                deleteBtn.addEventListener('click', () => {
+                    const activity = activityInput.dataset.originalValue;
+                    delete activityMappings[activity];
+                    delete descriptionToProjectMappings[activity];
+                    activityItem.remove();
+                });
+
+                btnContainer.appendChild(deleteBtn);
+
+                activityItem.appendChild(btnContainer);
+                activityListContainer.appendChild(activityItem);
+            });
+
+            form.appendChild(activityListContainer);
+
+            const newActivityContainer = document.createElement('div');
+            newActivityContainer.className = 'mt-4 flex items-center';
+
+            const newActivityInput = document.createElement('input');
+            newActivityInput.type = 'text';
+            newActivityInput.id = 'new-activity';
+            newActivityInput.className = 'flex-grow p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base';
+            newActivityInput.placeholder = 'Enter new activity category';
+            newActivityContainer.appendChild(newActivityInput);
+
+            const addActivityBtn = document.createElement('button');
+            addActivityBtn.type = 'button';
+            addActivityBtn.className = 'ml-2 px-4 py-2 bg-primary text-white rounded';
+            addActivityBtn.textContent = 'Add';
+
+            addActivityBtn.addEventListener('click', () => {
+                const newActivity = newActivityInput.value.trim();
+
+                if (newActivity && !activityMappings[newActivity]) {
+                    activityMappings[newActivity] = [];
+                    newActivityInput.value = '';
+                    showActivityCategoryManagement();
+                }
+            });
+
+            newActivityContainer.appendChild(addActivityBtn);
+            form.appendChild(newActivityContainer);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-6';
+
+            const doneBtn = document.createElement('button');
+            doneBtn.type = 'button';
+            doneBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            doneBtn.textContent = 'Done';
+
+            doneBtn.addEventListener('click', () => {
+                renderCategoryMappings();
+                renderActivityMappings();
+                renderDescriptionToProjectMappings();
+                hideModal();
+            });
+
+            buttonContainer.appendChild(doneBtn);
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // ======================================================
+        // Save / Load mapping
+        // ======================================================
+
+        document.getElementById('save-mapping-btn').addEventListener('click', () => {
+            updateMappingFromUI();
+
+            const extendedMapping = {
+                ...mapping,
+                categoryMappings: categoryMappings,
+                activityMappings: activityMappings,
+                descriptionToProjectMappings: descriptionToProjectMappings
+            };
+
+            const mappingStr = JSON.stringify(extendedMapping, null, 2);
+            const blob = new Blob([mappingStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'csv_mapping.json');
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        document.getElementById('load-mapping-input').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+
+            if (!file) return;
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const loadedMapping = JSON.parse(e.target.result);
+
+                    mapping = {
+                        user: loadedMapping.user || '',
+                        email: loadedMapping.email || '',
+                        client: loadedMapping.client || '',
+                        project: loadedMapping.project || 'default',
+                        projectDefault: loadedMapping.projectDefault || '',
+                        task: loadedMapping.task || '',
+                        billable: loadedMapping.billable || 'No',
+                        tags: loadedMapping.tags || ''
+                    };
+
+                    if (loadedMapping.categoryMappings) {
+                        categoryMappings = JSON.parse(JSON.stringify(loadedMapping.categoryMappings));
+                        renderCategoryMappings();
+                    }
+
+                    if (loadedMapping.activityMappings) {
+                        activityMappings = JSON.parse(JSON.stringify(loadedMapping.activityMappings));
+                        renderActivityMappings();
+                    }
+
+                    if (loadedMapping.descriptionToProjectMappings) {
+                        descriptionToProjectMappings = JSON.parse(JSON.stringify(loadedMapping.descriptionToProjectMappings));
+                        renderDescriptionToProjectMappings();
+                    }
+
+                    updateUIFromMapping();
+                } catch (error) {
+                    console.error('Error loading mapping:', error);
+                    showParseError('Error loading mapping: ' + error.message);
+                }
+            };
+
+            reader.readAsText(file);
+            event.target.value = '';
+        });
+
+        // ======================================================
+        // Description to Project mappings
+        // ======================================================
+
+        function renderDescriptionToProjectMappings() {
+            const container = document.getElementById('description-to-project-mappings-container');
+            container.innerHTML = '';
+
+            const descriptions = Object.keys(activityMappings);
+            const mappedDescriptions = descriptions.filter(desc => descriptionToProjectMappings[desc]);
+
+            if (mappedDescriptions.length > 0) {
+                for (const description of mappedDescriptions) {
+                    const project = descriptionToProjectMappings[description];
+
+                    const mappingItem = document.createElement('div');
+                    mappingItem.className = 'flex justify-between items-center text-sm py-1';
+
+                    const textContainer = document.createElement('div');
+                    textContainer.className = 'flex-grow';
+
+                    const descriptionText = document.createElement('span');
+                    descriptionText.className = 'font-medium';
+                    descriptionText.textContent = description;
+                    textContainer.appendChild(descriptionText);
+
+                    const arrowText = document.createElement('span');
+                    arrowText.className = 'mx-2 text-gray-500';
+                    arrowText.textContent = '→';
+                    textContainer.appendChild(arrowText);
+
+                    const projectText = document.createElement('span');
+                    projectText.className = 'text-primary';
+                    projectText.textContent = project;
+                    textContainer.appendChild(projectText);
+
+                    mappingItem.appendChild(textContainer);
+
+                    const actionsContainer = document.createElement('div');
+                    actionsContainer.className = 'flex gap-2';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.className = 'text-blue-600 dark:text-blue-400 hover:text-blue-800 text-xs';
+                    editBtn.textContent = 'Edit';
+                    editBtn.addEventListener('click', () => {
+                        showEditDescriptionToProjectMapping(description, project);
+                    });
+                    actionsContainer.appendChild(editBtn);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 text-xs';
+                    removeBtn.textContent = '×';
+                    removeBtn.addEventListener('click', () => {
+                        delete descriptionToProjectMappings[description];
+                        renderDescriptionToProjectMappings();
+                    });
+                    actionsContainer.appendChild(removeBtn);
+
+                    mappingItem.appendChild(actionsContainer);
+                    container.appendChild(mappingItem);
+                }
+            } else {
+                const noMappings = document.createElement('div');
+                noMappings.className = 'text-gray-500 dark:text-gray-400 text-sm italic';
+                noMappings.textContent = 'No description to project mappings created yet.';
+                container.appendChild(noMappings);
+            }
+        }
+
+        function showEditDescriptionToProjectMapping(description, currentProject) {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = 'Edit Description to Project Mapping';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const selectedProject = form.querySelector('#edit-project').value;
+
+                if (selectedProject) {
+                    descriptionToProjectMappings[description] = selectedProject;
+                    renderDescriptionToProjectMappings();
+                }
+
+                hideModal();
+            });
+
+            const descriptionLabel = document.createElement('label');
+            descriptionLabel.setAttribute('for', 'edit-description');
+            descriptionLabel.className = 'block text-sm font-medium mb-1';
+            descriptionLabel.textContent = 'Description';
+            form.appendChild(descriptionLabel);
+
+            const descriptionInput = document.createElement('input');
+            descriptionInput.type = 'text';
+            descriptionInput.id = 'edit-description';
+            descriptionInput.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded text-base bg-gray-100 dark:bg-gray-800';
+            descriptionInput.value = description;
+            descriptionInput.readOnly = true;
+            form.appendChild(descriptionInput);
+
+            const projectLabel = document.createElement('label');
+            projectLabel.setAttribute('for', 'edit-project');
+            projectLabel.className = 'block text-sm font-medium mb-1 mt-4';
+            projectLabel.textContent = 'Project';
+            form.appendChild(projectLabel);
+
+            const projectSelect = document.createElement('select');
+            projectSelect.id = 'edit-project';
+            projectSelect.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded';
+
+            const projects = Object.keys(categoryMappings);
+
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                option.selected = p === currentProject;
+                projectSelect.appendChild(option);
+            });
+
+            form.appendChild(projectSelect);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-4';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', hideModal);
+            buttonContainer.appendChild(cancelBtn);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'submit';
+            saveBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            saveBtn.textContent = 'Save';
+            buttonContainer.appendChild(saveBtn);
+
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function showAddDescriptionToProjectMapping() {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = 'Add Description to Project Mapping';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const selectedDescription = form.querySelector('#select-description').value;
+                const selectedProject = form.querySelector('#select-project').value;
+
+                if (selectedDescription && selectedProject) {
+                    descriptionToProjectMappings[selectedDescription] = selectedProject;
+                    renderDescriptionToProjectMappings();
+                }
+
+                hideModal();
+            });
+
+            const descriptionLabel = document.createElement('label');
+            descriptionLabel.setAttribute('for', 'select-description');
+            descriptionLabel.className = 'block text-sm font-medium mb-1';
+            descriptionLabel.textContent = 'Description';
+            form.appendChild(descriptionLabel);
+
+            const descriptionSelect = document.createElement('select');
+            descriptionSelect.id = 'select-description';
+            descriptionSelect.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded';
+
+            const descriptions = Object.keys(activityMappings);
+
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '-- Select a description --';
+            descriptionSelect.appendChild(emptyOption);
+
+            descriptions.forEach(desc => {
+                if (!descriptionToProjectMappings[desc]) {
+                    const option = document.createElement('option');
+                    option.value = desc;
+                    option.textContent = desc;
+                    descriptionSelect.appendChild(option);
+                }
+            });
+
+            form.appendChild(descriptionSelect);
+
+            const projectLabel = document.createElement('label');
+            projectLabel.setAttribute('for', 'select-project');
+            projectLabel.className = 'block text-sm font-medium mb-1 mt-4';
+            projectLabel.textContent = 'Project';
+            form.appendChild(projectLabel);
+
+            const projectSelect = document.createElement('select');
+            projectSelect.id = 'select-project';
+            projectSelect.className = 'w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded';
+
+            const emptyProjectOption = document.createElement('option');
+            emptyProjectOption.value = '';
+            emptyProjectOption.textContent = '-- Select a project --';
+            projectSelect.appendChild(emptyProjectOption);
+
+            const projects = Object.keys(categoryMappings);
+
+            projects.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                projectSelect.appendChild(option);
+            });
+
+            form.appendChild(projectSelect);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-4';
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.className = 'px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', hideModal);
+            buttonContainer.appendChild(cancelBtn);
+
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'submit';
+            saveBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            saveBtn.textContent = 'Add';
+            buttonContainer.appendChild(saveBtn);
+
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function showDescriptionToProjectManagement() {
+            const modal = document.getElementById('mapping-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+
+            modalTitle.textContent = 'Manage Description to Project Mappings';
+            modalContent.innerHTML = '';
+
+            const form = document.createElement('form');
+            form.className = 'space-y-4';
+
+            const description = document.createElement('p');
+            description.className = 'text-gray-600 dark:text-gray-300 text-sm mb-4';
+            description.textContent = 'You can override the Project of each Description with a more accurate mapping.';
+            form.appendChild(description);
+
+            const mappingsContainer = document.createElement('div');
+            mappingsContainer.className = 'space-y-2 max-h-60 overflow-y-auto mb-4';
+
+            const descriptions = Object.keys(activityMappings);
+            let hasAnyMapping = false;
+
+            for (const desc of descriptions) {
+                const project = descriptionToProjectMappings[desc];
+
+                if (project) {
+                    hasAnyMapping = true;
+
+                    const mappingItem = document.createElement('div');
+                    mappingItem.className = 'flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2';
+
+                    const textContent = document.createElement('div');
+                    textContent.className = 'flex-grow';
+
+                    const descriptionText = document.createElement('span');
+                    descriptionText.className = 'font-medium';
+                    descriptionText.textContent = desc;
+                    textContent.appendChild(descriptionText);
+
+                    const arrowText = document.createElement('span');
+                    arrowText.className = 'mx-2 text-gray-500';
+                    arrowText.textContent = '→';
+                    textContent.appendChild(arrowText);
+
+                    const projectText = document.createElement('span');
+                    projectText.className = 'text-primary';
+                    projectText.textContent = project;
+                    textContent.appendChild(projectText);
+
+                    mappingItem.appendChild(textContent);
+
+                    const btnContainer = document.createElement('div');
+                    btnContainer.className = 'flex ml-2';
+
+                    const editBtn = document.createElement('button');
+                    editBtn.type = 'button';
+                    editBtn.className = 'text-blue-600 dark:text-blue-400 hover:text-blue-800 text-xs';
+                    editBtn.textContent = 'Edit';
+
+                    editBtn.addEventListener('click', () => {
+                        hideModal();
+                        showEditDescriptionToProjectMapping(desc, project);
+                    });
+
+                    btnContainer.appendChild(editBtn);
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'text-red-600 dark:text-red-400 hover:text-red-800 text-xs ml-2';
+                    deleteBtn.textContent = '×';
+
+                    deleteBtn.addEventListener('click', () => {
+                        delete descriptionToProjectMappings[desc];
+                        mappingItem.remove();
+                    });
+
+                    btnContainer.appendChild(deleteBtn);
+
+                    mappingItem.appendChild(btnContainer);
+                    mappingsContainer.appendChild(mappingItem);
+                }
+            }
+
+            if (!hasAnyMapping) {
+                const noMappingsMsg = document.createElement('div');
+                noMappingsMsg.className = 'text-gray-500 dark:text-gray-400 text-sm italic';
+                noMappingsMsg.textContent = 'No description to project mappings created yet.';
+                mappingsContainer.appendChild(noMappingsMsg);
+            }
+
+            form.appendChild(mappingsContainer);
+
+            const addNewBtn = document.createElement('button');
+            addNewBtn.type = 'button';
+            addNewBtn.className = 'w-full px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:bg-opacity-10 transition mt-4';
+            addNewBtn.textContent = '+ Add New Mapping';
+
+            addNewBtn.addEventListener('click', () => {
+                hideModal();
+                showAddDescriptionToProjectMapping();
+            });
+
+            form.appendChild(addNewBtn);
+
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'flex justify-end gap-2 mt-6';
+
+            const doneBtn = document.createElement('button');
+            doneBtn.type = 'button';
+            doneBtn.className = 'px-4 py-2 bg-primary text-white rounded';
+            doneBtn.textContent = 'Done';
+
+            doneBtn.addEventListener('click', () => {
+                renderDescriptionToProjectMappings();
+                hideModal();
+            });
+
+            buttonContainer.appendChild(doneBtn);
+            form.appendChild(buttonContainer);
+            modalContent.appendChild(form);
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // ======================================================
+        // Events
+        // ======================================================
+
+        document.getElementById('clear-highlights-btn').addEventListener('click', () => {
+            newlyAddedActivityMappings.clear();
+            newlyAddedCategoryMappings.clear();
+
+            renderActivityMappings();
+            renderCategoryMappings();
+
+            document.getElementById('clear-highlights-btn').classList.add('hidden');
+        });
+
+        document.getElementById('add-project-btn').addEventListener('click', showProjectManagement);
+        document.getElementById('add-activity-btn').addEventListener('click', showActivityCategoryManagement);
+        document.getElementById('add-description-to-project-btn').addEventListener('click', showDescriptionToProjectManagement);
+        document.getElementById('add-category-mapping-btn').addEventListener('click', () => showAddMapping('category'));
+        document.getElementById('add-activity-mapping-btn').addEventListener('click', () => showAddMapping('activity'));
+        document.getElementById('add-description-to-project-mapping-btn').addEventListener('click', showAddDescriptionToProjectMapping);
+        document.getElementById('close-modal-btn').addEventListener('click', hideModal);
+
+        document.getElementById('mapping-modal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                hideModal();
+            }
+        });
+
+        // ======================================================
+        // Initialize
+        // ======================================================
+
+        updateUIFromMapping();
+        renderCategoryMappings();
+        renderActivityMappings();
+        renderDescriptionToProjectMappings();
+        loadLlmConfiguration();
+    </script>
+</body>
+</html>

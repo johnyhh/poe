@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件轉換器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #faf8f5;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0ebe3;
+            --text-primary: #2d2a26;
+            --text-secondary: #6b6560;
+            --accent: #d4740c;
+            --accent-hover: #b8630a;
+            --accent-light: #fff4e6;
+            --border: #e5ded4;
+            --success: #2d8a5f;
+            --error: #c43c3c;
+            --code-bg: #1e1e1e;
+            --code-text: #d4d4d4;
+            --shadow: 0 4px 24px rgba(45, 42, 38, 0.08);
+            --shadow-lg: 0 12px 48px rgba(45, 42, 38, 0.12);
+        }
+
+        .dark {
+            --bg-primary: #1a1918;
+            --bg-secondary: #242220;
+            --bg-tertiary: #2e2b28;
+            --text-primary: #ede9e3;
+            --text-secondary: #9a9590;
+            --accent: #f0923a;
+            --accent-hover: #f7a855;
+            --accent-light: #3d2a1a;
+            --border: #3d3935;
+            --success: #4eba82;
+            --error: #e86565;
+            --code-bg: #0d0d0d;
+            --code-text: #e0e0e0;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.4);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            box-shadow: 0 4px 16px rgba(212, 116, 12, 0.3);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-top: 8px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            background: var(--bg-secondary);
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 24px;
+            animation: fadeIn 0.6s ease-out 0.1s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* File Info */
+        .file-info {
+            display: none;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            align-items: center;
+            gap: 16px;
+            box-shadow: var(--shadow);
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .file-info.show {
+            display: flex;
+        }
+
+        .file-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .file-icon.docx {
+            background: linear-gradient(135deg, #4285f4, #1a73e8);
+        }
+
+        .file-icon.pdf {
+            background: linear-gradient(135deg, #e53935, #b71c1c);
+        }
+
+        .file-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .file-name {
+            font-weight: 500;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-size {
+            color: var(--text-secondary);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            font-size: 18px;
+            transition: color 0.2s;
+        }
+
+        .file-remove:hover {
+            color: var(--error);
+        }
+
+        /* Format Selection */
+        .format-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .format-options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .format-option {
+            position: relative;
+        }
+
+        .format-option input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .format-option label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .format-option label:hover {
+            border-color: var(--border);
+        }
+
+        .format-option input:checked + label {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .format-option input:disabled + label {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .format-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .format-json .format-icon {
+            background: linear-gradient(135deg, #f7b93e, #f59e0b);
+            color: #1a1a1a;
+        }
+
+        .format-md .format-icon {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+        }
+
+        .format-name {
+            font-weight: 500;
+        }
+
+        .format-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Source badge */
+        .source-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .source-badge.all { background: #e0f2fe; color: #0369a1; }
+        .dark .source-badge.all { background: #1e3a5f; color: #7dd3fc; }
+        .source-badge.docx-only { background: #dbeafe; color: #1d4ed8; }
+        .dark .source-badge.docx-only { background: #1e3a5f; color: #93c5fd; }
+
+        /* Convert Button */
+        .convert-btn {
+            width: 100%;
+            padding: 18px 32px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(212, 116, 12, 0.3);
+            animation: fadeIn 0.6s ease-out 0.3s both;
+        }
+
+        .convert-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(212, 116, 12, 0.4);
+        }
+
+        .convert-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .convert-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .convert-btn.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .convert-btn.loading::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            top: 50%;
+            left: 50%;
+            margin: -12px 0 0 -12px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress bar */
+        .progress-container {
+            display: none;
+            margin-top: 12px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .progress-container.show {
+            display: block;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+            border-radius: 3px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        /* Result Section */
+        .result-section {
+            display: none;
+            margin-top: 32px;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .result-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            padding: 10px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent);
+        }
+
+        .action-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .action-btn.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        /* Code Preview */
+        .code-preview {
+            background: var(--code-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .code-header {
+            background: rgba(255,255,255,0.05);
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red { background: #ff5f57; }
+        .code-dot.yellow { background: #febc2e; }
+        .code-dot.green { background: #28c840; }
+
+        .code-content {
+            padding: 20px;
+            max-height: 400px;
+            overflow: auto;
+        }
+
+        .code-content pre {
+            margin: 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--code-text);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: var(--shadow-lg);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: var(--success);
+            color: white;
+        }
+
+        .toast.error {
+            background: var(--error);
+            color: white;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+            animation: modalIn 0.3s ease-out;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .modal-text {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Image Option */
+        .image-option-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.6s ease-out 0.25s both;
+        }
+
+        .image-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .image-opt {
+            position: relative;
+        }
+
+        .image-opt input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .image-opt label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 14px;
+        }
+
+        .image-opt label:hover {
+            border-color: var(--border);
+        }
+
+        .image-opt input:checked + label {
+            border-color: var(--accent);
+            background: var(--accent-light);
+        }
+
+        .image-opt-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .image-opt-icon.embed { background: #dcfce7; }
+        .dark .image-opt-icon.embed { background: #14532d; }
+        .image-opt-icon.download { background: #dbeafe; }
+        .dark .image-opt-icon.download { background: #1e3a5f; }
+        .image-opt-icon.skip { background: #fee2e2; }
+        .dark .image-opt-icon.skip { background: #5f1e1e; }
+
+        .image-opt-text {
+            flex: 1;
+        }
+
+        .image-opt-name {
+            font-weight: 500;
+        }
+
+        .image-opt-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .image-count-badge {
+            display: none;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--accent-light);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+            margin-left: auto;
+            white-space: nowrap;
+        }
+
+        .image-count-badge.show {
+            display: inline-block;
+        }
+
+        /* Image download area */
+        .image-download-area {
+            display: none;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 20px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .image-download-area.show {
+            display: block;
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .image-thumb {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: var(--bg-tertiary);
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-thumb a {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.2s;
+            text-decoration: none;
+        }
+
+        .image-thumb:hover a {
+            opacity: 1;
+        }
+
+        .download-all-btn {
+            margin-top: 16px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #4285f4, #1a73e8);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .download-all-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(66, 133, 244, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .upload-zone {
+                padding: 32px 16px;
+            }
+
+            .format-options {
+                grid-template-columns: 1fr;
+            }
+
+            .result-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .result-actions {
+                width: 100%;
+            }
+
+            .action-btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">📄</div>
+                <h1>文件轉換器</h1>
+            </div>
+            <p class="subtitle">將 Word (.docx) 或 PDF 文件轉換為 JSON 或 Markdown 格式</p>
+        </header>
+
+        <div class="upload-zone" id="uploadZone">
+            <span class="upload-icon">📁</span>
+            <div class="upload-text">點擊或拖曳檔案至此處</div>
+            <div class="upload-hint">支援 .docx 及 .pdf 格式</div>
+            <input type="file" id="fileInput" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <div class="file-icon docx" id="fileIconEl">W</div>
+            <div class="file-details">
+                <div class="file-name" id="fileName"></div>
+                <div class="file-size" id="fileSize"></div>
+            </div>
+            <button class="file-remove" id="removeFile">✕</button>
+        </div>
+
+        <div class="format-section">
+            <div class="section-title">選擇輸出格式</div>
+            <div class="format-options">
+                <div class="format-option format-json">
+                    <input type="radio" name="format" id="formatJson" value="json" checked>
+                    <label for="formatJson">
+                        <div class="format-icon">{ }</div>
+                        <div>
+                            <div class="format-name">JSON <span class="source-badge docx-only">DOCX</span></div>
+                            <div class="format-desc">結構化資料格式</div>
+                        </div>
+                    </label>
+                </div>
+                <div class="format-option format-md">
+                    <input type="radio" name="format" id="formatMd" value="md">
+                    <label for="formatMd">
+                        <div class="format-icon">MD</div>
+                        <div>
+                            <div class="format-name">Markdown <span class="source-badge all">ALL</span></div>
+                            <div class="format-desc">純文字標記格式</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="image-option-section" id="imageOptionSection">
+            <div class="section-title">圖片處理方式 <span class="image-count-badge" id="imageCountBadge"></span></div>
+            <div class="image-options">
+                <div class="image-opt">
+                    <input type="radio" name="imageMode" id="imgEmbed" value="embed" checked>
+                    <label for="imgEmbed">
+                        <div class="image-opt-icon embed">🖼️</div>
+                        <div class="image-opt-text">
+                            <div class="image-opt-name">嵌入 Markdown</div>
+                            <div class="image-opt-desc">圖片以 Base64 data URI 直接嵌入文件中</div>
+                        </div>
+                    </label>
+                </div>
+                <div class="image-opt">
+                    <input type="radio" name="imageMode" id="imgDownload" value="download">
+                    <label for="imgDownload">
+                        <div class="image-opt-icon download">⬇️</div>
+                        <div class="image-opt-text">
+                            <div class="image-opt-name">另行下載</div>
+                            <div class="image-opt-desc">圖片不嵌入文件，改為提供個別下載連結</div>
+                        </div>
+                    </label>
+                </div>
+                <div class="image-opt">
+                    <input type="radio" name="imageMode" id="imgSkip" value="skip">
+                    <label for="imgSkip">
+                        <div class="image-opt-icon skip">🚫</div>
+                        <div class="image-opt-text">
+                            <div class="image-opt-name">略過圖片</div>
+                            <div class="image-opt-desc">完全移除文件中的圖片，僅保留文字內容</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <button class="convert-btn" id="convertBtn" disabled>開始轉換</button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">準備中...</div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="result-header">
+                <div class="result-title">
+                    <span>✨</span>
+                    <span>轉換結果</span>
+                </div>
+                <div class="result-actions">
+                    <button class="action-btn" id="copyBtn">
+                        <span>📋</span>
+                        <span>複製</span>
+                    </button>
+                    <button class="action-btn primary" id="downloadBtn">
+                        <span>⬇️</span>
+                        <span>下載</span>
+                    </button>
+                </div>
+            </div>
+            <div class="code-preview">
+                <div class="code-header">
+                    <span class="code-dot red"></span>
+                    <span class="code-dot yellow"></span>
+                    <span class="code-dot green"></span>
+                </div>
+                <div class="code-content">
+                    <pre id="codeOutput"></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="image-download-area" id="imageDownloadArea">
+            <div class="section-title">📎 提取的圖片 (<span id="extractedImageCount">0</span> 張)</div>
+            <div class="image-grid" id="imageGrid"></div>
+            <button class="download-all-btn" id="downloadAllImagesBtn">⬇️ 逐一下載全部圖片</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="modal-overlay" id="errorModal">
+        <div class="modal">
+            <div class="modal-title">⚠️ 轉換失敗</div>
+            <div class="modal-text" id="errorText">發生錯誤，請檢查檔案格式是否正確。</div>
+            <div class="modal-actions">
+                <button class="action-btn primary" id="closeModal">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configure pdf.js worker (with safety check)
+        let pdfJsAvailable = false;
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            pdfJsAvailable = true;
+        }
+
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // DOM Elements
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileIconEl = document.getElementById('fileIconEl');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const removeFile = document.getElementById('removeFile');
+        const convertBtn = document.getElementById('convertBtn');
+        const resultSection = document.getElementById('resultSection');
+        const codeOutput = document.getElementById('codeOutput');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const toast = document.getElementById('toast');
+        const errorModal = document.getElementById('errorModal');
+        const errorText = document.getElementById('errorText');
+        const closeModal = document.getElementById('closeModal');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const formatJsonRadio = document.getElementById('formatJson');
+        const formatMdRadio = document.getElementById('formatMd');
+        const imageDownloadArea = document.getElementById('imageDownloadArea');
+        const imageGrid = document.getElementById('imageGrid');
+        const extractedImageCount = document.getElementById('extractedImageCount');
+        const downloadAllImagesBtn = document.getElementById('downloadAllImagesBtn');
+        const imageCountBadge = document.getElementById('imageCountBadge');
+
+        let currentFile = null;
+        let convertedContent = '';
+        let currentFormat = 'json';
+        let currentFileType = ''; // 'docx' or 'pdf'
+        let currentImageMode = 'embed'; // 'embed', 'download', 'skip'
+        let extractedImages = []; // { name, blob, dataUri }
+
+        // Utility functions
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showToast(message, type = 'success') {
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorModal.classList.add('show');
+        }
+
+        function setProgress(percent, text) {
+            progressContainer.classList.add('show');
+            progressFill.style.width = percent + '%';
+            progressText.textContent = text;
+        }
+
+        function hideProgress() {
+            progressContainer.classList.remove('show');
+        }
+
+        function updateFormatAvailability() {
+            if (currentFileType === 'pdf') {
+                // PDF only supports Markdown output
+                formatJsonRadio.disabled = true;
+                if (formatJsonRadio.checked) {
+                    formatMdRadio.checked = true;
+                    currentFormat = 'md';
+                }
+            } else {
+                formatJsonRadio.disabled = false;
+            }
+        }
+
+        // File handling
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            const name = file.name.toLowerCase();
+            if (!name.endsWith('.docx') && !name.endsWith('.pdf')) {
+                showError('請上傳 .docx 或 .pdf 格式的文件');
+                return;
+            }
+
+            if (name.endsWith('.pdf') && !pdfJsAvailable) {
+                showError('PDF 解析引擎載入失敗，請重新整理頁面後再試。');
+                return;
+            }
+
+            currentFile = file;
+            currentFileType = name.endsWith('.pdf') ? 'pdf' : 'docx';
+
+            fileName.textContent = file.name;
+            fileSize.textContent = formatBytes(file.size);
+
+            // Update file icon
+            fileIconEl.className = 'file-icon ' + currentFileType;
+            fileIconEl.textContent = currentFileType === 'pdf' ? 'P' : 'W';
+
+            fileInfo.classList.add('show');
+            convertBtn.disabled = false;
+            resultSection.classList.remove('show');
+
+            updateFormatAvailability();
+        }
+
+        removeFile.addEventListener('click', () => {
+            currentFile = null;
+            currentFileType = '';
+            fileInput.value = '';
+            fileInfo.classList.remove('show');
+            convertBtn.disabled = true;
+            resultSection.classList.remove('show');
+            formatJsonRadio.disabled = false;
+            clearExtractedImages();
+        });
+
+        // Format selection
+        document.querySelectorAll('input[name="format"]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                currentFormat = e.target.value;
+            });
+        });
+
+        // Image mode selection
+        document.querySelectorAll('input[name="imageMode"]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                currentImageMode = e.target.value;
+            });
+        });
+
+        // Clear extracted images state
+        function clearExtractedImages() {
+            extractedImages.forEach(img => {
+                if (img.objectUrl) URL.revokeObjectURL(img.objectUrl);
+            });
+            extractedImages = [];
+            imageGrid.innerHTML = '';
+            imageDownloadArea.classList.remove('show');
+            imageCountBadge.classList.remove('show');
+        }
+
+        // Show extracted images for download
+        function showExtractedImages() {
+            if (extractedImages.length === 0) {
+                imageDownloadArea.classList.remove('show');
+                return;
+            }
+            imageGrid.innerHTML = '';
+            extractedImageCount.textContent = extractedImages.length;
+            imageCountBadge.textContent = extractedImages.length + ' 張圖片';
+            imageCountBadge.classList.add('show');
+
+            extractedImages.forEach(function(img) {
+                const thumb = document.createElement('div');
+                thumb.className = 'image-thumb';
+
+                const imgEl = document.createElement('img');
+                imgEl.src = img.objectUrl || img.dataUri;
+                imgEl.alt = img.name;
+                thumb.appendChild(imgEl);
+
+                const link = document.createElement('a');
+                link.href = img.objectUrl || img.dataUri;
+                link.download = img.name;
+                link.textContent = '⬇ 下載';
+                thumb.appendChild(link);
+
+                imageGrid.appendChild(thumb);
+            });
+
+            imageDownloadArea.classList.add('show');
+        }
+
+        // Download individual image
+        function downloadImage(img) {
+            const a = document.createElement('a');
+            a.href = img.objectUrl || img.dataUri;
+            a.download = img.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        // Download all images one by one (no ZIP library needed)
+        downloadAllImagesBtn.addEventListener('click', () => {
+            if (extractedImages.length === 0) return;
+            extractedImages.forEach(function(img, i) {
+                setTimeout(function() { downloadImage(img); }, i * 300);
+            });
+            showToast('正在下載 ' + extractedImages.length + ' 張圖片...');
+        });
+
+        // ===== PDF to Markdown conversion =====
+        async function pdfToMarkdown(arrayBuffer) {
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            const totalPages = pdf.numPages;
+            let markdownParts = [];
+
+            for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                setProgress(Math.round((pageNum / totalPages) * 90), '正在解析第 ' + pageNum + ' / ' + totalPages + ' 頁...');
+
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+
+                const pageLines = extractLinesFromTextContent(textContent);
+                const pageMarkdown = convertLinesToMarkdown(pageLines, pageNum, totalPages);
+                markdownParts.push(pageMarkdown);
+            }
+
+            setProgress(95, '正在整合結果...');
+            return markdownParts.join('\n\n---\n\n');
+        }
+
+        function extractLinesFromTextContent(textContent) {
+            if (!textContent.items || textContent.items.length === 0) {
+                return [];
+            }
+
+            // Group text items by their vertical position (y coordinate)
+            // pdf.js transform: [scaleX, skewX, skewY, scaleY, translateX, translateY]
+            const LINE_THRESHOLD = 3; // pixels tolerance for same line
+            const lines = [];
+            let currentLine = { y: null, items: [] };
+
+            // Sort items by Y position (descending = top to bottom in PDF coords)
+            // then by X position (left to right)
+            const sortedItems = [...textContent.items].filter(item => item.str.trim() !== '' || item.hasEOL).sort((a, b) => {
+                const yA = a.transform[5];
+                const yB = b.transform[5];
+                if (Math.abs(yA - yB) > LINE_THRESHOLD) {
+                    return yB - yA; // top to bottom
+                }
+                return a.transform[4] - b.transform[4]; // left to right
+            });
+
+            for (const item of sortedItems) {
+                const y = item.transform[5];
+                const fontSize = Math.abs(item.transform[0]) || 12;
+
+                if (currentLine.y === null || Math.abs(y - currentLine.y) > LINE_THRESHOLD) {
+                    if (currentLine.items.length > 0) {
+                        lines.push(currentLine);
+                    }
+                    currentLine = { y: y, items: [], fontSize: fontSize };
+                }
+
+                currentLine.items.push({
+                    text: item.str,
+                    x: item.transform[4],
+                    fontSize: fontSize,
+                    fontName: item.fontName || ''
+                });
+            }
+
+            if (currentLine.items.length > 0) {
+                lines.push(currentLine);
+            }
+
+            return lines;
+        }
+
+        function convertLinesToMarkdown(lines, pageNum, totalPages) {
+            if (lines.length === 0) return '';
+
+            // Calculate the median font size to detect headings
+            const allFontSizes = lines.map(l => {
+                const sizes = l.items.map(i => i.fontSize);
+                return sizes.reduce((a, b) => a + b, 0) / sizes.length;
+            });
+            const sortedSizes = [...allFontSizes].sort((a, b) => a - b);
+            const medianSize = sortedSizes[Math.floor(sortedSizes.length / 2)] || 12;
+
+            let markdownLines = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const lineText = line.items.map(item => item.text).join('').trim();
+
+                if (!lineText) continue;
+
+                const avgFontSize = line.items.reduce((sum, item) => sum + item.fontSize, 0) / line.items.length;
+                const isBold = line.items.some(item => {
+                    const fn = item.fontName.toLowerCase();
+                    return fn.includes('bold') || fn.includes('black') || fn.includes('heavy');
+                });
+
+                // Detect heading by font size relative to median
+                if (avgFontSize > medianSize * 1.5 && lineText.length < 120) {
+                    markdownLines.push('# ' + lineText);
+                } else if (avgFontSize > medianSize * 1.25 && lineText.length < 120) {
+                    markdownLines.push('## ' + lineText);
+                } else if (isBold && avgFontSize > medianSize * 1.05 && lineText.length < 120) {
+                    markdownLines.push('### ' + lineText);
+                } else if (lineText.match(/^[\u2022\u2023\u25E6\u2043\u2219•●○◦‣⁃]\s*/)) {
+                    // Bullet list item
+                    markdownLines.push('- ' + lineText.replace(/^[\u2022\u2023\u25E6\u2043\u2219•●○◦‣⁃]\s*/, ''));
+                } else if (lineText.match(/^\d+[\.\)]\s+/)) {
+                    // Numbered list item
+                    markdownLines.push(lineText);
+                } else if (isBold && lineText.length < 100) {
+                    markdownLines.push('**' + lineText + '**');
+                } else {
+                    markdownLines.push(lineText);
+                }
+            }
+
+            return markdownLines.join('\n\n');
+        }
+
+        // ===== DOCX conversions (existing) =====
+        function htmlToJson(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const body = doc.body;
+
+            const result = {
+                type: 'document',
+                content: []
+            };
+
+            function processNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent.trim();
+                    if (text) {
+                        return { type: 'text', content: text };
+                    }
+                    return null;
+                }
+
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return null;
+                }
+
+                const tagName = node.tagName.toLowerCase();
+                const element = { type: tagName };
+
+                if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+                    element.type = 'heading';
+                    element.level = parseInt(tagName.charAt(1));
+                    element.content = node.textContent.trim();
+                    return element;
+                }
+
+                if (tagName === 'p') {
+                    element.type = 'paragraph';
+                    element.content = node.textContent.trim();
+                    if (!element.content) return null;
+                    return element;
+                }
+
+                if (tagName === 'ul' || tagName === 'ol') {
+                    element.type = tagName === 'ul' ? 'unordered_list' : 'ordered_list';
+                    element.items = [];
+                    node.querySelectorAll(':scope > li').forEach(li => {
+                        element.items.push(li.textContent.trim());
+                    });
+                    return element;
+                }
+
+                if (tagName === 'table') {
+                    element.type = 'table';
+                    element.rows = [];
+                    node.querySelectorAll('tr').forEach(tr => {
+                        const row = [];
+                        tr.querySelectorAll('td, th').forEach(cell => {
+                            row.push(cell.textContent.trim());
+                        });
+                        if (row.length > 0) {
+                            element.rows.push(row);
+                        }
+                    });
+                    return element;
+                }
+
+                if (tagName === 'img') {
+                    element.type = 'image';
+                    element.src = node.getAttribute('src') || '';
+                    element.alt = node.getAttribute('alt') || '';
+                    return element;
+                }
+
+                if (tagName === 'a') {
+                    element.type = 'link';
+                    element.href = node.getAttribute('href') || '';
+                    element.text = node.textContent.trim();
+                    return element;
+                }
+
+                if (tagName === 'strong' || tagName === 'b') {
+                    return { type: 'bold', content: node.textContent.trim() };
+                }
+
+                if (tagName === 'em' || tagName === 'i') {
+                    return { type: 'italic', content: node.textContent.trim() };
+                }
+
+                const children = [];
+                node.childNodes.forEach(child => {
+                    const processed = processNode(child);
+                    if (processed) {
+                        children.push(processed);
+                    }
+                });
+
+                if (children.length === 0) {
+                    const text = node.textContent.trim();
+                    if (text) {
+                        return { type: 'text', content: text };
+                    }
+                    return null;
+                }
+
+                if (children.length === 1) {
+                    return children[0];
+                }
+
+                return { type: 'group', children: children };
+            }
+
+            body.childNodes.forEach(node => {
+                const processed = processNode(node);
+                if (processed) {
+                    result.content.push(processed);
+                }
+            });
+
+            return JSON.stringify(result, null, 2);
+        }
+
+        // ===== HTML to Markdown converter (for cleaned HTML) =====
+        function htmlToMarkdownString(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const body = doc.body;
+            var lines = [];
+
+            function walk(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    var text = node.textContent;
+                    if (text.trim()) {
+                        lines.push(text);
+                    }
+                    return;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+                var tag = node.tagName.toLowerCase();
+
+                if (tag === 'br') {
+                    lines.push('\n');
+                    return;
+                }
+
+                // Headings
+                if (/^h[1-6]$/.test(tag)) {
+                    var level = parseInt(tag.charAt(1));
+                    var prefix = '#'.repeat(level) + ' ';
+                    lines.push('\n\n' + prefix + node.textContent.trim() + '\n\n');
+                    return;
+                }
+
+                // Paragraphs
+                if (tag === 'p') {
+                    lines.push('\n\n');
+                    node.childNodes.forEach(function(c) { walk(c); });
+                    lines.push('\n\n');
+                    return;
+                }
+
+                // Bold
+                if (tag === 'strong' || tag === 'b') {
+                    lines.push('**' + node.textContent.trim() + '**');
+                    return;
+                }
+
+                // Italic
+                if (tag === 'em' || tag === 'i') {
+                    lines.push('*' + node.textContent.trim() + '*');
+                    return;
+                }
+
+                // Links
+                if (tag === 'a') {
+                    var href = node.getAttribute('href') || '';
+                    lines.push('[' + node.textContent.trim() + '](' + href + ')');
+                    return;
+                }
+
+                // Images (should already be stripped/replaced by postProcessHtml)
+                if (tag === 'img') {
+                    var src = node.getAttribute('src') || '';
+                    var alt = node.getAttribute('alt') || '';
+                    lines.push('![' + alt + '](' + src + ')');
+                    return;
+                }
+
+                // Lists
+                if (tag === 'ul') {
+                    lines.push('\n');
+                    node.querySelectorAll(':scope > li').forEach(function(li) {
+                        lines.push('\n- ' + li.textContent.trim());
+                    });
+                    lines.push('\n\n');
+                    return;
+                }
+                if (tag === 'ol') {
+                    lines.push('\n');
+                    var idx = 1;
+                    node.querySelectorAll(':scope > li').forEach(function(li) {
+                        lines.push('\n' + idx + '. ' + li.textContent.trim());
+                        idx++;
+                    });
+                    lines.push('\n\n');
+                    return;
+                }
+
+                // Tables
+                if (tag === 'table') {
+                    var rows = node.querySelectorAll('tr');
+                    lines.push('\n\n');
+                    rows.forEach(function(tr, rIdx) {
+                        var cells = [];
+                        tr.querySelectorAll('td, th').forEach(function(cell) {
+                            cells.push(cell.textContent.trim());
+                        });
+                        lines.push('| ' + cells.join(' | ') + ' |');
+                        if (rIdx === 0) {
+                            lines.push('\n| ' + cells.map(function() { return '---'; }).join(' | ') + ' |');
+                        }
+                        lines.push('\n');
+                    });
+                    lines.push('\n');
+                    return;
+                }
+
+                // Span (placeholder text from postProcessHtml)
+                if (tag === 'span') {
+                    lines.push(node.textContent);
+                    return;
+                }
+
+                // Default: recurse children
+                node.childNodes.forEach(function(c) { walk(c); });
+            }
+
+            walk(body);
+
+            // Clean up excessive newlines
+            var result = lines.join('');
+            result = result.replace(/\n{3,}/g, '\n\n');
+            return result.trim();
+        }
+
+        // ===== Post-process: extract/remove images from output =====
+        // Reliable approach: always let mammoth embed base64, then post-process
+
+        // Helper: convert a data URI to a Blob and register for download
+        function dataUriToExtractedImage(dataUri, idx) {
+            const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+            if (!match) return null;
+            const mimeType = match[1];
+            const base64 = match[2];
+            const ext = mimeType.split('/')[1] || 'png';
+            const imgName = 'image_' + (idx + 1) + '.' + ext;
+
+            try {
+                const byteString = atob(base64);
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: mimeType });
+                const objectUrl = URL.createObjectURL(blob);
+                return { name: imgName, blob: blob, dataUri: dataUri, objectUrl: objectUrl };
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Post-process HTML output: strip or extract images based on image mode
+        function postProcessHtml(html) {
+            if (currentImageMode === 'embed') return html;
+
+            // Match <img> tags with base64 data URI src
+            var imgTagRegex = /<img\s[^>]*src="(data:image\/[^;]+;base64,[A-Za-z0-9+/=]+)"[^>]*>/gi;
+
+            if (currentImageMode === 'skip') {
+                return html.replace(imgTagRegex, '');
+            }
+
+            if (currentImageMode === 'download') {
+                let counter = 0;
+                html = html.replace(imgTagRegex, function(wholeMatch, dataUri) {
+                    const img = dataUriToExtractedImage(dataUri, counter);
+                    counter++;
+                    if (img) {
+                        extractedImages.push(img);
+                        return '<span>[📎 圖片: ' + img.name + ']</span>';
+                    }
+                    return wholeMatch;
+                });
+                return html;
+            }
+
+            return html;
+        }
+
+        // ===== Main conversion handler =====
+        convertBtn.addEventListener('click', async () => {
+            if (!currentFile) return;
+
+            convertBtn.classList.add('loading');
+            convertBtn.disabled = true;
+            hideProgress();
+            clearExtractedImages();
+
+            try {
+                const arrayBuffer = await currentFile.arrayBuffer();
+
+                if (currentFileType === 'pdf') {
+                    // PDF → Markdown (pdf.js text layer doesn't extract embedded images)
+                    setProgress(5, '正在載入 PDF...');
+                    convertedContent = await pdfToMarkdown(arrayBuffer);
+                    setProgress(100, '轉換完成！');
+                } else if (currentFormat === 'md') {
+                    if (currentImageMode === 'embed') {
+                        // Default: let mammoth produce markdown with embedded images
+                        const result = await mammoth.convertToMarkdown({ arrayBuffer: arrayBuffer });
+                        convertedContent = result.value;
+                    } else {
+                        // For skip/download: convert to HTML first (images are reliably embedded as <img>),
+                        // post-process to strip/extract, then convert cleaned HTML to markdown
+                        const htmlResult = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                        const processedHtml = postProcessHtml(htmlResult.value);
+                        convertedContent = htmlToMarkdownString(processedHtml);
+                    }
+                } else {
+                    // DOCX → JSON: always use default mammoth HTML, then post-process
+                    const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                    convertedContent = htmlToJson(postProcessHtml(result.value));
+                }
+
+                codeOutput.textContent = convertedContent;
+                resultSection.classList.add('show');
+
+                // Show image download area if we extracted images
+                if (currentImageMode === 'download' && extractedImages.length > 0) {
+                    showExtractedImages();
+                    showToast('轉換成功！共提取 ' + extractedImages.length + ' 張圖片');
+                } else {
+                    showToast('轉換成功！');
+                }
+
+                setTimeout(() => { hideProgress(); }, 600);
+                resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } catch (error) {
+                console.error('Conversion error:', JSON.stringify(error));
+                hideProgress();
+                showError('轉換過程中發生錯誤，請確認檔案格式正確。');
+            } finally {
+                convertBtn.classList.remove('loading');
+                convertBtn.disabled = false;
+            }
+        });
+
+        // Copy to clipboard
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(convertedContent);
+                showToast('已複製到剪貼簿！');
+            } catch (err) {
+                showToast('複製失敗', 'error');
+            }
+        });
+
+        // Download file
+        downloadBtn.addEventListener('click', () => {
+            let extension, mimeType;
+            if (currentFileType === 'pdf' || currentFormat === 'md') {
+                extension = 'md';
+                mimeType = 'text/markdown';
+            } else {
+                extension = 'json';
+                mimeType = 'application/json';
+            }
+
+            const baseName = currentFile.name.replace(/\.(docx|pdf)$/i, '');
+            const blob = new Blob([convertedContent], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = baseName + '.' + extension;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('檔案下載中...');
+        });
+
+        // Close error modal
+        closeModal.addEventListener('click', () => {
+            errorModal.classList.remove('show');
+        });
+
+        errorModal.addEventListener('click', (e) => {
+            if (e.target === errorModal) {
+                errorModal.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
+
+

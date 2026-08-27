@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCX AI 分析器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                        'bg-light': '#FFFFFF',
+                        'bg-dark': '#181818'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        .markdown-content h1 { font-size: 1.5rem; }
+        .markdown-content h2 { font-size: 1.25rem; }
+        .markdown-content h3 { font-size: 1.125rem; }
+        .markdown-content p { margin-bottom: 1rem; }
+        .markdown-content ul, .markdown-content ol { margin-bottom: 1rem; padding-left: 1.5rem; }
+        .markdown-content li { margin-bottom: 0.25rem; }
+        .markdown-content code { background-color: #f3f4f6; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
+        .dark .markdown-content code { background-color: #374151; }
+        .markdown-content pre { background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-bottom: 1rem; }
+        .dark .markdown-content pre { background-color: #374151; }
+        .markdown-content blockquote { border-left: 4px solid #5D5CDE; padding-left: 1rem; margin: 1rem 0; font-style: italic; }
+    </style>
+</head>
+<body class="bg-bg-light dark:bg-bg-dark text-gray-900 dark:text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary mb-2">文件 AI 分析器</h1>
+            <p class="text-gray-600 dark:text-gray-400">上傳文件、CSV 或圖片並使用 AI 進行智能分析</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">1. 上傳文件 <span class="text-sm text-gray-500 dark:text-gray-400 font-normal">(支援多份文件)</span></h2>
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+                <input type="file" id="fileInput" accept=".docx,.xlsx,.json,.md,.markdown,.txt,.pdf,.csv,.png,.jpg,.jpeg,.gif,.webp,.bmp,.svg" multiple class="hidden">
+                <div id="dropZone" class="cursor-pointer">
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <p class="text-gray-600 dark:text-gray-400">點擊或拖拽文件到此處</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">支援 .docx、.xlsx、.json、.md、.txt、.pdf、.csv 及圖片格式</p>
+                    <p class="text-sm text-primary mt-1 font-medium">可一次選擇多份文件</p>
+                </div>
+                <div id="fileList" class="hidden mt-4 space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- AI Model Selection -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">2. 選擇 AI 模型</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="Claude-Sonnet-4.5" class="mr-3 text-primary focus:ring-primary" checked>
+                    <div>
+                        <div class="font-medium text-sm">Claude Sonnet 4.5</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">編程與分析專家</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="GPT-5.2" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">GPT-5.2</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">OpenAI 最新旗艦模型</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="Gemini-2.5-Flash" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">Gemini 2.5 Flash</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">快速且成本低</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="Gemini-3.0-Pro" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">Gemini 3.0 Pro</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">超長上下文 (1M tokens)</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="Claude-Opus-4.5" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">Claude Opus 4.5</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">最強推理能力</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="Grok-4-Fast-Reasoning" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">Grok 4 Fast</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">高效且經濟</div>
+                    </div>
+                </label>
+                <label class="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <input type="radio" name="aiModel" value="custom" class="mr-3 text-primary focus:ring-primary">
+                    <div>
+                        <div class="font-medium text-sm">自定義模型</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">輸入其他模型名稱</div>
+                    </div>
+                </label>
+            </div>
+            <div id="customModelInput" class="hidden mt-4">
+                <input
+                    type="text"
+                    id="customModel"
+                    placeholder="請輸入模型名稱，例如：Grok-Code-Fast-1"
+                    class="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-base focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">請確保模型名稱正確，不需要包含@符號</p>
+            </div>
+        </div>
+
+        <!-- Diary Stats Section (hidden by default) -->
+        <div id="diaryStatsSection" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">📊 日記字數統計</h2>
+                <button
+                    id="copyStatsBtn"
+                    class="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-primary hover:text-white rounded-lg transition-colors"
+                    title="複製為 CSV 格式"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                    </svg>
+                    <span id="copyStatsBtnText">複製 CSV</span>
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-300 dark:border-gray-600">
+                            <th class="text-left py-2 px-3">日期</th>
+                            <th class="text-center py-2 px-3">篇數</th>
+                            <th class="text-left py-2 px-3">標題</th>
+                            <th class="text-right py-2 px-3">字數</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diaryStatsBody"></tbody>
+                    <tfoot>
+                        <tr class="border-t-2 border-gray-400 dark:border-gray-500 font-semibold">
+                            <td class="py-2 px-3" colspan="3">總計</td>
+                            <td id="diaryTotalCount" class="text-right py-2 px-3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Prompt Section -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">3. 設定分析 Prompt</h2>
+            <textarea
+                id="promptInput"
+                placeholder="請輸入您希望 AI 如何分析這個文件，例如：分析日記內容、總結月份重點、提取關鍵事件等..."
+                class="w-full min-h-[200px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg resize-y bg-white dark:bg-gray-700 text-base focus:ring-2 focus:ring-primary focus:border-transparent"
+            ></textarea>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <button class="preset-btn px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors" data-preset="diary-analysis">[詳細日記分析]</button>
+                <button class="preset-btn px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors" data-preset="habit-combine">[給合習慣]</button>
+                <button class="preset-btn px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors" data-preset="event-analysis">事件分析</button>
+                <button class="preset-btn px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-primary hover:text-white transition-colors" data-preset="summary">整理要點</button>
+            </div>
+        </div>
+
+        <!-- Analyze Button -->
+        <div class="text-center mb-6">
+            <button 
+                id="analyzeBtn"
+                class="bg-primary text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled
+            >
+                開始分析
+            </button>
+        </div>
+
+        <!-- Result Section -->
+        <div id="resultSection" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold">分析結果</h2>
+                <button 
+                    id="downloadBtn" 
+                    class="hidden bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    下載結果
+                </button>
+            </div>
+            <div id="loadingState" class="hidden text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <p class="mt-2 text-gray-600 dark:text-gray-400">AI 正在分析文件，請稍候...</p>
+            </div>
+            <div id="resultContent" class="markdown-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        let selectedFiles = [];
+        let currentAnalysisResult = null;
+        let currentDiaryStats = null;
+
+        // File upload functionality
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const fileList = document.getElementById('fileList');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        // Click to upload
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection handler
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-primary', 'bg-primary/5');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary', 'bg-primary/5');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-primary', 'bg-primary/5');
+
+            const files = Array.from(e.dataTransfer.files);
+            addFiles(files);
+        });
+
+        function handleFileSelect() {
+            const files = Array.from(fileInput.files);
+            addFiles(files);
+        }
+
+        function addFiles(files) {
+            const validFiles = files.filter(file => isValidFile(file));
+
+            if (validFiles.length === 0) {
+                showAlert('請選擇有效的文件格式 (DOCX、XLSX、JSON、MD、TXT、PDF、CSV 或圖片)');
+                return;
+            }
+
+            // Add new files to the list, avoiding duplicates
+            validFiles.forEach(file => {
+                const isDuplicate = selectedFiles.some(f =>
+                    f.name === file.name && f.size === file.size
+                );
+                if (!isDuplicate) {
+                    selectedFiles.push(file);
+                }
+            });
+
+            updateFileList();
+            analyzeBtn.disabled = selectedFiles.length === 0;
+            processFilesForDiaryStats();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileList();
+            analyzeBtn.disabled = selectedFiles.length === 0;
+            processFilesForDiaryStats();
+        }
+
+        function updateFileList() {
+            if (selectedFiles.length === 0) {
+                fileList.classList.add('hidden');
+                return;
+            }
+
+            fileList.classList.remove('hidden');
+            fileList.innerHTML = selectedFiles.map((file, index) => `
+                <div class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-green-700 dark:text-green-300 font-medium truncate">${escapeHtml(file.name)}</p>
+                        <p class="text-green-600 dark:text-green-400 text-sm">${formatFileSize(file.size)}</p>
+                    </div>
+                    <button
+                        onclick="removeFile(${index})"
+                        class="ml-3 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
+                        title="移除文件"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function isValidFile(file) {
+            const validTypes = [
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/msword',
+                'application/vnd.ms-excel',
+                'application/json',
+                'text/markdown',
+                'text/plain',
+                'application/pdf',
+                'text/csv',
+                'image/png',
+                'image/jpeg',
+                'image/gif',
+                'image/webp',
+                'image/bmp',
+                'image/svg+xml'
+            ];
+            const validExtensions = ['.docx', '.xlsx', '.json', '.md', '.markdown', '.txt', '.pdf', '.csv', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
+            return validTypes.includes(file.type) || validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Make removeFile globally accessible
+        window.removeFile = removeFile;
+
+        // Diarium JSON detection and word count functionality
+        function isDiariumFormat(data) {
+            if (!Array.isArray(data)) return false;
+            if (data.length === 0) return false;
+            return data.every(entry =>
+                typeof entry === 'object' &&
+                entry !== null &&
+                'date' in entry &&
+                'html' in entry
+            );
+        }
+
+        function extractTextFromHtml(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            return div.textContent || div.innerText || '';
+        }
+
+        function countWords(text) {
+            // Remove extra whitespace
+            text = text.trim();
+            if (!text) return 0;
+
+            let count = 0;
+
+            // Match Chinese characters only (exclude Chinese punctuation)
+            // Chinese punctuation ranges: \u3000-\u303f, \uff00-\uffef, \u2000-\u206f
+            const chineseChars = text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g);
+            if (chineseChars) {
+                count += chineseChars.length;
+            }
+
+            // Remove Chinese characters, then count English words (letters and numbers only)
+            const nonChinese = text.replace(/[\u4e00-\u9fff\u3400-\u4dbf]/g, ' ');
+            // Only count words that contain at least one letter or number
+            const englishWords = nonChinese.split(/\s+/).filter(word => /[a-zA-Z0-9]/.test(word));
+            count += englishWords.length;
+
+            return count;
+        }
+
+        function formatDateOnly(isoString) {
+            const date = new Date(isoString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function analyzeDiariumData(data) {
+            // Group entries by date (ignore time)
+            const grouped = {};
+
+            data.forEach(entry => {
+                const dateKey = formatDateOnly(entry.date);
+                if (!grouped[dateKey]) {
+                    grouped[dateKey] = {
+                        entries: [],
+                        titles: [],
+                        totalWords: 0
+                    };
+                }
+
+                const text = extractTextFromHtml(entry.html);
+                const wordCount = countWords(text);
+
+                grouped[dateKey].entries.push(entry);
+                if (entry.heading && entry.heading.trim()) {
+                    grouped[dateKey].titles.push(entry.heading.trim());
+                }
+                grouped[dateKey].totalWords += wordCount;
+            });
+
+            // Convert to sorted array
+            const result = Object.keys(grouped)
+                .sort()
+                .map(dateKey => ({
+                    date: dateKey,
+                    count: grouped[dateKey].entries.length,
+                    titles: grouped[dateKey].titles,
+                    wordCount: grouped[dateKey].totalWords
+                }));
+
+            return result;
+        }
+
+        function displayDiaryStats(stats) {
+            const section = document.getElementById('diaryStatsSection');
+            const tbody = document.getElementById('diaryStatsBody');
+            const totalCell = document.getElementById('diaryTotalCount');
+
+            // Store stats for CSV export
+            currentDiaryStats = stats;
+
+            let totalWords = 0;
+            tbody.innerHTML = stats.map(day => {
+                totalWords += day.wordCount;
+                const titleDisplay = day.titles.length > 0
+                    ? escapeHtml(day.titles.join(' + '))
+                    : '<span class="text-gray-400">(無標題)</span>';
+                const countBadge = day.count > 1
+                    ? `<span class="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-xs">${day.count}</span>`
+                    : day.count;
+
+                return `
+                    <tr class="border-b border-gray-200 dark:border-gray-700">
+                        <td class="py-2 px-3 whitespace-nowrap">${day.date}</td>
+                        <td class="py-2 px-3 text-center">${countBadge}</td>
+                        <td class="py-2 px-3">${titleDisplay}</td>
+                        <td class="py-2 px-3 text-right font-mono">${day.wordCount}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            totalCell.textContent = totalWords;
+            section.classList.remove('hidden');
+        }
+
+        function generateStatsCSV() {
+            if (!currentDiaryStats || currentDiaryStats.length === 0) return '';
+
+            const header = '日期,篇數,標題,字數';
+            const rows = currentDiaryStats.map(day => {
+                const titlesText = day.titles.length > 0
+                    ? day.titles.join(' + ')
+                    : '(無標題)';
+                // Escape CSV fields with quotes if they contain commas or quotes
+                const escapedTitles = titlesText.includes(',') || titlesText.includes('"')
+                    ? `"${titlesText.replace(/"/g, '""')}"`
+                    : titlesText;
+                return `${day.date},${day.count},${escapedTitles},${day.wordCount}`;
+            });
+
+            const totalWords = currentDiaryStats.reduce((sum, day) => sum + day.wordCount, 0);
+            rows.push(`總計,,,${totalWords}`);
+
+            return [header, ...rows].join('\n');
+        }
+
+        async function copyStatsToClipboard() {
+            const csv = generateStatsCSV();
+            if (!csv) return;
+
+            const btnText = document.getElementById('copyStatsBtnText');
+            const originalText = btnText.textContent;
+
+            try {
+                await navigator.clipboard.writeText(csv);
+                btnText.textContent = '已複製 ✓';
+                setTimeout(() => {
+                    btnText.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                btnText.textContent = '複製失敗';
+                setTimeout(() => {
+                    btnText.textContent = originalText;
+                }, 2000);
+            }
+        }
+
+        // Initialize copy button
+        document.getElementById('copyStatsBtn').addEventListener('click', copyStatsToClipboard);
+
+        function hideDiaryStats() {
+            document.getElementById('diaryStatsSection').classList.add('hidden');
+            currentDiaryStats = null;
+        }
+
+        async function processFilesForDiaryStats() {
+            // Hide stats by default
+            hideDiaryStats();
+
+            // Look for JSON files in selectedFiles
+            const jsonFiles = selectedFiles.filter(f => f.name.toLowerCase().endsWith('.json'));
+            if (jsonFiles.length === 0) return;
+
+            // Try to read and parse each JSON file
+            for (const file of jsonFiles) {
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+
+                    if (isDiariumFormat(data)) {
+                        const stats = analyzeDiariumData(data);
+                        displayDiaryStats(stats);
+                        return; // Only process first valid Diarium file
+                    }
+                } catch (e) {
+                    // Not valid JSON or not Diarium format, skip
+                    console.log('File parsing error:', e.message);
+                }
+            }
+        }
+
+        // AI Model selection
+        const modelRadios = document.querySelectorAll('input[name="aiModel"]');
+        const customModelInput = document.getElementById('customModelInput');
+        const customModel = document.getElementById('customModel');
+
+        modelRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.value === 'custom') {
+                    customModelInput.classList.remove('hidden');
+                } else {
+                    customModelInput.classList.add('hidden');
+                }
+            });
+        });
+
+        // Preset prompts stored in JavaScript to avoid HTML attribute parsing issues
+        const presetPrompts = {
+            'diary-analysis': `作為一位知深的牧師、心理專家及輔導員，亦作為一位同行者，你的任務是協助分析這一個月的日記
+
+日記偶爾會包含 [禱告祭壇], 那個段落通常是作者自己總結過去一週比較深刻的事, 因此在分析時也可特別留意這部份作為過去數天的深刻指示
+
+### 任務 ###
+1. 簡述每一天發生什麼事，這些事為作者帶來什麼情緒，反思和學習
+2. 把每天濃縮為一個標題, 然後按不同範疇歸類羅列出來(例如信仰,工作,家庭,業餘..等等)
+3. 按同一事件出現的頻率，列舉本月最被重視的十件事，每件事用一句標題去概括
+4. 就以上列出的十件事，從 (a) 感受，(b) 學習與反思 及 (c) 展望 三方面作簡單總結。
+5. 就以上列出的十件事，按其強度與深刻度排序，由高至低
+6. 第三部份，解釋第二點的結論如何得出，包括列出各事件出現次數，在什麼日子出現等等
+7. 總結一下整個月的情況
+8. 因應作者在這個月中對各種狀況的回應和感受，你認為作者是一個怎樣的為人（Being）？
+9. 提出建議，以幫助作者在靈性、生命、生理及健康方面可以成長及提升
+10. [H-Channel 分析] 找出該月份所有 H-Channel 中看了什麼影集
+     - 如有影集評分, 每一個影集各按角色,劇情,經典,反思,官能,歌曲的各類別相加
+     - 如有提到集數, 請說明該月份看了那些集數
+11. 請分析上傳的日記文件，並根據以下30個標籤對每一天的內容進行標記。每個標籤用0或1表示（0=沒有相關內容，1=有相關內容），一天可以有多個標籤。
+
+**標籤定義：**
+- accident: 意外、事故、突發狀況
+- art: 藝術活動、創作、欣賞藝術作品
+- eldercare: 照顧長輩、長者相關事務
+- exercise: 運動、健身、體能活動
+- family: 家庭聚會、家人互動、家庭事務
+- fatherdaily: 父親角色的日常活動或思考
+- fellowship: 團契、宗教聚會、信仰團體活動
+- friendship: 朋友聚會、友誼相關活動
+- gourmet: 美食、特別的餐飲體驗
+- health: 健康狀況、醫療、保健
+- holy: 靈修、禱告、宗教活動
+- housework: 家務、清潔、居家整理
+- husbanddaily: 丈夫角色的日常活動或思考
+- insight: 深刻感悟、人生體會、智慧思考
+- lom: 缺乏動力的狀態
+- memory: 回憶、懷念過往、紀念活動
+- news: 新聞、時事、社會議題
+- outing: 外出活動、旅遊、戶外活動
+- penpal: 筆友通信、書信往來
+- planning: 計劃、安排、規劃未來
+- pray: 禱告、祈禱活動
+- rest: 休息、放鬆、睡眠
+- selflearning: 自我學習、進修、知識吸收
+- selftracking: 自我���蹤、記錄、監測
+- services: 服務他人、志工活動、助人行為
+- surprise: 驚喜、意外收穫、驚奇事件
+- upset: 沮喪、困擾、負面情緒
+- weather: 天氣狀況、氣候相關記錄
+- workday: 工作日、職場活動、工作相關
+
+**輸出格式：**
+按日期順序列出，例如：
+date accident art eldercare exercise family fatherdaily fellowship friendship gourmet health holy housework husbanddaily insight lom memory news outing pen-pal planning pray rest selflearning selftracking services surprise upset weather workday
+2025/1/13 0 1 0 1 1 0 0 1 0 0 1 0 0 1 0 0 0 1 0 0 0 1 0 0 0 0 0 0 1
+
+12. 評估每一週教會小組狀況,
+  - 列出活動, 組員間分享的信仰經歷, 組員參與度等,
+  - 就靈性, 關係, 禱告三方面打分, scale 0-10
+  - 輸出 csv 格式如下,  以 | 作為分隔符號
+    header: "Week|Date|聚會|查經或信仰反省|生命見証或實踐|靈性評分|關係評分|禱告評分|分析模型"
+   註:
+     Week: 年度第幾週
+     Date: mm-dd (該週的第一天)
+     分析模型: 所使用作此分析的 LLM 模型名稱
+
+13. 列出每週所聽的道
+- 包括講���, 內容, 領受
+- 輸出 csv 格式如下,  以 | 作為分隔符號
+    header: "年度|日期|講者|講題|重點|表達|訊息|深刻|總分|主日崇拜?|分類|分析模型"
+    註:
+     年度: yyyy
+     日期: yyyy-dd-mm
+     表達: 評分 (0-10)
+     訊息: 評分 (0-10)
+     深刻: 評分 (0-10)
+     總分: 表達 + 訊息 + 深刻 / 3
+     主日崇拜? Y/N
+     分類: 10字以內講道題目分類
+     分析模型: 所使用作此分析的 LLM 模型名稱
+
+14. 列出那一個月發生的專題研習活動 (排除靈性信仰系列), 然後輸出 csv 格式如下,  以 | 作為分隔符號
+header: "研習日期|範疇|題目|需時(日數)|研習結果|成果|投入|分析模型"
+    註:
+     研習日期: m (月份)
+     範疇: 10字以內分類
+     需時: 在日記中有多少日提及這研習?
+     研習結果: 所學習到的知識簡介
+     成果: 評分 (0-10)
+     投入: 評分 (0-10)
+     分析模型: 所使用作此分析的 LLM 模型名稱
+	 
+15. 當中有什麼 "老婆" 的紀述, 請以 "老婆" 的角度簡述這個月她的情況, 有什麼起承轉合和主調經歷?
+
+16. 當中有什麼 "正正" 的紀述, 請以 "正正" 的角度簡述這個月她的情況, 有什麼起承轉合和主調經歷?	 	 
+	 `,
+            'habit-combine': '以 Ticktick habit markdown 的資料補充日記分析資料中遺漏的片段, 重新提出更完整的洞察, 評論及建議',
+            'event-analysis': '請分析文件中的重要事件和時間節點',
+            'summary': '請幫我整理文件中的要點，並以清晰的格式呈現'
+        };
+
+        const presetBtns = document.querySelectorAll('.preset-btn');
+        const promptInput = document.getElementById('promptInput');
+
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const presetKey = btn.dataset.preset;
+                if (presetPrompts[presetKey]) {
+                    promptInput.value = presetPrompts[presetKey];
+                }
+            });
+        });
+
+        // Analysis functionality
+        const resultSection = document.getElementById('resultSection');
+        const loadingState = document.getElementById('loadingState');
+        const resultContent = document.getElementById('resultContent');
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) {
+                showAlert('請先選擇至少一個文件');
+                return;
+            }
+
+            const selectedModel = getSelectedModel();
+            const prompt = promptInput.value.trim();
+
+            if (!prompt) {
+                showAlert('請輸入分析 Prompt');
+                return;
+            }
+
+            // Show loading state
+            resultSection.classList.remove('hidden');
+            loadingState.classList.remove('hidden');
+            resultContent.innerHTML = '';
+            analyzeBtn.disabled = true;
+
+            // Update loading message based on file count
+            const fileCount = selectedFiles.length;
+            const loadingMessage = fileCount > 1
+                ? `AI 正在分析 ${fileCount} 個文件，請稍候...`
+                : 'AI 正在分析文件，請稍候...';
+            loadingState.querySelector('p').textContent = loadingMessage;
+
+            // Register handler for AI response
+            window.Poe.registerHandler('analyze-handler', (result) => {
+                const response = result.responses[0];
+
+                if (response.status === 'error') {
+                    loadingState.classList.add('hidden');
+                    resultContent.innerHTML = `<div class="text-red-600 dark:text-red-400">錯誤：${response.statusText}</div>`;
+                    analyzeBtn.disabled = false;
+                } else if (response.status === 'incomplete') {
+                    // Update with streaming content
+                    resultContent.innerHTML = marked.parse(response.content);
+                } else if (response.status === 'complete') {
+                    // Final content
+                    loadingState.classList.add('hidden');
+                    resultContent.innerHTML = marked.parse(response.content);
+                    currentAnalysisResult = response.content;
+                    document.getElementById('downloadBtn').classList.remove('hidden');
+                    analyzeBtn.disabled = false;
+                }
+            });
+
+            // Build prompt with file count info
+            let fullPrompt = prompt;
+            if (fileCount > 1) {
+                const fileNames = selectedFiles.map(f => f.name).join('、');
+                fullPrompt = `我上傳了 ${fileCount} 個文件（${fileNames}），請一併分析它們。\n\n${prompt}`;
+            }
+
+            try {
+                await window.Poe.sendUserMessage(
+                    `@${selectedModel} ${fullPrompt}`,
+                    {
+                        attachments: selectedFiles,
+                        handler: 'analyze-handler',
+                        stream: true,
+                        openChat: false
+                    }
+                );
+            } catch (err) {
+                loadingState.classList.add('hidden');
+                resultContent.innerHTML = `<div class="text-red-600 dark:text-red-400">發送錯誤：${err.message}</div>`;
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        function getSelectedModel() {
+            const selectedRadio = document.querySelector('input[name="aiModel"]:checked');
+            if (selectedRadio.value === 'custom') {
+                return customModel.value.trim() || 'Claude-Sonnet-4.5';
+            }
+            return selectedRadio.value;
+        }
+
+        // Download functionality
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (!currentAnalysisResult) return;
+
+            const timestamp = new Date().toLocaleString('zh-TW').replace(/[/:]/g, '-');
+            const fileBaseName = selectedFiles.length === 1
+                ? selectedFiles[0].name.replace(/\.(docx|xlsx|json|md|markdown|txt|pdf|csv|png|jpg|jpeg|gif|webp|bmp|svg)$/i, '')
+                : `${selectedFiles.length}個文件`;
+            const filename = `AI分析結果_${fileBaseName}_${timestamp}.txt`;
+
+            const blob = new Blob([currentAnalysisResult], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        function showAlert(message) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end">
+                        <button class="px-4 py-2 bg-primary text-white hover:bg-primary/90 rounded" onclick="this.closest('.fixed').remove()">確定</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    </script>
+</body>
+</html>
+
+
+

@@ -1,0 +1,3177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/marked@4.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+        }
+        .print-only {
+            display: none;
+        }
+        /* Calendar styles */
+        #yearly-calendar .aspect-square {
+            min-width: 24px;
+            min-height: 24px;
+        }
+        @media (max-width: 640px) {
+            #yearly-calendar .aspect-square {
+                min-width: 28px;
+                min-height: 28px;
+                font-size: 11px;
+            }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    },
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="flex flex-wrap justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-primary dark:text-primary">Leave Management System</h1>
+            <div class="flex items-center mt-2 sm:mt-0">
+                <span class="text-sm text-gray-600 dark:text-gray-400 mr-3">v1.4</span>
+                <button id="changelog-btn" class="text-sm px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    Changelog
+                </button>
+                <button id="help-btn" class="text-sm ml-2 px-3 py-1 bg-primary bg-opacity-10 dark:bg-opacity-20 text-primary rounded-md hover:bg-opacity-20 dark:hover:bg-opacity-30 transition-colors">
+                    Help
+                </button>
+            </div>
+        </div>
+        
+        <!-- Year Selector -->
+        <div class="mb-6">
+            <div class="flex items-center space-x-2">
+                <label class="font-medium">Year:</label>
+                <select id="year-selector" class="px-3 py-1 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                    <!-- Will be populated with available years -->
+                </select>
+                <button id="new-year-btn" class="text-sm px-3 py-1 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">
+                    New Year
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="mb-8 border-b border-gray-200 dark:border-gray-700">
+            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="tabs">
+                <li class="mr-2">
+                    <a href="#" data-tab="balance" class="tab-btn inline-block p-4 border-b-2 border-primary text-primary dark:text-primary rounded-t-lg active">Leave Balance</a>
+                </li>
+                <li class="mr-2">
+                    <a href="#" data-tab="application" class="tab-btn inline-block p-4 border-b-2 border-transparent hover:text-primary dark:hover:text-primary hover:border-primary rounded-t-lg">Leave Application</a>
+                </li>
+                <li class="mr-2">
+                    <a href="#" data-tab="email" class="tab-btn inline-block p-4 border-b-2 border-transparent hover:text-primary dark:hover:text-primary hover:border-primary rounded-t-lg">Email</a>
+                </li>
+                <li class="mr-2">
+                    <a href="#" data-tab="calendar" class="tab-btn inline-block p-4 border-b-2 border-transparent hover:text-primary dark:hover:text-primary hover:border-primary rounded-t-lg">Calendar</a>
+                </li>
+                <li class="mr-2">
+                    <a href="#" data-tab="settings" class="tab-btn inline-block p-4 border-b-2 border-transparent hover:text-primary dark:hover:text-primary hover:border-primary rounded-t-lg">Settings</a>
+                </li>
+                <li>
+                    <a href="#" data-tab="help" class="tab-btn inline-block p-4 border-b-2 border-transparent hover:text-primary dark:hover:text-primary hover:border-primary rounded-t-lg">Help</a>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Tab Content -->
+        <div id="tab-content">
+            <!-- Leave Balance Tab -->
+            <div id="balance-tab" class="tab-content">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">Leave Balance Settings</h2>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label class="block mb-2">Initial Annual Leave Balance</label>
+                            <input type="number" id="initial-balance" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" min="0" step="0.5" value="15.5">
+                        </div>
+                        <div>
+                            <label class="block mb-2">Initial Compensation Leave Balance</label>
+                            <input type="number" id="initial-cl-balance" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" min="0" step="0.5" value="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-5">Leave Balance Summary</h2>
+
+                    <!-- Annual Leave Card - Primary -->
+                    <div class="mb-5 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 border border-blue-100 dark:border-blue-800">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                            </div>
+                            <h3 class="font-semibold text-blue-800 dark:text-blue-300">Annual Leave (AL)</h3>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                                        <th class="text-left py-2 pr-4 font-medium">Initial</th>
+                                        <th class="text-left py-2 pr-4 font-medium">Used</th>
+                                        <th class="text-left py-2 pr-4 font-medium">Planned</th>
+                                        <th class="text-left py-2 pr-4 font-medium">Current</th>
+                                        <th class="text-left py-2 font-medium">Projected</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="text-gray-800 dark:text-gray-200">
+                                        <td class="py-2 pr-4 font-medium" id="al-initial">15.5 days</td>
+                                        <td class="py-2 pr-4 text-red-600 dark:text-red-400" id="al-used">0 days</td>
+                                        <td class="py-2 pr-4 text-amber-600 dark:text-amber-400" id="al-planned">0 days</td>
+                                        <td class="py-2 pr-4 font-bold text-green-600 dark:text-green-400" id="al-current">15.5 days</td>
+                                        <td class="py-2 font-bold text-blue-600 dark:text-blue-400" id="al-projected">15.5 days</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Other Leave Types Grid -->
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <!-- Compensation Leave -->
+                        <div class="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/30 dark:to-fuchsia-900/30 border border-purple-100 dark:border-purple-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-7 h-7 rounded-lg bg-purple-500 flex items-center justify-center">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="font-semibold text-sm text-purple-800 dark:text-purple-300">Compensation (CL)</h3>
+                            </div>
+                            <table class="w-full text-sm">
+                                <tbody>
+                                    <tr class="border-b border-purple-100 dark:border-purple-800/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Used</td>
+                                        <td class="py-1.5 text-right font-medium text-red-600 dark:text-red-400" id="cl-used">0 days</td>
+                                    </tr>
+                                    <tr class="border-b border-purple-100 dark:border-purple-800/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Planned</td>
+                                        <td class="py-1.5 text-right font-medium text-amber-600 dark:text-amber-400" id="cl-planned">0 days</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 font-semibold text-purple-800 dark:text-purple-300">Total</td>
+                                        <td class="py-1.5 text-right font-bold text-purple-700 dark:text-purple-300" id="cl-total">0 days</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Sick Leave -->
+                        <div class="p-4 rounded-xl bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-900/30 dark:to-orange-900/30 border border-rose-100 dark:border-rose-800">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-7 h-7 rounded-lg bg-rose-500 flex items-center justify-center">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="font-semibold text-sm text-rose-800 dark:text-rose-300">Sick Leave (SL)</h3>
+                            </div>
+                            <table class="w-full text-sm">
+                                <tbody>
+                                    <tr class="border-b border-rose-100 dark:border-rose-800/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Used</td>
+                                        <td class="py-1.5 text-right font-medium text-red-600 dark:text-red-400" id="sl-used">0 days</td>
+                                    </tr>
+                                    <tr class="border-b border-rose-100 dark:border-rose-800/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Planned</td>
+                                        <td class="py-1.5 text-right font-medium text-amber-600 dark:text-amber-400" id="sl-planned">0 days</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 font-semibold text-rose-800 dark:text-rose-300">Total</td>
+                                        <td class="py-1.5 text-right font-bold text-rose-700 dark:text-rose-300" id="sl-total">0 days</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- No Pay Leave -->
+                        <div class="p-4 rounded-xl bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-800/50 dark:to-gray-800/50 border border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-7 h-7 rounded-lg bg-slate-500 flex items-center justify-center">
+                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="font-semibold text-sm text-slate-700 dark:text-slate-300">No Pay Leave (NPL)</h3>
+                            </div>
+                            <table class="w-full text-sm">
+                                <tbody>
+                                    <tr class="border-b border-slate-200 dark:border-slate-700/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Used</td>
+                                        <td class="py-1.5 text-right font-medium text-red-600 dark:text-red-400" id="npl-used">0 days</td>
+                                    </tr>
+                                    <tr class="border-b border-slate-200 dark:border-slate-700/50">
+                                        <td class="py-1.5 text-gray-600 dark:text-gray-400">Planned</td>
+                                        <td class="py-1.5 text-right font-medium text-amber-600 dark:text-amber-400" id="npl-planned">0 days</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1.5 font-semibold text-slate-700 dark:text-slate-300">Total</td>
+                                        <td class="py-1.5 text-right font-bold text-slate-700 dark:text-slate-300" id="npl-total">0 days</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Config Save/Restore -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mt-6">
+                    <h2 class="text-xl font-semibold mb-4">📋 快速儲存/還原配置</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">將配置複製成字串存在任何地方，下次貼上即可還原所有設定。</p>
+
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <h3 class="font-medium mb-3 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                複製配置
+                            </h3>
+                            <button id="quick-copy-config-btn" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+                                一鍵複製配置字串
+                            </button>
+                            <span id="quick-copy-config-status" class="block mt-2 text-sm text-center"></span>
+                        </div>
+
+                        <div class="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <h3 class="font-medium mb-3 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                還原配置
+                            </h3>
+                            <textarea id="quick-paste-config-input" rows="2" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 font-mono mb-2" placeholder="貼上配置字串..."></textarea>
+                            <button id="quick-restore-config-btn" class="w-full px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors">
+                                還原配置
+                            </button>
+                            <span id="quick-restore-config-status" class="block mt-2 text-sm text-center"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leave Application Tab -->
+            <div id="application-tab" class="tab-content hidden">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">New Leave Application</h2>
+                    <form id="leave-form" class="space-y-4">
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="block mb-2">Start Date <span id="date-optional-hint" class="text-gray-400 text-sm hidden">(Optional for CL)</span></label>
+                                <input type="date" id="start-date" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                            </div>
+                            <div>
+                                <label class="block mb-2">Leave Type</label>
+                                <select id="leave-type" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                    <option value="AL">Annual Leave (AL)</option>
+                                    <option value="CL">Compensation Leave (CL)</option>
+                                    <option value="SL">Sick Leave (SL)</option>
+                                    <option value="NPL">No Pay Leave (NPL)</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block mb-2">Duration</label>
+                                <select id="duration-type" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                    <option value="full">Full Day</option>
+                                    <option value="am">Half Day (AM)</option>
+                                    <option value="pm">Half Day (PM)</option>
+                                    <option value="multiple">Multiple Days</option>
+                                </select>
+                            </div>
+                            <div id="end-date-container" class="hidden">
+                                <label class="block mb-2">End Date</label>
+                                <input type="date" id="end-date" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block mb-2">Leave Reason</label>
+                                <input type="text" id="leave-reason" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder="Optional">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block mb-2">Current Status</label>
+                                <select id="leave-status" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                    <!-- Will be populated from workflow settings -->
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <button type="submit" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Add Leave Application</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">My Leave Applications</h2>
+                    
+                    <div class="mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 class="font-medium mb-2">Filter by Type</h3>
+                                <div id="filter-type-checkboxes" class="flex flex-wrap gap-2"></div>
+                            </div>
+                            <div>
+                                <h3 class="font-medium mb-2">Filter by Status</h3>
+                                <div id="filter-status-checkboxes" class="flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button id="reset-filters-btn" class="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Reset Filters</button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-auto border-collapse">
+                            <thead>
+                                <tr class="border-b dark:border-gray-700 text-left">
+                                    <th class="px-4 py-2">Start Date</th>
+                                    <th class="px-4 py-2">Type</th>
+                                    <th class="px-4 py-2">Duration</th>
+                                    <th class="px-4 py-2">Status</th>
+                                    <th class="px-4 py-2">Reason</th>
+                                    <th class="px-4 py-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leave-applications-table"></tbody>
+                        </table>
+                    </div>
+                    <div id="no-applications-message" class="py-4 text-center text-gray-500 dark:text-gray-400">
+                        No leave applications matching the current filters.
+                    </div>
+                </div>
+                
+                <div id="edit-leave-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-screen overflow-y-auto">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold">Edit Leave Application</h3>
+                            <button id="close-edit-modal-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <form id="edit-leave-form" class="space-y-4">
+                            <input type="hidden" id="edit-leave-id">
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <div>
+                                    <label class="block mb-2">Start Date <span id="edit-date-optional-hint" class="text-gray-400 text-sm hidden">(Optional for CL)</span></label>
+                                    <input type="date" id="edit-start-date" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                </div>
+                                <div>
+                                    <label class="block mb-2">Leave Type</label>
+                                    <select id="edit-leave-type" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                        <option value="AL">Annual Leave (AL)</option>
+                                        <option value="CL">Compensation Leave (CL)</option>
+                                        <option value="SL">Sick Leave (SL)</option>
+                                        <option value="NPL">No Pay Leave (NPL)</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block mb-2">Duration</label>
+                                    <select id="edit-duration-type" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                        <option value="full">Full Day</option>
+                                        <option value="am">Half Day (AM)</option>
+                                        <option value="pm">Half Day (PM)</option>
+                                        <option value="multiple">Multiple Days</option>
+                                    </select>
+                                </div>
+                                <div id="edit-end-date-container">
+                                    <label class="block mb-2">End Date</label>
+                                    <input type="date" id="edit-end-date" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block mb-2">Leave Reason</label>
+                                    <input type="text" id="edit-leave-reason" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder="Optional">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block mb-2">Current Status</label>
+                                    <select id="edit-leave-status" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600"></select>
+                                </div>
+                            </div>
+                            <div class="flex justify-end space-x-3 pt-2">
+                                <button type="button" id="cancel-edit-btn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Email Tab -->
+            <div id="email-tab" class="tab-content hidden">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">Email Template Generator</h2>
+                    <p class="mb-4">Preview and generate email template based on your leave applications.</p>
+                    
+                    <div class="mb-4">
+                        <label class="block mb-2">Year</label>
+                        <input type="number" id="template-year" class="w-full md:w-1/4 px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" value="2025">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block mb-2">Month Range</label>
+                        <div class="flex flex-wrap gap-4">
+                            <select id="template-start-month" class="px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3">March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                            <span class="self-center">to</span>
+                            <select id="template-end-month" class="px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                <option value="1">January</option>
+                                <option value="2">February</option>
+                                <option value="3" selected>March</option>
+                                <option value="4">April</option>
+                                <option value="5">May</option>
+                                <option value="6">June</option>
+                                <option value="7">July</option>
+                                <option value="8">August</option>
+                                <option value="9">September</option>
+                                <option value="10">October</option>
+                                <option value="11">November</option>
+                                <option value="12">December</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block mb-2">Deadline Date</label>
+                        <input type="date" id="deadline-date" class="w-full md:w-1/2 px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" value="2025-02-28">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block mb-2">Include Leave with Status:</label>
+                        <div id="status-filter-container" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
+                    <button id="generate-template-btn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Generate Template</button>
+                </div>
+                
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold">Email Preview</h2>
+                        <button id="copy-template-btn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Copy to Clipboard</button>
+                    </div>
+                    <div id="email-template" class="border p-4 rounded-md dark:border-gray-700 whitespace-pre-wrap font-mono text-sm h-96 overflow-y-auto dark:bg-gray-700"></div>
+                </div>
+            </div>
+
+            <!-- Calendar Tab -->
+            <div id="calendar-tab" class="tab-content hidden">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                    <div class="flex flex-wrap justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold">年曆總覽 (Yearly Calendar)</h2>
+                        <div class="flex items-center gap-4 mt-2 sm:mt-0">
+                            <button id="calendar-prev-year" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+                            <span id="calendar-year-display" class="text-lg font-bold min-w-[60px] text-center">2025</span>
+                            <button id="calendar-next-year" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 mb-6 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500"></div>
+                            <span>週末 (Weekend)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-red-400 dark:bg-red-600"></div>
+                            <span>公眾假期 (Public Holiday)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-blue-400 dark:bg-blue-600"></div>
+                            <span>已申請假期 (Applied Leave)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: linear-gradient(135deg, #60a5fa 50%, #f87171 50%)"></div>
+                            <span>假期+公假 (Leave + Holiday)</span>
+                        </div>
+                    </div>
+
+                    <div id="yearly-calendar" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+                </div>
+
+                <div id="calendar-details" class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hidden">
+                    <h3 class="text-lg font-semibold mb-4">日期詳情 (Date Details)</h3>
+                    <div id="calendar-details-content"></div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content hidden">
+                <div class="space-y-6">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <button class="collapsible-header w-full p-6 text-left flex justify-between items-center border-b border-gray-200 dark:border-gray-700 focus:outline-none" data-target="status-workflow-content">
+                            <h2 class="text-xl font-semibold">Status Workflow Settings</h2>
+                            <svg class="collapsible-icon w-6 h-6 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="status-workflow-content" class="collapsible-content p-6">
+                            <p class="mb-4">Customize your leave application workflow by adding, removing, or reordering status steps.</p>
+                            
+                            <div class="mb-4">
+                                <div class="flex items-center">
+                                    <input type="text" id="new-status" class="flex-grow px-4 py-2 border rounded-l-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder="Add new status">
+                                    <button id="add-status-btn" class="px-4 py-2 bg-primary text-white rounded-r-md hover:bg-opacity-90 transition-colors">Add</button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <h3 class="font-medium mb-3">Current Workflow:</h3>
+                                <ul id="status-list" class="space-y-2"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <button class="collapsible-header w-full p-6 text-left flex justify-between items-center border-b border-gray-200 dark:border-gray-700 focus:outline-none" data-target="holidays-content">
+                            <h2 class="text-xl font-semibold">Public Holidays</h2>
+                            <svg class="collapsible-icon w-6 h-6 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="holidays-content" class="collapsible-content p-6">
+                            <p class="mb-4">Add public holidays to skip when calculating leave days.</p>
+                            
+                            <div class="mb-4">
+                                <div class="flex items-center">
+                                    <input type="date" id="holiday-date" class="flex-grow px-4 py-2 border rounded-l-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">
+                                    <input type="text" id="holiday-name" class="flex-grow px-4 py-2 border border-l-0 text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" placeholder="Holiday name">
+                                    <button id="add-holiday-btn" class="px-4 py-2 bg-primary text-white rounded-r-md hover:bg-opacity-90 transition-colors">Add</button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <h3 class="font-medium mb-3">Upcoming Holidays:</h3>
+                                <ul id="holiday-list" class="space-y-2"></ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <button class="collapsible-header w-full p-6 text-left flex justify-between items-center border-b border-gray-200 dark:border-gray-700 focus:outline-none" data-target="email-template-content">
+                            <h2 class="text-xl font-semibold">Email Template Customization</h2>
+                            <svg class="collapsible-icon w-6 h-6 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="email-template-content" class="collapsible-content p-6">
+                            <div class="mb-4 flex justify-end">
+                                <button id="save-template-settings-btn" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Save Settings</button>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">HTML Template:</h3>
+                                <p class="text-sm mb-3">Edit the HTML template used for generating emails. You can use placeholders like {{year}}, {{currentALBalance}}, etc.</p>
+                                <div class="flex space-x-2 mb-3">
+                                    <button id="reset-template-btn" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        Reset to Default
+                                    </button>
+                                    <button id="export-template-btn" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        Export Template
+                                    </button>
+                                    <label for="import-template-file" class="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                                        Import Template
+                                        <input type="file" id="import-template-file" class="hidden" accept=".html,.txt">
+                                    </label>
+                                </div>
+                                <textarea id="html-template-content" rows="10" class="w-full px-4 py-2 border rounded-md text-base font-mono dark:bg-gray-700 dark:text-white dark:border-gray-600"></textarea>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">Status Display Mapping:</h3>
+                                <p class="text-sm mb-3">Customize how status values appear in the email template.</p>
+                                <div id="status-mapping-container" class="space-y-2"></div>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">Conflicts with other project members:</h3>
+                                <p class="text-sm mb-3">Edit the conflict list that appears in the email template.</p>
+                                <textarea id="conflicts-content" rows="5" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">SCB: NIL
+SWD ITI: NIL
+Madison Pacific: NIL
+CCBA: NIL
+Chanel: NIL</textarea>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">Backup plan:</h3>
+                                <p class="text-sm mb-3">Edit the backup plan that appears in the email template.</p>
+                                <textarea id="backup-plan-content" rows="5" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600">SCB: DWU
+SWD ITI: DWU
+Madison Pacific: DWU
+CCBA: DWU
+Chanel: Kan</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+                        <button class="collapsible-header w-full p-6 text-left flex justify-between items-center border-b border-gray-200 dark:border-gray-700 focus:outline-none" data-target="import-export-content">
+                            <h2 class="text-xl font-semibold">Import/Export</h2>
+                            <svg class="collapsible-icon w-6 h-6 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="import-export-content" class="collapsible-content p-6">
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">Export Data</h3>
+                                <p class="mb-4">Export all your leave data and settings to a JSON file.</p>
+                                <button id="export-btn" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Export Data</button>
+                            </div>
+                            
+                            <div>
+                                <h3 class="font-medium mb-3">Import Data</h3>
+                                <p class="mb-4">Import leave data and settings from a JSON file.</p>
+                                <label for="import-file" class="px-6 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors cursor-pointer inline-block">
+                                    Choose File & Import
+                                    <input type="file" id="import-file" class="hidden" accept=".json">
+                                </label>
+                                <span id="import-status" class="ml-3 text-sm"></span>
+                            </div>
+
+                            <hr class="my-6 border-gray-300 dark:border-gray-600">
+
+                            <div class="mb-6">
+                                <h3 class="font-medium mb-3">📋 一鍵複製配置字串 (Copy Configuration String)</h3>
+                                <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">將所有配置壓縮成 Base64 字串，可存在任何地方（筆記本、剪貼簿管理器等），下次貼上即可還原。</p>
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <button id="copy-config-btn" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        複製配置字串
+                                    </button>
+                                    <span id="copy-config-status" class="text-sm"></span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 class="font-medium mb-3">📥 貼上還原配置 (Paste Configuration String)</h3>
+                                <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">貼上之前複製的配置字串，即可還原所有設定。</p>
+                                <div class="mb-3">
+                                    <textarea id="paste-config-input" rows="3" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600 font-mono text-sm" placeholder="在此貼上配置字串..."></textarea>
+                                </div>
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <button id="restore-config-btn" class="px-6 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                        還原配置
+                                    </button>
+                                    <span id="restore-config-status" class="text-sm"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Help Tab -->
+            <div id="help-tab" class="tab-content hidden">
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+                    <h2 class="text-xl font-semibold mb-4">使用說明 (User Manual)</h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">年度管理 (Year Management)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 使用頁面頂部的「年份」選擇器來選擇要查看的年份。</p>
+                                <p>2. 點擊「New Year」按鈕創建新的年度:</p>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>設置新年度的初始年假和恩恤假餘額</li>
+                                    <li>選擇是否結轉上一年未使用的假期餘額</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">假期餘額 (Leave Balance)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 設置初始年假及恩恤假餘額</p>
+                                <p>2. 查看所有假期類型的餘額摘要:</p>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>已使用的假期日數</li>
+                                    <li>已計劃但未使用的假期日數</li>
+                                    <li>淨餘額及預計餘額</li>
+                                    <li>病假及無薪假的統計</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">假期申請 (Leave Application)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 填寫表格申請新假期:</p>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>選擇開始日期，假期類型，和時長</li>
+                                    <li>如選擇「多日」，需設置結束日期</li>
+                                    <li>填寫假期原因（可選）</li>
+                                    <li>選擇當前狀態</li>
+                                </ul>
+                                <p>2. 管理現有的假期申請:</p>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>使用勾選框按類型和狀態篩選假期申請</li>
+                                    <li>編輯或刪除現有申請</li>
+                                    <li>直接在表格中更改假期狀態</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">狀態工流程 (Status Workflow)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 添加、刪除或重新排序狀態步驟</p>
+                                <p>2. 為每個狀態設置顏色</p>
+                                <p>3. 添加公眾假期以在計算假期日數時跳過</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">電子郵件模板 (Email Template)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 設置年份，月份範圍和截止日期</p>
+                                <p>2. 選擇要包含的假期狀態</p>
+                                <p>3. 生成格式化的電子郵件模板</p>
+                                <p>4. 自定義狀態顯示映射，衝突列表和備份計劃</p>
+                                <p>5. 將模板複製到剪貼板以便貼入電子郵件</p>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-lg font-medium text-primary dark:text-primary mb-2">導入/導出 (Import/Export)</h3>
+                            <div class="pl-4 space-y-2">
+                                <p>1. 導出所有數據為 JSON 文件以備份</p>
+                                <p>2. 從 JSON 文件中導入數據以恢復設置</p>
+                                <p>3. <strong>一鍵複製配置字串</strong>：將所有配置壓縮成 Base64 字串</p>
+                                <ul class="list-disc pl-5 space-y-1">
+                                    <li>點擊「複製配置字串」按鈕複製到剪貼簿</li>
+                                    <li>可存在任何地方（筆記本、剪貼簿管理器、雲端筆記等）</li>
+                                    <li>下次貼上字串並點擊「還原配置」即可恢復所有設定</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="changelog-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Changelog</h3>
+                <button id="close-changelog-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="changelog-content" class="space-y-6"></div>
+        </div>
+    </div>
+    
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        function showAlertModal(message, onClose) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end">
+                        <button class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90">OK</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            const button = modal.querySelector('button');
+            button.addEventListener('click', () => {
+                modal.remove();
+                if (onClose) onClose();
+            });
+            button.focus();
+        }
+
+        function showConfirmModal(message, onConfirm) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-sm w-full mx-4">
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">${message}</p>
+                    <div class="flex justify-end space-x-3">
+                        <button class="cancel-btn px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">Cancel</button>
+                        <button class="confirm-btn px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90">Confirm</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.querySelector('.cancel-btn').addEventListener('click', () => modal.remove());
+            modal.querySelector('.confirm-btn').addEventListener('click', () => {
+                modal.remove();
+                if (onConfirm) onConfirm();
+            });
+            modal.querySelector('.confirm-btn').focus();
+        }
+
+        const appData = {
+            version: '1.4',
+            changelog: [
+                { version: '1.4', date: '2025-01-19', changes: [
+                    'Added yearly calendar view showing applied leave, public holidays, and weekends',
+                    'Calendar syncs with main year selector',
+                    'Click on any date to see detailed information'
+                ]},
+                { version: '1.3', date: '2025-05-25', changes: [
+                    'Consolidated configuration tabs into a single Settings tab',
+                    'Added customizable email template with import/export functionality',
+                    'Added collapsible sections for better organization'
+                ]},
+                { version: '1.2', date: '2025-05-20', changes: [
+                    'Added row background colors matching status colors in leave application table',
+                    'Improved visual cues for different leave statuses'
+                ]},
+                { version: '1.1', date: '2025-05-15', changes: [
+                    'Added "Other" leave type that does not count towards balance',
+                    'Changed filter controls to checkboxes for better flexibility',
+                    'Added default filtering to exclude "Leave taken" status and "Other" type'
+                ]},
+                { version: '1.0', date: '2025-05-01', changes: ['Initial release'] }
+            ],
+            yearlyData: {},
+            currentYear: new Date().getFullYear().toString(),
+            leaveBalance: {
+                annual: 15.5,
+                Compensation: 0
+            },
+            leaveApplications: [],
+            statusWorkflow: [
+                { name: "Planning", color: "#ff00a2", countsAsUsed: false },
+                { name: "Ask colleagues for backup", color: "#b9aa04", countsAsUsed: false },
+                { name: "Ask direct supervisor approval", color: "#ff6600", countsAsUsed: false },
+                { name: "Email core team approval", color: "#b71010", countsAsUsed: false },
+                { name: "Online leave pending approval", color: "#059669", countsAsUsed: false },
+                { name: "Online leave approved", color: "#004cff", countsAsUsed: true },
+                { name: "Leave taken", color: "#949494", countsAsUsed: true }
+            ],
+            publicHolidays: [],
+            templateSettings: {
+                statusMappings: {
+                    "Online leave approved": "Approved",
+                    "Email core team approval": "Pending approve"
+                },
+                conflicts: "SCB: NIL\nSWD ITI: NIL\nMadison Pacific: NIL\nCCBA: NIL\nChanel: NIL",
+                backupPlan: "SCB: DWU\nSWD ITI: DWU\nMadison Pacific: DWU\nCCBA: DWU\nChanel: Kan",
+                htmlTemplate: null
+            }
+        };
+        
+        const tabs = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                tabs.forEach(t => {
+                    t.classList.remove('border-primary', 'text-primary');
+                    t.classList.add('border-transparent');
+                });
+                
+                tab.classList.add('border-primary', 'text-primary');
+                tab.classList.remove('border-transparent');
+                
+                tabContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.remove('hidden');
+            });
+        });
+        
+        const initialBalanceInput = document.getElementById('initial-balance');
+        const initialCLBalanceInput = document.getElementById('initial-cl-balance');
+        
+        initialBalanceInput.addEventListener('input', updateBalanceSummary);
+        initialCLBalanceInput.addEventListener('input', updateBalanceSummary);
+        
+        function updateBalanceSummary() {
+            appData.leaveBalance.annual = parseFloat(initialBalanceInput.value) || 0;
+            appData.leaveBalance.Compensation = parseFloat(initialCLBalanceInput.value) || 0;
+            
+            let usedAL = 0, usedCL = 0;
+            let plannedAL = 0, plannedCL = 0;
+            let usedSL = 0, plannedSL = 0;
+            let usedNPL = 0, plannedNPL = 0;
+            
+            const selectedYear = document.getElementById('year-selector').value;
+            
+            appData.leaveApplications.forEach(leave => {
+                if (selectedYear && selectedYear !== 'all') {
+                    if (!leave.startDate) {
+                        return;
+                    }
+                    const leaveDate = new Date(leave.startDate);
+                    if (leaveDate.getFullYear().toString() !== selectedYear) {
+                        return;
+                    }
+                }
+
+                if (leave.type === 'Other') {
+                    return;
+                }
+
+                if (leave.type === 'CL' && !leave.startDate) {
+                    return;
+                }
+
+                const duration = leave.duration === 'full' ? 1 : 0.5;
+                const totalDays = leave.endDate && leave.startDate && leave.duration === 'multiple' ?
+                    calculateBusinessDays(leave.startDate, leave.endDate) : duration;
+                
+                const statusObj = appData.statusWorkflow.find(s => s.name === leave.status);
+                const countsAsUsed = statusObj && statusObj.countsAsUsed;
+                
+                if (countsAsUsed) {
+                    if (leave.type === 'AL') {
+                        usedAL += totalDays;
+                    } else if (leave.type === 'CL') {
+                        usedCL += totalDays;
+                    } else if (leave.type === 'SL') {
+                        usedSL += totalDays;
+                    } else if (leave.type === 'NPL') {
+                        usedNPL += totalDays;
+                    }
+                } else {
+                    if (leave.type === 'AL') {
+                        plannedAL += totalDays;
+                    } else if (leave.type === 'CL') {
+                        plannedCL += totalDays;
+                    } else if (leave.type === 'SL') {
+                        plannedSL += totalDays;
+                    } else if (leave.type === 'NPL') {
+                        plannedNPL += totalDays;
+                    }
+                }
+            });
+            
+            document.getElementById('al-initial').textContent = `${appData.leaveBalance.annual} days`;
+            document.getElementById('al-used').textContent = `${usedAL.toFixed(1)} days`;
+            document.getElementById('al-planned').textContent = `${plannedAL.toFixed(1)} days`;
+            document.getElementById('al-current').textContent = `${(appData.leaveBalance.annual - usedAL).toFixed(1)} days`;
+            document.getElementById('al-projected').textContent = `${(appData.leaveBalance.annual - usedAL - plannedAL).toFixed(1)} days`;
+            
+            document.getElementById('cl-used').textContent = `${usedCL.toFixed(1)} days`;
+            document.getElementById('cl-planned').textContent = `${plannedCL.toFixed(1)} days`;
+            document.getElementById('cl-total').textContent = `${(usedCL + plannedCL).toFixed(1)} days`;
+            
+            document.getElementById('sl-used').textContent = `${usedSL.toFixed(1)} days`;
+            document.getElementById('sl-planned').textContent = `${plannedSL.toFixed(1)} days`;
+            document.getElementById('sl-total').textContent = `${(usedSL + plannedSL).toFixed(1)} days`;
+            
+            document.getElementById('npl-used').textContent = `${usedNPL.toFixed(1)} days`;
+            document.getElementById('npl-planned').textContent = `${plannedNPL.toFixed(1)} days`;
+            document.getElementById('npl-total').textContent = `${(usedNPL + plannedNPL).toFixed(1)} days`;
+        }
+        
+        const leaveForm = document.getElementById('leave-form');
+        const leaveTypeSelect = document.getElementById('leave-type');
+        const durationTypeSelect = document.getElementById('duration-type');
+        const endDateContainer = document.getElementById('end-date-container');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        const leaveStatusSelect = document.getElementById('leave-status');
+        const leaveApplicationsTable = document.getElementById('leave-applications-table');
+        const noApplicationsMessage = document.getElementById('no-applications-message');
+        
+        function updateStatusDropdown() {
+            leaveStatusSelect.innerHTML = '';
+            appData.statusWorkflow.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.name;
+                option.textContent = status.name;
+                option.style.color = status.color;
+                leaveStatusSelect.appendChild(option);
+            });
+        }
+        
+        durationTypeSelect.addEventListener('change', () => {
+            if (durationTypeSelect.value === 'multiple') {
+                endDateContainer.classList.remove('hidden');
+            } else {
+                endDateContainer.classList.add('hidden');
+            }
+        });
+
+        const dateOptionalHint = document.getElementById('date-optional-hint');
+        leaveTypeSelect.addEventListener('change', () => {
+            if (leaveTypeSelect.value === 'CL') {
+                dateOptionalHint.classList.remove('hidden');
+            } else {
+                dateOptionalHint.classList.add('hidden');
+            }
+        });
+
+        const leaveFormError = document.createElement('div');
+        leaveFormError.className = 'text-red-600 dark:text-red-400 text-sm mt-2 hidden';
+        leaveForm.appendChild(leaveFormError);
+        
+        leaveForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            leaveFormError.classList.add('hidden');
+            
+            const startDate = startDateInput.value;
+            const endDate = durationTypeSelect.value === 'multiple' ? endDateInput.value : startDate;
+            const leaveType = leaveTypeSelect.value;
+            const duration = durationTypeSelect.value;
+            const reason = document.getElementById('leave-reason').value;
+            const status = leaveStatusSelect.value;
+            const isDateOptional = leaveType === 'CL';
+
+            if (!isDateOptional && !startDate) {
+                leaveFormError.textContent = 'Please fill in the start date.';
+                leaveFormError.classList.remove('hidden');
+                return;
+            }
+
+            if (!isDateOptional && duration === 'multiple' && !endDate) {
+                leaveFormError.textContent = 'Please fill in the end date.';
+                leaveFormError.classList.remove('hidden');
+                return;
+            }
+
+            if (startDate && duration === 'multiple' && endDate && new Date(endDate) < new Date(startDate)) {
+                leaveFormError.textContent = 'End date must be after start date.';
+                leaveFormError.classList.remove('hidden');
+                return;
+            }
+
+            const newApplication = {
+                id: Date.now().toString(),
+                startDate: startDate || '',
+                endDate: duration === 'multiple' ? (endDate || '') : (startDate || ''),
+                type: leaveType,
+                duration,
+                reason,
+                status
+            };
+            
+            appData.leaveApplications.push(newApplication);
+            updateLeaveApplicationsTable();
+            updateBalanceSummary();
+            renderYearlyCalendar();
+            
+            leaveFormError.textContent = 'Leave application added successfully!';
+            leaveFormError.className = 'text-green-600 dark:text-green-400 text-sm mt-2';
+            
+            leaveForm.reset();
+            endDateContainer.classList.add('hidden');
+            
+            setTimeout(() => {
+                leaveFormError.classList.add('hidden');
+            }, 3000);
+        });
+        
+        function calculateBusinessDays(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            let count = 0;
+            const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+            for (let i = 0; i < totalDays; i++) {
+                const d = new Date(start);
+                d.setDate(start.getDate() + i);
+                const dayOfWeek = d.getDay();
+
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    const isHoliday = appData.publicHolidays.some(holiday => {
+                        const holidayDate = new Date(holiday.date);
+                        return holidayDate.getDate() === d.getDate() &&
+                               holidayDate.getMonth() === d.getMonth() &&
+                               holidayDate.getFullYear() === d.getFullYear();
+                    });
+
+                    if (!isHoliday) {
+                        count++;
+                    }
+                }
+            }
+
+            return count;
+        }
+        
+        const filterTypeCheckboxes = document.getElementById('filter-type-checkboxes');
+        const filterStatusCheckboxes = document.getElementById('filter-status-checkboxes');
+        const resetFiltersBtn = document.getElementById('reset-filters-btn');
+        
+        const editLeaveModal = document.getElementById('edit-leave-modal');
+        const closeEditModalBtn = document.getElementById('close-edit-modal-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const editLeaveForm = document.getElementById('edit-leave-form');
+        const editLeaveId = document.getElementById('edit-leave-id');
+        const editStartDate = document.getElementById('edit-start-date');
+        const editEndDate = document.getElementById('edit-end-date');
+        const editLeaveType = document.getElementById('edit-leave-type');
+        const editDurationType = document.getElementById('edit-duration-type');
+        const editEndDateContainer = document.getElementById('edit-end-date-container');
+        const editLeaveReason = document.getElementById('edit-leave-reason');
+        const editLeaveStatus = document.getElementById('edit-leave-status');
+        
+        function updateFilterCheckboxes() {
+            filterTypeCheckboxes.innerHTML = '';
+            filterStatusCheckboxes.innerHTML = '';
+            
+            const leaveTypes = [
+                { value: 'AL', label: 'Annual Leave (AL)' },
+                { value: 'CL', label: 'Compensation Leave (CL)' },
+                { value: 'SL', label: 'Sick Leave (SL)' },
+                { value: 'NPL', label: 'No Pay Leave (NPL)' },
+                { value: 'Other', label: 'Other' }
+            ];
+            
+            leaveTypes.forEach(type => {
+                const isOther = type.value === 'Other';
+                const isChecked = !isOther;
+                
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'flex items-center mb-2 mr-4';
+                
+                checkboxDiv.innerHTML = `
+                    <input type="checkbox" id="filter-type-${type.value}" 
+                           class="filter-type-checkbox mr-1.5 rounded text-primary focus:ring-primary" 
+                           value="${type.value}" ${isChecked ? 'checked' : ''}>
+                    <label for="filter-type-${type.value}" class="text-sm">${type.label}</label>
+                `;
+                
+                filterTypeCheckboxes.appendChild(checkboxDiv);
+                const checkbox = checkboxDiv.querySelector(`#filter-type-${type.value}`);
+                checkbox.addEventListener('change', updateLeaveApplicationsTable);
+            });
+            
+            appData.statusWorkflow.forEach(status => {
+                const isLeaveTaken = status.name === 'Leave taken';
+                const isChecked = !isLeaveTaken;
+                
+                const checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'flex items-center mb-2 mr-4';
+                const safeId = status.name.replace(/\s+/g, '-').toLowerCase();
+                
+                checkboxDiv.innerHTML = `
+                    <input type="checkbox" id="filter-status-${safeId}" 
+                           class="filter-status-checkbox mr-1.5 rounded text-primary focus:ring-primary" 
+                           value="${status.name}" ${isChecked ? 'checked' : ''}>
+                    <label for="filter-status-${safeId}" class="text-sm" style="color: ${status.color}">${status.name}</label>
+                `;
+                
+                filterStatusCheckboxes.appendChild(checkboxDiv);
+                const checkbox = checkboxDiv.querySelector(`#filter-status-${safeId}`);
+                checkbox.addEventListener('change', updateLeaveApplicationsTable);
+            });
+        }
+        
+        function getFilteredLeaveApplications() {
+            const selectedTypes = Array.from(document.querySelectorAll('.filter-type-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            
+            const selectedStatuses = Array.from(document.querySelectorAll('.filter-status-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            
+            return appData.leaveApplications.filter(leave => {
+                const typeMatch = selectedTypes.includes(leave.type);
+                const statusMatch = selectedStatuses.includes(leave.status);
+                return typeMatch && statusMatch;
+            });
+        }
+        
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return new Intl.DateTimeFormat('en-GB', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(date);
+        }
+        
+        function updateLeaveApplicationsTable() {
+            leaveApplicationsTable.innerHTML = '';
+            const filteredApplications = getFilteredLeaveApplications();
+            filteredApplications.sort((a, b) => {
+                if (!a.startDate && !b.startDate) return 0;
+                if (!a.startDate) return 1;
+                if (!b.startDate) return -1;
+                return new Date(a.startDate) - new Date(b.startDate);
+            });
+            
+            if (filteredApplications.length === 0) {
+                noApplicationsMessage.classList.remove('hidden');
+                return;
+            }
+            
+            noApplicationsMessage.classList.add('hidden');
+            
+            filteredApplications.forEach(leave => {
+                const row = document.createElement('tr');
+                const statusObj = appData.statusWorkflow.find(s => s.name === leave.status);
+                const statusColor = statusObj ? statusObj.color : '#6B7280';
+                
+                let statusBgColor = 'rgba(255, 255, 255, 0)';
+                if (statusColor && statusColor.startsWith('#')) {
+                    const r = parseInt(statusColor.slice(1, 3), 16);
+                    const g = parseInt(statusColor.slice(3, 5), 16);
+                    const b = parseInt(statusColor.slice(5, 7), 16);
+                    statusBgColor = `rgba(${r}, ${g}, ${b}, 0.15)`;
+                } else if (statusColor && statusColor.startsWith('rgb')) {
+                    statusBgColor = statusColor.replace('rgb', 'rgba').replace(')', ', 0.15)');
+                }
+                
+                row.className = 'border-b dark:border-gray-700';
+                row.style.backgroundColor = statusBgColor;
+                
+                let durationDisplay;
+                if (leave.duration === 'am') {
+                    durationDisplay = '0.5 (AM)';
+                } else if (leave.duration === 'pm') {
+                    durationDisplay = '0.5 (PM)';
+                } else if (leave.duration === 'full') {
+                    durationDisplay = '1';
+                } else if (leave.startDate && leave.endDate) {
+                    const days = calculateBusinessDays(leave.startDate, leave.endDate);
+                    durationDisplay = days.toString();
+                } else {
+                    durationDisplay = '-';
+                }
+                
+                row.innerHTML = `
+                    <td class="px-4 py-2">${leave.startDate ? formatDate(leave.startDate) : '<span class="text-gray-400 italic">TBD</span>'}</td>
+                    <td class="px-4 py-2">${leave.type}</td>
+                    <td class="px-4 py-2">${durationDisplay}</td>
+                    <td class="px-4 py-2">
+                        <select class="status-select px-2 py-1 border rounded-md text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" data-id="${leave.id}" style="color: ${statusColor}">
+                            ${appData.statusWorkflow.map(s => 
+                                `<option value="${s.name}" ${s.name === leave.status ? 'selected' : ''} style="color: ${s.color}">${s.name}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td class="px-4 py-2">${leave.reason || '-'}</td>
+                    <td class="px-4 py-2 space-x-2">
+                        <button class="edit-btn text-primary hover:text-primary/80" data-id="${leave.id}">Edit</button>
+                        <button class="delete-btn text-red-500 hover:text-red-700" data-id="${leave.id}">Delete</button>
+                    </td>
+                `;
+                
+                leaveApplicationsTable.appendChild(row);
+            });
+            
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const newStatus = e.target.value;
+                    const leaveIndex = appData.leaveApplications.findIndex(leave => leave.id === id);
+                    if (leaveIndex !== -1) {
+                        appData.leaveApplications[leaveIndex].status = newStatus;
+                        updateBalanceSummary();
+                        updateLeaveApplicationsTable();
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    openEditModal(id);
+                });
+            });
+            
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    appData.leaveApplications = appData.leaveApplications.filter(leave => leave.id !== id);
+                    updateLeaveApplicationsTable();
+                    updateBalanceSummary();
+                    renderYearlyCalendar();
+                });
+            });
+        }
+        
+        resetFiltersBtn.addEventListener('click', () => {
+            document.querySelectorAll('.filter-type-checkbox, .filter-status-checkbox').forEach(checkbox => {
+                checkbox.checked = true;
+            });
+            
+            const leaveTakenCheckbox = document.querySelector('.filter-status-checkbox[value="Leave taken"]');
+            if (leaveTakenCheckbox) leaveTakenCheckbox.checked = false;
+            
+            const otherTypeCheckbox = document.querySelector('.filter-type-checkbox[value="Other"]');
+            if (otherTypeCheckbox) otherTypeCheckbox.checked = false;
+            
+            updateLeaveApplicationsTable();
+        });
+        
+        function openEditModal(id) {
+            const leave = appData.leaveApplications.find(leave => leave.id === id);
+            if (!leave) return;
+            
+            editLeaveId.value = leave.id;
+            editStartDate.value = leave.startDate;
+            editEndDate.value = leave.endDate;
+            editLeaveType.value = leave.type;
+            editDurationType.value = leave.duration;
+            editLeaveReason.value = leave.reason || '';
+            
+            if (leave.duration === 'multiple') {
+                editEndDateContainer.style.display = 'block';
+            } else {
+                editEndDateContainer.style.display = 'none';
+            }
+
+            const editDateHint = document.getElementById('edit-date-optional-hint');
+            if (leave.type === 'CL') {
+                editDateHint.classList.remove('hidden');
+            } else {
+                editDateHint.classList.add('hidden');
+            }
+
+            editLeaveStatus.innerHTML = '';
+            appData.statusWorkflow.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.name;
+                option.textContent = status.name;
+                option.style.color = status.color;
+                if (status.name === leave.status) {
+                    option.selected = true;
+                }
+                editLeaveStatus.appendChild(option);
+            });
+            
+            editLeaveModal.classList.remove('hidden');
+        }
+        
+        function closeEditModal() {
+            editLeaveModal.classList.add('hidden');
+            editLeaveForm.reset();
+        }
+        
+        editDurationType.addEventListener('change', () => {
+            if (editDurationType.value === 'multiple') {
+                editEndDateContainer.style.display = 'block';
+            } else {
+                editEndDateContainer.style.display = 'none';
+            }
+        });
+
+        const editDateOptionalHint = document.getElementById('edit-date-optional-hint');
+        editLeaveType.addEventListener('change', () => {
+            if (editLeaveType.value === 'CL') {
+                editDateOptionalHint.classList.remove('hidden');
+            } else {
+                editDateOptionalHint.classList.add('hidden');
+            }
+        });
+
+        const editFormError = document.createElement('div');
+        editFormError.className = 'text-red-600 dark:text-red-400 text-sm mt-2 hidden';
+        editLeaveForm.appendChild(editFormError);
+        
+        editLeaveForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            editFormError.classList.add('hidden');
+            
+            const id = editLeaveId.value;
+            const leaveIndex = appData.leaveApplications.findIndex(leave => leave.id === id);
+            
+            if (leaveIndex === -1) {
+                closeEditModal();
+                return;
+            }
+            
+            const startDate = editStartDate.value;
+            const duration = editDurationType.value;
+            const endDate = duration === 'multiple' ? editEndDate.value : startDate;
+            const leaveType = editLeaveType.value;
+            const isDateOptional = leaveType === 'CL';
+
+            if (!isDateOptional && !startDate) {
+                editFormError.textContent = 'Please fill in the start date.';
+                editFormError.classList.remove('hidden');
+                return;
+            }
+
+            if (!isDateOptional && duration === 'multiple' && !endDate) {
+                editFormError.textContent = 'Please fill in the end date.';
+                editFormError.classList.remove('hidden');
+                return;
+            }
+
+            if (startDate && duration === 'multiple' && endDate && new Date(endDate) < new Date(startDate)) {
+                editFormError.textContent = 'End date must be after start date.';
+                editFormError.classList.remove('hidden');
+                return;
+            }
+
+            appData.leaveApplications[leaveIndex] = {
+                ...appData.leaveApplications[leaveIndex],
+                startDate: startDate || '',
+                endDate: duration === 'multiple' ? (endDate || '') : (startDate || ''),
+                type: editLeaveType.value,
+                duration,
+                reason: editLeaveReason.value,
+                status: editLeaveStatus.value
+            };
+            
+            updateLeaveApplicationsTable();
+            updateBalanceSummary();
+            renderYearlyCalendar();
+            closeEditModal();
+        });
+
+        closeEditModalBtn.addEventListener('click', closeEditModal);
+        cancelEditBtn.addEventListener('click', closeEditModal);
+        editLeaveModal.addEventListener('click', (e) => {
+            if (e.target === editLeaveModal) {
+                closeEditModal();
+            }
+        });
+        
+        const newStatusInput = document.getElementById('new-status');
+        const addStatusBtn = document.getElementById('add-status-btn');
+        const statusList = document.getElementById('status-list');
+        const holidayDateInput = document.getElementById('holiday-date');
+        const holidayNameInput = document.getElementById('holiday-name');
+        const addHolidayBtn = document.getElementById('add-holiday-btn');
+        const holidayList = document.getElementById('holiday-list');
+        
+        function updateStatusList() {
+            statusList.innerHTML = '';
+            
+            appData.statusWorkflow.forEach((status, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 border rounded-md dark:border-gray-700';
+                
+                li.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="mr-2">${index + 1}.</span>
+                        <span style="color: ${status.color}">${status.name}</span>
+                        <div class="ml-4 flex items-center">
+                            <input type="checkbox" id="status-used-${index}" class="status-counts-used-check mr-1.5 rounded text-primary focus:ring-primary" 
+                                   data-index="${index}" ${status.countsAsUsed ? 'checked' : ''}>
+                            <label for="status-used-${index}" class="text-sm">Counts as used</label>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="color" class="status-color-input w-6 h-6 mr-2 cursor-pointer" 
+                               value="${status.color}" data-index="${index}">
+                        ${index > 0 ? `<button class="status-up-btn text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2" data-index="${index}">↑</button>` : ''}
+                        ${index < appData.statusWorkflow.length - 1 ? `<button class="status-down-btn text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2" data-index="${index}">↓</button>` : ''}
+                        <button class="status-delete-btn text-red-500 hover:text-red-700 px-2" data-index="${index}">×</button>
+                    </div>
+                `;
+                
+                statusList.appendChild(li);
+            });
+            
+            document.querySelectorAll('.status-color-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    const newColor = e.target.value;
+                    appData.statusWorkflow[index].color = newColor;
+                    updateStatusList();
+                    updateStatusDropdown();
+                    updateFilterCheckboxes();
+                });
+            });
+            
+            document.querySelectorAll('.status-up-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    if (index > 0) {
+                        [appData.statusWorkflow[index], appData.statusWorkflow[index - 1]] = 
+                        [appData.statusWorkflow[index - 1], appData.statusWorkflow[index]];
+                        updateStatusList();
+                        updateStatusDropdown();
+                        updateFilterCheckboxes();
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.status-down-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    if (index < appData.statusWorkflow.length - 1) {
+                        [appData.statusWorkflow[index], appData.statusWorkflow[index + 1]] = 
+                        [appData.statusWorkflow[index + 1], appData.statusWorkflow[index]];
+                        updateStatusList();
+                        updateStatusDropdown();
+                        updateFilterCheckboxes();
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.status-delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    appData.statusWorkflow.splice(index, 1);
+                    updateStatusList();
+                    updateStatusDropdown();
+                    updateFilterCheckboxes();
+                });
+            });
+            
+            document.querySelectorAll('.status-counts-used-check').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    appData.statusWorkflow[index].countsAsUsed = e.target.checked;
+                    updateBalanceSummary();
+                });
+            });
+        }
+        
+        addStatusBtn.addEventListener('click', () => {
+            const newStatus = newStatusInput.value.trim();
+            if (newStatus) {
+                const position = appData.statusWorkflow.length;
+                let defaultColor;
+                
+                if (position < 2) {
+                    defaultColor = "#9CA3AF";
+                } else if (position < 4) {
+                    defaultColor = "#10B981";
+                } else {
+                    defaultColor = "#047857";
+                }
+                
+                appData.statusWorkflow.push({ 
+                    name: newStatus, 
+                    color: defaultColor,
+                    countsAsUsed: false
+                });
+                
+                updateStatusList();
+                updateStatusDropdown();
+                updateFilterCheckboxes();
+                newStatusInput.value = '';
+            }
+        });
+        
+        function updateHolidayList() {
+            holidayList.innerHTML = '';
+            appData.publicHolidays.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            appData.publicHolidays.forEach((holiday, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between p-2 border rounded-md dark:border-gray-700';
+                
+                const holidayDate = new Date(holiday.date);
+                const formattedDate = new Intl.DateTimeFormat('en-GB', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                }).format(holidayDate);
+                
+                li.innerHTML = `
+                    <div>
+                        <span class="font-medium">${formattedDate}</span>
+                        <span> - ${holiday.name}</span>
+                    </div>
+                    <div>
+                        <button class="holiday-delete-btn text-red-500 hover:text-red-700" data-index="${index}">Delete</button>
+                    </div>
+                `;
+                
+                holidayList.appendChild(li);
+            });
+            
+            document.querySelectorAll('.holiday-delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.getAttribute('data-index'));
+                    appData.publicHolidays.splice(index, 1);
+                    updateHolidayList();
+                    renderYearlyCalendar();
+                });
+            });
+        }
+        
+        addHolidayBtn.addEventListener('click', () => {
+            const date = holidayDateInput.value;
+            const name = holidayNameInput.value.trim();
+            
+            if (date && name) {
+                appData.publicHolidays.push({ date, name });
+                updateHolidayList();
+                renderYearlyCalendar();
+                holidayDateInput.value = '';
+                holidayNameInput.value = '';
+            }
+        });
+        
+        function calculateDeadlineDate() {
+            const today = new Date();
+            let workingDaysToAdd = 3;
+            let daysAdded = 0;
+            const result = new Date(today);
+            
+            while (daysAdded < workingDaysToAdd) {
+                result.setDate(result.getDate() + 1);
+                const dayOfWeek = result.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    const isHoliday = appData.publicHolidays.some(holiday => {
+                        const holidayDate = new Date(holiday.date);
+                        return holidayDate.getDate() === result.getDate() &&
+                               holidayDate.getMonth() === result.getMonth() &&
+                               holidayDate.getFullYear() === result.getFullYear();
+                    });
+                    
+                    if (!isHoliday) {
+                        daysAdded++;
+                    }
+                }
+            }
+            
+            const year = result.getFullYear();
+            const month = String(result.getMonth() + 1).padStart(2, '0');
+            const day = String(result.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        const generateTemplateBtn = document.getElementById('generate-template-btn');
+        const copyTemplateBtn = document.getElementById('copy-template-btn');
+        const emailTemplateElement = document.getElementById('email-template');
+        const statusFilterContainer = document.getElementById('status-filter-container');
+        
+        function updateStatusFilterCheckboxes() {
+            statusFilterContainer.innerHTML = '';
+            const defaultSelectedStatuses = [
+                "Email core team approval",
+                "Online leave pending approval",
+                "Online leave approved"
+            ];
+            
+            appData.statusWorkflow.forEach(status => {
+                const isDefaultSelected = defaultSelectedStatuses.includes(status.name);
+                const safeId = status.name.replace(/\s+/g, '-').toLowerCase();
+                
+                const checkbox = document.createElement('div');
+                checkbox.className = 'flex items-center space-x-2';
+                checkbox.innerHTML = `
+                    <input type="checkbox" id="status-${safeId}" 
+                           class="status-checkbox" value="${status.name}"
+                           ${isDefaultSelected ? 'checked' : ''}>
+                    <label for="status-${safeId}" style="color: ${status.color}">${status.name}</label>
+                `;
+                statusFilterContainer.appendChild(checkbox);
+            });
+        }
+        
+        function updateStatusMappingUI() {
+            const statusMappingContainer = document.getElementById('status-mapping-container');
+            statusMappingContainer.innerHTML = '';
+
+            if (!appData.templateSettings.statusMappings) {
+                appData.templateSettings.statusMappings = {};
+            }
+
+            appData.statusWorkflow.forEach(status => {
+                const displayValue = (appData.templateSettings.statusMappings && appData.templateSettings.statusMappings[status.name]) || status.name;
+                
+                const mappingItem = document.createElement('div');
+                mappingItem.className = 'flex items-center gap-2';
+                mappingItem.innerHTML = `
+                    <div class="w-1/2 text-sm" style="color: ${status.color}">${status.name}:</div>
+                    <input type="text" 
+                           class="status-mapping-input px-3 py-1 border rounded-md text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600 flex-1" 
+                           data-status="${status.name}" 
+                           value="${displayValue}">
+                `;
+                statusMappingContainer.appendChild(mappingItem);
+            });
+        }
+        
+        const saveTemplateSettingsBtn = document.getElementById('save-template-settings-btn');
+        const conflictsContent = document.getElementById('conflicts-content');
+        const backupPlanContent = document.getElementById('backup-plan-content');
+        
+        function initTemplateSettings() {
+            if (!appData.templateSettings) {
+                appData.templateSettings = {};
+            }
+            if (!appData.templateSettings.statusMappings) {
+                appData.templateSettings.statusMappings = {};
+            }
+            if (appData.templateSettings.conflicts === undefined) {
+                appData.templateSettings.conflicts = "";
+            }
+            if (appData.templateSettings.backupPlan === undefined) {
+                appData.templateSettings.backupPlan = "";
+            }
+
+            conflictsContent.value = appData.templateSettings.conflicts || '';
+            backupPlanContent.value = appData.templateSettings.backupPlan || '';
+            
+            const today = new Date();
+            const currentMonth = today.getMonth() + 1;
+            const endMonth = Math.min(currentMonth + 2, 12);
+            
+            const templateStartMonthSelect = document.getElementById('template-start-month');
+            const templateEndMonthSelect = document.getElementById('template-end-month');
+            templateStartMonthSelect.value = currentMonth;
+            templateEndMonthSelect.value = endMonth;
+            
+            const deadlineDateInput = document.getElementById('deadline-date');
+            deadlineDateInput.value = calculateDeadlineDate();
+            
+            updateStatusMappingUI();
+            const htmlTemplateContent = document.getElementById('html-template-content');
+            htmlTemplateContent.value = appData.templateSettings.htmlTemplate || getDefaultEmailTemplate();
+        }
+        
+        saveTemplateSettingsBtn.addEventListener('click', () => {
+            if (!appData.templateSettings) {
+                appData.templateSettings = {};
+            }
+            if (!appData.templateSettings.statusMappings) {
+                appData.templateSettings.statusMappings = {};
+            }
+
+            appData.templateSettings.conflicts = conflictsContent.value;
+            appData.templateSettings.backupPlan = backupPlanContent.value;
+            appData.templateSettings.htmlTemplate = htmlTemplateContent.value;
+
+            const mappingInputs = document.querySelectorAll('.status-mapping-input');
+            mappingInputs.forEach(input => {
+                const status = input.getAttribute('data-status');
+                const displayValue = input.value.trim();
+
+                if (displayValue) {
+                    appData.templateSettings.statusMappings[status] = displayValue;
+                } else {
+                    delete appData.templateSettings.statusMappings[status];
+                }
+            });
+
+            const saveStatus = document.createElement('span');
+            saveStatus.textContent = 'Settings saved successfully!';
+            saveStatus.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+            saveTemplateSettingsBtn.parentNode.appendChild(saveStatus);
+            
+            setTimeout(() => {
+                if (saveStatus.parentNode) {
+                    saveStatus.parentNode.removeChild(saveStatus);
+                }
+            }, 3000);
+        });
+        
+        generateTemplateBtn.addEventListener('click', () => {
+            const year = document.getElementById('template-year').value;
+            const startMonth = parseInt(document.getElementById('template-start-month').value);
+            const endMonth = parseInt(document.getElementById('template-end-month').value);
+            const deadlineDate = document.getElementById('deadline-date').value;
+            
+            const selectedStatuses = Array.from(document.querySelectorAll('.status-checkbox:checked'))
+                .map(checkbox => checkbox.value);
+            
+            const filteredLeaves = appData.leaveApplications.filter(leave => {
+                if (!leave.startDate) return false;
+                const date = new Date(leave.startDate);
+                const leaveYear = date.getFullYear();
+                const leaveMonth = date.getMonth() + 1;
+
+                if (leave.type === 'Other') return false;
+
+                return leaveYear === parseInt(year) &&
+                       leaveMonth >= startMonth &&
+                       leaveMonth <= endMonth &&
+                       selectedStatuses.includes(leave.status);
+            });
+
+            filteredLeaves.sort((a, b) => {
+                if (!a.startDate && !b.startDate) return 0;
+                if (!a.startDate) return 1;
+                if (!b.startDate) return -1;
+                return new Date(a.startDate) - new Date(b.startDate);
+            });
+            
+            let usedAL = 0, usedCL = 0;
+            let plannedAL = 0, plannedCL = 0;
+            
+            appData.leaveApplications.forEach(leave => {
+                if (leave.type === 'SL' || leave.type === 'NPL' || leave.type === 'Other') return;
+                if (leave.type === 'CL' && !leave.startDate) return;
+
+                const statusObj = appData.statusWorkflow.find(s => s.name === leave.status);
+                const countsAsUsed = statusObj && statusObj.countsAsUsed;
+
+                const duration = leave.duration === 'full' ? 1 : 0.5;
+                const totalDays = leave.endDate && leave.startDate && leave.duration === 'multiple' ?
+                    calculateBusinessDays(leave.startDate, leave.endDate) : duration;
+
+                if (countsAsUsed) {
+                    if (leave.type === 'AL') {
+                        usedAL += totalDays;
+                    } else if (leave.type === 'CL') {
+                        usedCL += totalDays;
+                    }
+                } else {
+                    if (leave.type === 'AL') {
+                        plannedAL += totalDays;
+                    } else if (leave.type === 'CL') {
+                        plannedCL += totalDays;
+                    }
+                }
+            });
+            
+            const unusedALDays = (appData.leaveBalance.annual - usedAL).toFixed(1);
+            const unusedCLDays = (appData.leaveBalance.Compensation - usedCL).toFixed(1);
+            
+            let filteredALUsed = 0;
+            let filteredCLUsed = 0;
+            
+            filteredLeaves.forEach(leave => {
+                if (leave.type === 'SL' || leave.type === 'NPL' || leave.type === 'Other') return;
+                if (leave.type === 'CL' && !leave.startDate) return;
+
+                const duration = leave.duration === 'full' ? 1 : 0.5;
+                const totalDays = leave.endDate && leave.startDate && leave.duration === 'multiple' ?
+                    calculateBusinessDays(leave.startDate, leave.endDate) : duration;
+
+                if (leave.type === 'AL') {
+                    filteredALUsed += totalDays;
+                } else if (leave.type === 'CL') {
+                    filteredCLUsed += totalDays;
+                }
+            });
+            
+            const remainingAfterPlanningAL = (parseFloat(unusedALDays) - filteredALUsed).toFixed(1);
+            const remainingAfterPlanningCL = (parseFloat(unusedCLDays) - filteredCLUsed).toFixed(1);
+            
+            const deadlineDateObj = new Date(deadlineDate);
+            const formattedDeadline = new Intl.DateTimeFormat('en-GB', {
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit'
+            }).format(deadlineDateObj);
+            
+            const conflictsHtml = appData.templateSettings.conflicts.replace(/\n/g, '<br>');
+            const backupPlanHtml = appData.templateSettings.backupPlan.replace(/\n/g, '<br>');
+            const endMonthName = getMonthName(endMonth);
+            
+            const leavesData = filteredLeaves.map(leave => {
+                const startDate = new Date(leave.startDate);
+                const endDate = new Date(leave.endDate);
+                
+                const formatDateWithDay = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                    return `${year}-${month}-${day}<br>(${dayOfWeek})`;
+                };
+                
+                let duration;
+                let typeFormatted;
+                
+                if (leave.duration === 'am') {
+                    duration = '0.5';
+                    typeFormatted = `${leave.type} (am)`;
+                } else if (leave.duration === 'pm') {
+                    duration = '0.5';
+                    typeFormatted = `${leave.type} (pm)`;
+                } else if (leave.duration === 'full') {
+                    duration = '1';
+                    typeFormatted = leave.type;
+                } else {
+                    const days = calculateBusinessDays(leave.startDate, leave.endDate);
+                    duration = days.toString();
+                    typeFormatted = leave.type;
+                }
+                
+                const statusDisplay = (appData.templateSettings.statusMappings && appData.templateSettings.statusMappings[leave.status]) || leave.status;
+                
+                return {
+                    startDateFormatted: formatDateWithDay(startDate),
+                    endDateFormatted: formatDateWithDay(endDate),
+                    duration,
+                    typeFormatted,
+                    statusDisplay,
+                    conflictsHtml,
+                    backupPlanHtml
+                };
+            });
+            
+            let templateContent = appData.templateSettings.htmlTemplate || getDefaultEmailTemplate();
+            
+            templateContent = templateContent
+                .replace(/{{year}}/g, year)
+                .replace(/{{endMonthName}}/g, endMonthName)
+                .replace(/{{formattedDeadline}}/g, formattedDeadline)
+                .replace(/{{unusedLeaveDays}}/g, unusedALDays)
+                .replace(/{{unusedCLDays}}/g, unusedCLDays)
+                .replace(/{{remainingAfterPlanning}}/g, remainingAfterPlanningAL)
+                .replace(/{{remainingAfterPlanned}}/g, remainingAfterPlanningAL)
+                .replace(/{{closingCLBalance}}/g, remainingAfterPlanningCL);
+            
+            let leavesHtml = '';
+            
+            if (templateContent.includes('{{#leaves}}')) {
+                const leaveTemplateMatch = templateContent.match(/{{#leaves}}([\s\S]*?){{\/leaves}}/);
+                
+                if (leaveTemplateMatch && leaveTemplateMatch[1]) {
+                    const leaveTemplate = leaveTemplateMatch[1];
+                    
+                    leavesData.forEach(leave => {
+                        let rowHtml = leaveTemplate;
+                        Object.keys(leave).forEach(key => {
+                            rowHtml = rowHtml.replace(new RegExp(`{{${key}}}`, 'g'), leave[key]);
+                        });
+                        leavesHtml += rowHtml;
+                    });
+                    
+                    templateContent = templateContent.replace(/{{#leaves}}[\s\S]*?{{\/leaves}}/, leavesHtml);
+                }
+            }
+            
+            emailTemplateElement.innerHTML = templateContent;
+        });
+        
+        function getMonthName(monthNumber) {
+            const months = [
+                'January', 'February', 'March', 'April', 'May', 'June', 
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            return months[monthNumber - 1];
+        }
+        
+        function getDefaultEmailTemplate() {
+            return `<div style="font-family: Arial, sans-serif; color: #333;">
+    <p>Dear all,</p>
+    
+    <p>Below is my updated leave plan of {{year}} up to {{endMonthName}}, please let me know
+    if you have any concern before {{formattedDeadline}} CoB, thanks.</p>
+    
+    <table style="border-collapse: collapse; width: 100%; margin-top: 20px; font-size: 14px; border: 1px solid #000;">
+        <tr>
+            <td colspan="2" style="padding: 4px 0; border: 1px solid #000;">Unused leave days as of today (AL):</td>
+            <td colspan="6" style="padding: 4px 0; border: 1px solid #000;">{{unusedLeaveDays}}</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="padding: 4px 0; border: 1px solid #000;">Unused leave days as of today (CL):</td>
+            <td colspan="6" style="padding: 4px 0; border: 1px solid #000;">{{unusedCLDays}}</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #000; padding: 8px; width: 12%; font-weight: bold;">Start date</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 12%; font-weight: bold;">End date</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 12%; font-weight: bold;">Duration(Day)</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 8%; font-weight: bold;">CL/AL</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 12%; font-weight: bold;">Approval status</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 15%; font-weight: bold;">Conflicts with other project members</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 15%; font-weight: bold;">Backup plan</td>
+            <td style="border: 1px solid #000; padding: 8px; width: 14%; font-weight: bold;">Remark</td>
+        </tr>
+        {{#leaves}}
+        <tr>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{startDateFormatted}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{endDateFormatted}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{duration}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{typeFormatted}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{statusDisplay}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{conflictsHtml}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;">{{backupPlanHtml}}</td>
+            <td style="border: 1px solid #000; padding: 8px; vertical-align: top;"></td>
+        </tr>
+        {{/leaves}}
+        <tr>
+            <td colspan="2" style="border: 1px solid #000; padding: 12px 0 4px 0;">Remaining leave after used and Planning (AL):</td>
+            <td colspan="6" style="border: 1px solid #000; padding: 12px 0 4px 0;">{{remainingAfterPlanning}}</td>
+        </tr>
+        <tr>
+            <td colspan="2" style="border: 1px solid #000; padding: 4px 0 12px 0;">Closing balance of {{year}} (if all approved) (CL):</td>
+            <td colspan="6" style="border: 1px solid #000; padding: 4px 0 12px 0;">{{closingCLBalance}}</td>
+        </tr>
+    </table>
+</div>`;
+        }
+
+        const resetTemplateBtn = document.getElementById('reset-template-btn');
+        const exportTemplateBtn = document.getElementById('export-template-btn');
+        const importTemplateFile = document.getElementById('import-template-file');
+        const htmlTemplateContent = document.getElementById('html-template-content');
+
+        resetTemplateBtn.addEventListener('click', () => {
+            showConfirmModal('Are you sure you want to reset the template to the default?', () => {
+                htmlTemplateContent.value = getDefaultEmailTemplate();
+                appData.templateSettings.htmlTemplate = getDefaultEmailTemplate();
+
+                const successMessage = document.createElement('div');
+                successMessage.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+                successMessage.textContent = 'Template reset to default!';
+                document.body.appendChild(successMessage);
+
+                setTimeout(() => {
+                    document.body.removeChild(successMessage);
+                }, 3000);
+            });
+        });
+
+        exportTemplateBtn.addEventListener('click', () => {
+            const template = htmlTemplateContent.value;
+            const blob = new Blob([template], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leave_email_template_${new Date().toISOString().split('T')[0]}.html`;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+            
+            const successMessage = document.createElement('div');
+            successMessage.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+            successMessage.textContent = 'Template exported successfully!';
+            document.body.appendChild(successMessage);
+            
+            setTimeout(() => {
+                document.body.removeChild(successMessage);
+            }, 3000);
+        });
+
+        importTemplateFile.addEventListener('change', () => {
+            const file = importTemplateFile.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const template = e.target.result;
+                    htmlTemplateContent.value = template;
+                    appData.templateSettings.htmlTemplate = template;
+                    
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+                    successMessage.textContent = 'Template imported successfully!';
+                    document.body.appendChild(successMessage);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(successMessage);
+                    }, 3000);
+                } catch (error) {
+                    console.error('Error importing template:', error);
+                    const errorMessage = document.createElement('div');
+                    errorMessage.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+                    errorMessage.textContent = 'Error importing template!';
+                    document.body.appendChild(errorMessage);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(errorMessage);
+                    }, 3000);
+                }
+            };
+            
+            reader.readAsText(file);
+        });
+
+        const clipboardStatus = document.createElement('span');
+        clipboardStatus.className = 'ml-3 text-sm hidden';
+        copyTemplateBtn.parentNode.appendChild(clipboardStatus);
+        
+        copyTemplateBtn.addEventListener('click', () => {
+            const htmlContent = emailTemplateElement.innerHTML;
+            
+            navigator.clipboard.writeText(htmlContent)
+                .then(() => {
+                    const originalText = copyTemplateBtn.textContent;
+                    copyTemplateBtn.textContent = 'Copied!';
+                    clipboardStatus.textContent = '';
+                    clipboardStatus.classList.add('hidden');
+                    
+                    setTimeout(() => {
+                        copyTemplateBtn.textContent = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Copy failed:', err);
+                    try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = htmlContent;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        textArea.style.top = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        
+                        const successful = document.execCommand('copy');
+                        if (successful) {
+                            const originalText = copyTemplateBtn.textContent;
+                            copyTemplateBtn.textContent = 'Copied!';
+                            clipboardStatus.textContent = '';
+                            clipboardStatus.classList.add('hidden');
+                            
+                            setTimeout(() => {
+                                copyTemplateBtn.textContent = originalText;
+                            }, 2000);
+                        } else {
+                            clipboardStatus.textContent = 'Failed to copy. Please select the content and copy manually.';
+                            clipboardStatus.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                        }
+                        
+                        document.body.removeChild(textArea);
+                    } catch (fallbackErr) {
+                        console.error('Fallback copy failed:', fallbackErr);
+                        clipboardStatus.textContent = 'Copy failed. Please select the content and copy manually.';
+                        clipboardStatus.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                    }
+                });
+        });
+        
+        const exportBtn = document.getElementById('export-btn');
+        const importFile = document.getElementById('import-file');
+        
+        exportBtn.addEventListener('click', () => {
+            const exportData = {
+                metadata: {
+                    version: '1.0',
+                    exportDate: new Date().toISOString()
+                },
+                leaveBalance: appData.leaveBalance,
+                statusWorkflow: appData.statusWorkflow,
+                publicHolidays: appData.publicHolidays,
+                leaveApplications: appData.leaveApplications,
+                templateSettings: appData.templateSettings
+            };
+            
+            const jsonStr = JSON.stringify(exportData);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `leave_manager_export_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            
+            const exportStatus = document.createElement('span');
+            exportStatus.textContent = 'Data exported successfully!';
+            exportStatus.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+            exportBtn.parentNode.appendChild(exportStatus);
+            
+            setTimeout(() => {
+                if (exportStatus.parentNode) {
+                    exportStatus.parentNode.removeChild(exportStatus);
+                }
+            }, 3000);
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+        });
+        
+        importFile.addEventListener('change', () => {
+            const file = importFile.files[0];
+            if (!file) return;
+            
+            const importStatus = document.getElementById('import-status');
+            importStatus.textContent = 'Importing...';
+            importStatus.className = 'ml-3 text-sm text-blue-600 dark:text-blue-400';
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (!importedData.leaveBalance || !importedData.statusWorkflow || 
+                        !importedData.publicHolidays || !importedData.leaveApplications) {
+                        throw new Error('Invalid file format.');
+                    }
+                    
+                    appData.leaveBalance = importedData.leaveBalance;
+                    appData.statusWorkflow = importedData.statusWorkflow;
+                    appData.publicHolidays = importedData.publicHolidays;
+                    appData.leaveApplications = importedData.leaveApplications;
+                    
+                    if (importedData.templateSettings) {
+                        appData.templateSettings = importedData.templateSettings;
+                        if (!appData.templateSettings.statusMappings) {
+                            appData.templateSettings.statusMappings = {};
+                        }
+                    } else {
+                        appData.templateSettings = {
+                            statusMappings: {},
+                            conflicts: "",
+                            backupPlan: "",
+                            htmlTemplate: null
+                        };
+                    }
+
+                    initialBalanceInput.value = appData.leaveBalance.annual;
+                    initialCLBalanceInput.value = appData.leaveBalance.Compensation;
+                    updateBalanceSummary();
+                    updateStatusList();
+                    updateStatusDropdown();
+                    updateFilterCheckboxes();
+                    updateStatusFilterCheckboxes();
+                    updateHolidayList();
+                    updateLeaveApplicationsTable();
+                    initTemplateSettings();
+                    renderYearlyCalendar();
+
+                    importStatus.textContent = 'Data imported successfully!';
+                    importStatus.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+                    
+                    setTimeout(() => {
+                        importStatus.textContent = '';
+                    }, 3000);
+                    
+                } catch (error) {
+                    importStatus.textContent = `Error importing data: ${error.message}`;
+                    importStatus.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                }
+            };
+            
+            reader.readAsText(file);
+        });
+
+        const copyConfigBtn = document.getElementById('copy-config-btn');
+        const copyConfigStatus = document.getElementById('copy-config-status');
+        const pasteConfigInput = document.getElementById('paste-config-input');
+        const restoreConfigBtn = document.getElementById('restore-config-btn');
+        const restoreConfigStatus = document.getElementById('restore-config-status');
+
+        function encodeConfigToBase64() {
+            const exportData = {
+                metadata: {
+                    version: '1.0',
+                    exportDate: new Date().toISOString()
+                },
+                leaveBalance: appData.leaveBalance,
+                statusWorkflow: appData.statusWorkflow,
+                publicHolidays: appData.publicHolidays,
+                leaveApplications: appData.leaveApplications,
+                templateSettings: appData.templateSettings
+            };
+
+            const jsonStr = JSON.stringify(exportData);
+            const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+            return 'LM1:' + encoded;
+        }
+
+        function decodeConfigFromBase64(base64Str) {
+            if (!base64Str.startsWith('LM1:')) {
+                throw new Error('無效的配置字串格式 (Invalid configuration string format)');
+            }
+
+            const encoded = base64Str.substring(4);
+            let jsonStr;
+
+            try {
+                jsonStr = decodeURIComponent(escape(atob(encoded)));
+                JSON.parse(jsonStr);
+            } catch (e) {
+                try {
+                    const decoded = atob(encoded);
+                    jsonStr = decodeURIComponent(decoded);
+                } catch (e2) {
+                    throw new Error('無法解碼配置字串 (Cannot decode configuration string)');
+                }
+            }
+
+            return JSON.parse(jsonStr);
+        }
+
+        copyConfigBtn.addEventListener('click', async () => {
+            try {
+                const configString = encodeConfigToBase64();
+                await navigator.clipboard.writeText(configString);
+
+                copyConfigStatus.textContent = '✓ 已複製到剪貼簿！';
+                copyConfigStatus.className = 'text-sm text-green-600 dark:text-green-400';
+
+                setTimeout(() => {
+                    copyConfigStatus.textContent = '';
+                }, 3000);
+            } catch (error) {
+                copyConfigStatus.textContent = '✗ 複製失敗: ' + error.message;
+                copyConfigStatus.className = 'text-sm text-red-600 dark:text-red-400';
+            }
+        });
+
+        restoreConfigBtn.addEventListener('click', () => {
+            const configString = pasteConfigInput.value.trim();
+
+            if (!configString) {
+                restoreConfigStatus.textContent = '✗ 請先貼上配置字串';
+                restoreConfigStatus.className = 'text-sm text-red-600 dark:text-red-400';
+                setTimeout(() => {
+                    restoreConfigStatus.textContent = '';
+                }, 3000);
+                return;
+            }
+
+            showConfirmModal('確定要還原配置嗎？這將覆蓋目前所有資料。', () => {
+                try {
+                    const importedData = decodeConfigFromBase64(configString);
+
+                    if (!importedData.leaveBalance || !importedData.statusWorkflow ||
+                        !importedData.publicHolidays || !importedData.leaveApplications) {
+                        throw new Error('無效的配置資料結構');
+                    }
+
+                    appData.leaveBalance = importedData.leaveBalance;
+                    appData.statusWorkflow = importedData.statusWorkflow;
+                    appData.publicHolidays = importedData.publicHolidays;
+                    appData.leaveApplications = importedData.leaveApplications;
+
+                    if (importedData.templateSettings) {
+                        appData.templateSettings = importedData.templateSettings;
+                        if (!appData.templateSettings.statusMappings) {
+                            appData.templateSettings.statusMappings = {};
+                        }
+                    } else {
+                        appData.templateSettings = {
+                            statusMappings: {},
+                            conflicts: "",
+                            backupPlan: "",
+                            htmlTemplate: null
+                        };
+                    }
+
+                    initialBalanceInput.value = appData.leaveBalance.annual;
+                    initialCLBalanceInput.value = appData.leaveBalance.Compensation;
+                    updateBalanceSummary();
+                    updateStatusList();
+                    updateStatusDropdown();
+                    updateFilterCheckboxes();
+                    updateStatusFilterCheckboxes();
+                    updateHolidayList();
+                    updateLeaveApplicationsTable();
+                    initTemplateSettings();
+                    renderYearlyCalendar();
+
+                    restoreConfigStatus.textContent = '✓ 配置已成功還原！';
+                    restoreConfigStatus.className = 'text-sm text-green-600 dark:text-green-400';
+                    pasteConfigInput.value = '';
+
+                    setTimeout(() => {
+                        restoreConfigStatus.textContent = '';
+                    }, 3000);
+
+                } catch (error) {
+                    restoreConfigStatus.textContent = '✗ 還原失敗: ' + error.message;
+                    restoreConfigStatus.className = 'text-sm text-red-600 dark:text-red-400';
+                }
+            });
+        });
+
+        const quickCopyConfigBtn = document.getElementById('quick-copy-config-btn');
+        const quickCopyConfigStatus = document.getElementById('quick-copy-config-status');
+        const quickPasteConfigInput = document.getElementById('quick-paste-config-input');
+        const quickRestoreConfigBtn = document.getElementById('quick-restore-config-btn');
+        const quickRestoreConfigStatus = document.getElementById('quick-restore-config-status');
+
+        quickCopyConfigBtn.addEventListener('click', async () => {
+            try {
+                const configString = encodeConfigToBase64();
+                await navigator.clipboard.writeText(configString);
+
+                quickCopyConfigStatus.textContent = '✓ 已複製到剪貼簿！';
+                quickCopyConfigStatus.className = 'block mt-2 text-sm text-center text-green-600 dark:text-green-400';
+
+                setTimeout(() => {
+                    quickCopyConfigStatus.textContent = '';
+                }, 3000);
+            } catch (error) {
+                quickCopyConfigStatus.textContent = '✗ 複製失敗';
+                quickCopyConfigStatus.className = 'block mt-2 text-sm text-center text-red-600 dark:text-red-400';
+            }
+        });
+
+        quickRestoreConfigBtn.addEventListener('click', () => {
+            const configString = quickPasteConfigInput.value.trim();
+
+            if (!configString) {
+                quickRestoreConfigStatus.textContent = '✗ 請先貼上配置字串';
+                quickRestoreConfigStatus.className = 'block mt-2 text-sm text-center text-red-600 dark:text-red-400';
+                setTimeout(() => {
+                    quickRestoreConfigStatus.textContent = '';
+                }, 3000);
+                return;
+            }
+
+            try {
+                const importedData = decodeConfigFromBase64(configString);
+
+                if (!importedData.leaveBalance || !importedData.statusWorkflow ||
+                    !importedData.publicHolidays || !importedData.leaveApplications) {
+                    throw new Error('無效的配置資料結構');
+                }
+
+                appData.leaveBalance = importedData.leaveBalance;
+                appData.statusWorkflow = importedData.statusWorkflow;
+                appData.publicHolidays = importedData.publicHolidays;
+                appData.leaveApplications = importedData.leaveApplications;
+
+                if (importedData.templateSettings) {
+                    appData.templateSettings = importedData.templateSettings;
+                    if (!appData.templateSettings.statusMappings) {
+                        appData.templateSettings.statusMappings = {};
+                    }
+                } else {
+                    appData.templateSettings = {
+                        statusMappings: {},
+                        conflicts: "",
+                        backupPlan: "",
+                        htmlTemplate: null
+                    };
+                }
+
+                initialBalanceInput.value = appData.leaveBalance.annual;
+                initialCLBalanceInput.value = appData.leaveBalance.Compensation;
+                updateBalanceSummary();
+                updateStatusList();
+                updateStatusDropdown();
+                updateFilterCheckboxes();
+                updateStatusFilterCheckboxes();
+                updateHolidayList();
+                updateLeaveApplicationsTable();
+                initTemplateSettings();
+                renderYearlyCalendar();
+
+                lastSavedConfig = encodeConfigToBase64();
+
+                quickRestoreConfigStatus.textContent = '✓ 配置已成功還原！';
+                quickRestoreConfigStatus.className = 'block mt-2 text-sm text-center text-green-600 dark:text-green-400';
+                quickPasteConfigInput.value = '';
+
+                setTimeout(() => {
+                    quickRestoreConfigStatus.textContent = '';
+                }, 3000);
+
+            } catch (error) {
+                quickRestoreConfigStatus.textContent = '✗ 還原失敗: ' + error.message;
+                quickRestoreConfigStatus.className = 'block mt-2 text-sm text-center text-red-600 dark:text-red-400';
+            }
+        });
+
+        let lastSavedConfig = encodeConfigToBase64();
+
+        function hasUnsavedChanges() {
+            const currentConfig = encodeConfigToBase64();
+            return currentConfig !== lastSavedConfig;
+        }
+
+        function updateLastSavedConfig() {
+            lastSavedConfig = encodeConfigToBase64();
+        }
+        copyConfigBtn.addEventListener('click', updateLastSavedConfig);
+        quickCopyConfigBtn.addEventListener('click', updateLastSavedConfig);
+
+        window.addEventListener('beforeunload', (e) => {
+            if (hasUnsavedChanges()) {
+                const configString = encodeConfigToBase64();
+                navigator.clipboard.writeText(configString).catch(() => {});
+                e.preventDefault();
+                e.returnValue = '您有未儲存的配置變更。離開前請確保已複製配置字串！';
+                return e.returnValue;
+            }
+        });
+
+        let reminderShown = false;
+        function showCopyConfigReminder() {
+            if (reminderShown || !hasUnsavedChanges()) return;
+            reminderShown = true;
+
+            const modal = document.createElement('div');
+            modal.id = 'copy-config-reminder-modal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999]';
+            modal.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4 animate-pulse">
+                    <div class="flex items-center mb-4 text-amber-600 dark:text-amber-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <h3 class="text-xl font-bold">⚠️ 請先複製配置！</h3>
+                    </div>
+                    <p class="text-gray-700 dark:text-gray-300 mb-4">您有未儲存的變更。離開前請複製配置字串，以免資料遺失。</p>
+                    <div class="flex flex-col gap-3">
+                        <button id="reminder-copy-btn" class="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            一鍵複製配置
+                        </button>
+                        <button id="reminder-dismiss-btn" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm">
+                            我已複製 / 不需要保存
+                        </button>
+                    </div>
+                    <p id="reminder-copy-status" class="mt-3 text-center text-sm"></p>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            setTimeout(() => {
+                const innerDiv = modal.querySelector('div');
+                if (innerDiv) innerDiv.classList.remove('animate-pulse');
+            }, 1000);
+
+            document.getElementById('reminder-copy-btn').addEventListener('click', async () => {
+                try {
+                    const configString = encodeConfigToBase64();
+                    await navigator.clipboard.writeText(configString);
+                    updateLastSavedConfig();
+                    document.getElementById('reminder-copy-status').textContent = '✓ 已複製到剪貼簿！';
+                    document.getElementById('reminder-copy-status').className = 'mt-3 text-center text-sm text-green-600 dark:text-green-400';
+                    setTimeout(() => {
+                        modal.remove();
+                        reminderShown = false;
+                    }, 1500);
+                } catch (error) {
+                    document.getElementById('reminder-copy-status').textContent = '✗ 複製失敗，請手動複製';
+                    document.getElementById('reminder-copy-status').className = 'mt-3 text-center text-sm text-red-600 dark:text-red-400';
+                }
+            });
+
+            document.getElementById('reminder-dismiss-btn').addEventListener('click', () => {
+                modal.remove();
+                reminderShown = false;
+            });
+        }
+
+        function generateTestData() {
+            appData.publicHolidays = [
+                { date: '2025-05-01', name: '勞動節' },
+                { date: '2025-05-05', name: '佛誕' },
+                { date: '2025-07-01', name: '香港特別行政區成立紀念日' },
+                { date: '2025-10-01', name: '國慶日' },
+                { date: '2025-10-07', name: '中秋節翌日' },
+                { date: '2025-10-29', name: '重陽節' },
+                { date: '2025-12-25', name: '聖誕節' },
+                { date: '2025-12-26', name: '聖誕節後第一個週日' }
+            ];
+            
+            const currentYear = new Date().getFullYear();
+            const nextYear = currentYear + 1;
+            
+            appData.leaveApplications = [
+                {
+                    id: '1001',
+                    startDate: `${currentYear}-12-23`,
+                    endDate: `${currentYear}-12-23`,
+                    type: 'AL',
+                    duration: 'full',
+                    reason: 'Personal errands',
+                    status: 'Online leave approved'
+                },
+                {
+                    id: '1002',
+                    startDate: `${nextYear}-01-23`,
+                    endDate: `${nextYear}-01-24`,
+                    type: 'AL',
+                    duration: 'multiple',
+                    reason: 'Family vacation',
+                    status: 'Ask direct supervisor approval'
+                },
+                {
+                    id: '1003',
+                    startDate: `${nextYear}-02-14`,
+                    endDate: `${nextYear}-02-14`,
+                    type: 'AL',
+                    duration: 'am',
+                    reason: 'Doctor appointment',
+                    status: 'Email core team approval'
+                },
+                {
+                    id: '1004',
+                    startDate: `${nextYear}-03-10`,
+                    endDate: `${nextYear}-03-14`,
+                    type: 'AL',
+                    duration: 'multiple',
+                    reason: 'Spring break trip',
+                    status: 'Ask colleagues for backup'
+                },
+                {
+                    id: '1005',
+                    startDate: `${nextYear}-05-02`,
+                    endDate: `${nextYear}-05-02`,
+                    type: 'CL',
+                    duration: 'full',
+                    reason: 'Family matter',
+                    status: 'Leave taken'
+                },
+                {
+                    id: '1006',
+                    startDate: `${nextYear}-06-15`,
+                    endDate: `${nextYear}-06-15`,
+                    type: 'Other',
+                    duration: 'full',
+                    reason: 'Company event',
+                    status: 'Online leave approved'
+                }
+            ];
+        }
+
+        function updateYearSelector() {
+            const yearSelector = document.getElementById('year-selector');
+            yearSelector.innerHTML = '';
+            
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'All Years';
+            yearSelector.appendChild(allOption);
+            
+            const years = [...new Set(appData.leaveApplications
+                .filter(leave => leave.startDate)
+                .map(leave => new Date(leave.startDate).getFullYear())
+            )].sort((a, b) => b - a);
+            
+            const currentYear = new Date().getFullYear();
+            if (!years.includes(currentYear)) {
+                years.unshift(currentYear);
+            }
+            
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year.toString();
+                option.textContent = year.toString();
+                yearSelector.appendChild(option);
+            });
+            
+            yearSelector.value = appData.currentYear;
+        }
+        
+        document.getElementById('year-selector').addEventListener('change', function() {
+            const selectedYear = this.value;
+            appData.currentYear = selectedYear;
+            updateLeaveApplicationsTable();
+            updateBalanceSummary();
+
+            if (selectedYear && selectedYear !== 'all') {
+                calendarDisplayYear = parseInt(selectedYear);
+                renderYearlyCalendar();
+            }
+        });
+        
+        document.getElementById('new-year-btn').addEventListener('click', function() {
+            const newYearModal = document.createElement('div');
+            newYearModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            newYearModal.id = 'new-year-modal';
+            
+            const modalContent = document.createElement('div');
+            modalContent.className = 'bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4';
+            
+            const currentYear = new Date().getFullYear();
+            const nextYear = currentYear + 1;
+            
+            modalContent.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">Create New Year</h3>
+                    <button id="close-new-year-modal-btn" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="new-year-form" class="space-y-4">
+                    <div>
+                        <label class="block mb-2">Year</label>
+                        <input type="number" id="new-year-input" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" value="${nextYear}" min="${currentYear}" step="1">
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">Initial Annual Leave Balance</label>
+                        <input type="number" id="new-year-al-balance" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" min="0" step="0.5" value="${appData.leaveBalance.annual}">
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">Initial Compensation Leave Balance</label>
+                        <input type="number" id="new-year-cl-balance" class="w-full px-4 py-2 border rounded-md text-base dark:bg-gray-700 dark:text-white dark:border-gray-600" min="0" step="0.5" value="${appData.leaveBalance.Compensation}">
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">Carry Over Previous Leave Balance</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="checkbox" id="carry-over-checkbox" class="rounded text-primary focus:ring-primary">
+                            <label for="carry-over-checkbox">Carry over remaining leave balance from previous year</label>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button type="button" id="cancel-new-year-btn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-opacity-90 transition-colors">Create New Year</button>
+                    </div>
+                </form>
+            `;
+            
+            newYearModal.appendChild(modalContent);
+            document.body.appendChild(newYearModal);
+            
+            function closeNewYearModal() {
+                document.body.removeChild(newYearModal);
+            }
+            
+            document.getElementById('close-new-year-modal-btn').addEventListener('click', closeNewYearModal);
+            document.getElementById('cancel-new-year-btn').addEventListener('click', closeNewYearModal);
+            newYearModal.addEventListener('click', (e) => {
+                if (e.target === newYearModal) {
+                    closeNewYearModal();
+                }
+            });
+            
+            document.getElementById('new-year-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const newYear = document.getElementById('new-year-input').value;
+                const newALBalance = parseFloat(document.getElementById('new-year-al-balance').value) || 0;
+                const newCLBalance = parseFloat(document.getElementById('new-year-cl-balance').value) || 0;
+                const carryOver = document.getElementById('carry-over-checkbox').checked;
+                
+                if (appData.yearlyData[newYear]) {
+                    showAlertModal(`Year ${newYear} already exists. Please choose a different year.`);
+                    return;
+                }
+                
+                let finalALBalance = newALBalance;
+                let finalCLBalance = newCLBalance;
+                
+                if (carryOver) {
+                    const previousYear = parseInt(newYear) - 1;
+                    let usedAL = 0, usedCL = 0;
+
+                    appData.leaveApplications.forEach(leave => {
+                        if (!leave.startDate) return;
+                        const leaveDate = new Date(leave.startDate);
+                        const leaveYear = leaveDate.getFullYear();
+                        if (leaveYear !== previousYear) return;
+                        if (leave.type === 'SL' || leave.type === 'NPL' || leave.type === 'Other') return;
+
+                        const statusObj = appData.statusWorkflow.find(s => s.name === leave.status);
+                        const countsAsUsed = statusObj && statusObj.countsAsUsed;
+                        if (!countsAsUsed) return;
+
+                        const duration = leave.duration === 'full' ? 1 : 0.5;
+                        const totalDays = leave.endDate && leave.startDate && leave.duration === 'multiple' ?
+                            calculateBusinessDays(leave.startDate, leave.endDate) : duration;
+
+                        if (leave.type === 'AL') {
+                            usedAL += totalDays;
+                        } else if (leave.type === 'CL') {
+                            usedCL += totalDays;
+                        }
+                    });
+                    
+                    const prevYearData = appData.yearlyData[previousYear.toString()] || { 
+                        annual: appData.leaveBalance.annual,
+                        Compensation: appData.leaveBalance.Compensation
+                    };
+                    
+                    const remainingAL = prevYearData.annual - usedAL;
+                    const remainingCL = prevYearData.Compensation - usedCL;
+                    
+                    finalALBalance = newALBalance + Math.max(0, remainingAL);
+                    finalCLBalance = newCLBalance + Math.max(0, remainingCL);
+                }
+                
+                if (!appData.yearlyData[appData.currentYear]) {
+                    appData.yearlyData[appData.currentYear] = {
+                        annual: appData.leaveBalance.annual,
+                        Compensation: appData.leaveBalance.Compensation
+                    };
+                }
+                
+                appData.yearlyData[newYear] = {
+                    annual: finalALBalance,
+                    Compensation: finalCLBalance
+                };
+                
+                appData.currentYear = newYear;
+                appData.leaveBalance.annual = finalALBalance;
+                appData.leaveBalance.Compensation = finalCLBalance;
+                
+                initialBalanceInput.value = finalALBalance;
+                initialCLBalanceInput.value = finalCLBalance;
+                updateYearSelector();
+                updateBalanceSummary();
+                closeNewYearModal();
+                
+                const successMessage = document.createElement('div');
+                successMessage.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded-md shadow-lg z-50';
+                successMessage.textContent = `New year ${newYear} created successfully!`;
+                document.body.appendChild(successMessage);
+                
+                setTimeout(() => {
+                    document.body.removeChild(successMessage);
+                }, 3000);
+            });
+        });
+
+        let calendarDisplayYear = new Date().getFullYear();
+        const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+        const monthNamesEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+
+        function isWeekend(date) {
+            const day = date.getDay();
+            return day === 0 || day === 6;
+        }
+
+        function isPublicHoliday(date) {
+            return appData.publicHolidays.find(holiday => {
+                const holidayDate = new Date(holiday.date);
+                return holidayDate.getDate() === date.getDate() &&
+                       holidayDate.getMonth() === date.getMonth() &&
+                       holidayDate.getFullYear() === date.getFullYear();
+            });
+        }
+
+        function getLeaveForDate(date) {
+            return appData.leaveApplications.filter(leave => {
+                if (!leave.startDate) return false;
+
+                const startDate = new Date(leave.startDate);
+                let endDate = startDate;
+
+                if (leave.duration === 'multiple' && leave.endDate) {
+                    endDate = new Date(leave.endDate);
+                }
+
+                const checkDate = new Date(date);
+                checkDate.setHours(0, 0, 0, 0);
+                startDate.setHours(0, 0, 0, 0);
+                endDate.setHours(0, 0, 0, 0);
+
+                return checkDate >= startDate && checkDate <= endDate;
+            });
+        }
+
+        function renderYearlyCalendar() {
+            const container = document.getElementById('yearly-calendar');
+            const yearDisplay = document.getElementById('calendar-year-display');
+
+            if (!container || !yearDisplay) return;
+
+            yearDisplay.textContent = calendarDisplayYear;
+            container.innerHTML = '';
+
+            for (let month = 0; month < 12; month++) {
+                const monthContainer = document.createElement('div');
+                monthContainer.className = 'bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3';
+
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'text-center font-semibold mb-2 text-sm';
+                monthHeader.innerHTML = `<span class="text-primary dark:text-primary">${monthNames[month]}</span> <span class="text-gray-500 dark:text-gray-400 text-xs">${monthNamesEn[month]}</span>`;
+                monthContainer.appendChild(monthHeader);
+
+                const dayNamesRow = document.createElement('div');
+                dayNamesRow.className = 'grid grid-cols-7 gap-0.5 mb-1';
+                dayNames.forEach((day, idx) => {
+                    const dayNameCell = document.createElement('div');
+                    dayNameCell.className = `text-center text-xs font-medium ${idx === 0 || idx === 6 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400'}`;
+                    dayNameCell.textContent = day;
+                    dayNamesRow.appendChild(dayNameCell);
+                });
+                monthContainer.appendChild(dayNamesRow);
+
+                const daysGrid = document.createElement('div');
+                daysGrid.className = 'grid grid-cols-7 gap-0.5';
+
+                const firstDay = new Date(calendarDisplayYear, month, 1);
+                const lastDay = new Date(calendarDisplayYear, month + 1, 0);
+                const startDayOfWeek = firstDay.getDay();
+
+                for (let i = 0; i < startDayOfWeek; i++) {
+                    const emptyCell = document.createElement('div');
+                    emptyCell.className = 'aspect-square';
+                    daysGrid.appendChild(emptyCell);
+                }
+
+                for (let day = 1; day <= lastDay.getDate(); day++) {
+                    const date = new Date(calendarDisplayYear, month, day);
+                    const dayCell = document.createElement('div');
+                    dayCell.className = 'aspect-square flex items-center justify-center text-xs rounded cursor-pointer transition-all hover:ring-2 hover:ring-primary/50';
+                    dayCell.textContent = day;
+
+                    const weekend = isWeekend(date);
+                    const holiday = isPublicHoliday(date);
+                    const leaves = getLeaveForDate(date);
+                    const hasLeave = leaves.length > 0;
+
+                    if (hasLeave && holiday) {
+                        dayCell.style.background = 'linear-gradient(135deg, #60a5fa 50%, #f87171 50%)';
+                        dayCell.className += ' text-white font-bold';
+                    } else if (hasLeave) {
+                        dayCell.className += ' bg-blue-400 dark:bg-blue-600 text-white font-bold';
+                    } else if (holiday) {
+                        dayCell.className += ' bg-red-400 dark:bg-red-600 text-white font-bold';
+                    } else if (weekend) {
+                        dayCell.className += ' bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400';
+                    } else {
+                        dayCell.className += ' text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600';
+                    }
+
+                    dayCell.addEventListener('click', () => showDateDetails(date, holiday, leaves, weekend));
+                    daysGrid.appendChild(dayCell);
+                }
+
+                monthContainer.appendChild(daysGrid);
+                container.appendChild(monthContainer);
+            }
+        }
+
+        function showDateDetails(date, holiday, leaves, isWeekendDay) {
+            const detailsContainer = document.getElementById('calendar-details');
+            const detailsContent = document.getElementById('calendar-details-content');
+
+            if (!detailsContainer || !detailsContent) return;
+
+            const dateStr = date.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+
+            let html = `<p class="text-lg font-medium mb-4">${dateStr}</p>`;
+            html += '<div class="space-y-3">';
+
+            if (isWeekendDay) {
+                html += `
+                    <div class="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        <div class="w-3 h-3 rounded bg-gray-400"></div>
+                        <span class="font-medium">週末休息日 (Weekend)</span>
+                    </div>
+                `;
+            }
+
+            if (holiday) {
+                html += `
+                    <div class="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/30 rounded-lg">
+                        <div class="w-3 h-3 rounded bg-red-500"></div>
+                        <div>
+                            <span class="font-medium text-red-700 dark:text-red-300">公眾假期 (Public Holiday)</span>
+                            <p class="text-sm text-red-600 dark:text-red-400">${holiday.name}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (leaves.length > 0) {
+                leaves.forEach(leave => {
+                    const statusObj = appData.statusWorkflow.find(s => s.name === leave.status);
+                    const statusColor = statusObj ? statusObj.color : '#5D5CDE';
+
+                    let durationText = '';
+                    if (leave.duration === 'full') durationText = '全日 (Full Day)';
+                    else if (leave.duration === 'am') durationText = '上午 (AM)';
+                    else if (leave.duration === 'pm') durationText = '下午 (PM)';
+                    else if (leave.duration === 'multiple') {
+                        const days = calculateBusinessDays(leave.startDate, leave.endDate);
+                        durationText = `${days} 天 (${leave.startDate} - ${leave.endDate})`;
+                    }
+
+                    html += `
+                        <div class="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border-l-4" style="border-color: ${statusColor}">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-medium text-blue-700 dark:text-blue-300">${leave.type}</span>
+                                <span class="text-xs px-2 py-0.5 rounded" style="background-color: ${statusColor}20; color: ${statusColor}">${leave.status}</span>
+                            </div>
+                            <p class="text-sm text-blue-600 dark:text-blue-400">${durationText}</p>
+                            ${leave.reason ? `<p class="text-sm text-gray-600 dark:text-gray-400 mt-1">原因: ${leave.reason}</p>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            if (!isWeekendDay && !holiday && leaves.length === 0) {
+                html += `
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center text-gray-500 dark:text-gray-400">
+                        沒有活動 (No events)
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            detailsContent.innerHTML = html;
+            detailsContainer.classList.remove('hidden');
+
+            if (window.innerWidth < 768) {
+                detailsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        document.getElementById('calendar-prev-year')?.addEventListener('click', () => {
+            calendarDisplayYear--;
+            renderYearlyCalendar();
+        });
+
+        document.getElementById('calendar-next-year')?.addEventListener('click', () => {
+            calendarDisplayYear++;
+            renderYearlyCalendar();
+        });
+
+        function initApp() {
+            generateTestData();
+            updateYearSelector();
+            updateBalanceSummary();
+            updateStatusDropdown();
+            updateFilterCheckboxes();
+            updateStatusList();
+            updateHolidayList();
+            updateLeaveApplicationsTable();
+            updateStatusFilterCheckboxes();
+            initTemplateSettings();
+            renderYearlyCalendar();
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            startDateInput.value = `${year}-${month}-${day}`;
+        }
+        
+        const changelogBtn = document.getElementById('changelog-btn');
+        const changelogModal = document.getElementById('changelog-modal');
+        const closeChangelogBtn = document.getElementById('close-changelog-btn');
+        const changelogContent = document.getElementById('changelog-content');
+        
+        function populateChangelog() {
+            changelogContent.innerHTML = '';
+            
+            appData.changelog.sort((a, b) => {
+                const versionA = a.version.split('.').map(Number);
+                const versionB = b.version.split('.').map(Number);
+                
+                for (let i = 0; i < Math.max(versionA.length, versionB.length); i++) {
+                    const numA = i < versionA.length ? versionA[i] : 0;
+                    const numB = i < versionB.length ? versionB[i] : 0;
+                    if (numA !== numB) {
+                        return numB - numA;
+                    }
+                }
+                return 0;
+            }).forEach(version => {
+                const versionSection = document.createElement('div');
+                versionSection.className = 'pb-4 border-b dark:border-gray-700 last:border-0';
+                
+                versionSection.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-lg font-medium">Version ${version.version}</h4>
+                        <span class="text-sm text-gray-500">${version.date}</span>
+                    </div>
+                    <ul class="mt-3 list-disc pl-5 space-y-1">
+                        ${version.changes.map(change => `<li>${change}</li>`).join('')}
+                    </ul>
+                `;
+                
+                changelogContent.appendChild(versionSection);
+            });
+        }
+        
+        changelogBtn.addEventListener('click', () => {
+            populateChangelog();
+            changelogModal.classList.remove('hidden');
+        });
+        
+        closeChangelogBtn.addEventListener('click', () => {
+            changelogModal.classList.add('hidden');
+        });
+        
+        changelogModal.addEventListener('click', (e) => {
+            if (e.target === changelogModal) {
+                changelogModal.classList.add('hidden');
+            }
+        });
+        
+        const helpBtn = document.getElementById('help-btn');
+        helpBtn.addEventListener('click', () => {
+            const helpTab = document.querySelector('[data-tab="help"]');
+            helpTab.click();
+        });
+        
+        const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
+        
+        collapsibleHeaders.forEach(header => {
+            const targetId = header.getAttribute('data-target');
+            const contentEl = document.getElementById(targetId);
+            const iconEl = header.querySelector('.collapsible-icon');
+            
+            if (contentEl.id === 'status-workflow-content') {
+                contentEl.style.display = 'block';
+                iconEl.classList.add('rotate-180');
+            } else {
+                contentEl.style.display = 'none';
+            }
+            
+            header.addEventListener('click', () => {
+                if (contentEl.style.display === 'none') {
+                    contentEl.style.display = 'block';
+                    iconEl.classList.add('rotate-180');
+                } else {
+                    contentEl.style.display = 'none';
+                    iconEl.classList.remove('rotate-180');
+                }
+            });
+        });
+        
+        initApp();
+    </script>
+</body>
+</html>

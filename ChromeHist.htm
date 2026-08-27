@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chrome 瀏覽記錄分析器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Lexend:wght@300;400;500;600;700&family=Red+Hat+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg-deep: #030712;
+  --bg-base: #070d1f;
+  --bg-surface: #0f1a35;
+  --bg-elevated: #162044;
+  --bg-hover: #1c2a55;
+  --border: rgba(56, 189, 248, 0.1);
+  --border-active: rgba(56, 189, 248, 0.35);
+  --glow: rgba(56, 189, 248, 0.15);
+  --accent: #38bdf8;
+  --accent-dim: #0c4a6e;
+  --amber: #fbbf24;
+  --violet: #a78bfa;
+  --emerald: #34d399;
+  --rose: #fb7185;
+  --text-1: #e2e8f0;
+  --text-2: #94a3b8;
+  --text-3: #475569;
+  --chart-grid: rgba(148, 163, 184, 0.08);
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Lexend', sans-serif;
+  --font-mono: 'Red Hat Mono', monospace;
+}
+html.light {
+  --bg-deep: #f0f4f8;
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f1f5f9;
+  --border: rgba(15, 23, 42, 0.08);
+  --border-active: rgba(2, 132, 199, 0.4);
+  --glow: rgba(2, 132, 199, 0.08);
+  --accent: #0284c7;
+  --accent-dim: #bae6fd;
+  --amber: #d97706;
+  --violet: #7c3aed;
+  --emerald: #059669;
+  --rose: #e11d48;
+  --text-1: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --chart-grid: rgba(15, 23, 42, 0.06);
+  --shadow: 0 4px 24px rgba(0,0,0,0.06);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  color: var(--text-1);
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+.bg-pattern {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(56,189,248,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(167,139,250,0.03) 0%, transparent 60%);
+}
+.app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+
+/* Header */
+.header { text-align: center; margin-bottom: 28px; animation: fadeDown 0.6s ease-out; }
+.header h1 {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: 1.6rem; letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--accent), var(--violet));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 6px;
+}
+.header p { color: var(--text-2); font-size: 0.85rem; font-weight: 300; }
+
+/* Upload */
+.upload-zone {
+  border: 2px dashed var(--border-active);
+  border-radius: 14px; padding: 32px 20px; text-align: center;
+  background: var(--bg-surface); cursor: pointer;
+  transition: all 0.3s ease; margin-bottom: 24px;
+  animation: fadeUp 0.5s ease-out 0.1s both;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  background: var(--bg-elevated); border-color: var(--accent);
+  box-shadow: 0 0 30px var(--glow);
+}
+.upload-zone i { font-size: 2rem; color: var(--accent); margin-bottom: 10px; }
+.upload-zone .uz-title { font-weight: 600; font-size: 1rem; margin-bottom: 4px; }
+.upload-zone .uz-sub { font-size: 0.8rem; color: var(--text-2); }
+.upload-zone input { display: none; }
+.upload-zone.has-data { padding: 14px 20px; }
+.upload-zone.has-data .uz-expanded { display: none; }
+
+/* Stats */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  margin-bottom: 20px; animation: fadeUp 0.5s ease-out 0.2s both;
+}
+.stat-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; text-align: center;
+  transition: all 0.3s ease;
+}
+.stat-card:hover { border-color: var(--border-active); box-shadow: 0 0 20px var(--glow); }
+.stat-card .stat-value {
+  font-family: var(--font-mono); font-weight: 600; font-size: 1.5rem;
+  color: var(--accent); display: block; line-height: 1.2;
+}
+.stat-card .stat-label { font-size: 0.72rem; color: var(--text-2); margin-top: 2px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card:nth-child(2) .stat-value { color: var(--amber); }
+.stat-card:nth-child(3) .stat-value { color: var(--emerald); }
+.stat-card:nth-child(4) .stat-value { color: var(--violet); }
+
+/* Filters */
+.filter-bar {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+  animation: fadeUp 0.5s ease-out 0.3s both;
+}
+.filter-presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filter-presets label { font-size: 0.78rem; color: var(--text-2); margin-right: 4px; font-weight: 500; }
+.preset-btn {
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
+  padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-2);
+  cursor: pointer; transition: all 0.25s ease; white-space: nowrap;
+}
+.preset-btn:hover { border-color: var(--border-active); color: var(--text-1); }
+.preset-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 600; }
+.custom-range {
+  display: none; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center;
+}
+.custom-range.show { display: flex; }
+.custom-range input[type="date"] {
+  font-family: var(--font-mono); font-size: 0.85rem; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-1);
+  color-scheme: dark;
+}
+html.light .custom-range input[type="date"] { color-scheme: light; }
+.custom-range .apply-btn {
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 600;
+  padding: 6px 16px; border-radius: 8px; border: none;
+  background: var(--accent); color: #0f172a; cursor: pointer;
+  transition: opacity 0.2s;
+}
+.custom-range .apply-btn:hover { opacity: 0.85; }
+
+/* Tabs */
+.tabs {
+  display: flex; gap: 2px; margin-bottom: 20px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; animation: fadeUp 0.5s ease-out 0.35s both;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn {
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
+  padding: 10px 16px; border: none; border-radius: 10px 10px 0 0;
+  background: var(--bg-surface); color: var(--text-3); cursor: pointer;
+  transition: all 0.25s ease; white-space: nowrap; position: relative;
+}
+.tab-btn:hover { color: var(--text-2); background: var(--bg-elevated); }
+.tab-btn.active {
+  color: var(--accent); background: var(--bg-elevated);
+}
+.tab-btn.active::after {
+  content: ''; position: absolute; bottom: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent); border-radius: 2px;
+}
+
+/* Content */
+.tab-content {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: 0 12px 12px 12px; padding: 20px 16px; min-height: 340px;
+  animation: fadeIn 0.3s ease-out;
+}
+.tab-pane { display: none; }
+.tab-pane.active { display: block; animation: fadeIn 0.35s ease-out; }
+
+/* History list */
+.search-input-wrap { margin-bottom: 14px; position: relative; }
+.search-input-wrap i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 0.85rem; }
+.search-input {
+  width: 100%; font-family: var(--font-body); font-size: 16px;
+  padding: 10px 12px 10px 36px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-1); transition: border-color 0.2s;
+}
+.search-input:focus { outline: none; border-color: var(--border-active); }
+.search-input::placeholder { color: var(--text-3); }
+.history-date-group { margin-bottom: 18px; }
+.history-date-label {
+  font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600;
+  color: var(--accent); margin-bottom: 8px; padding-left: 2px;
+  letter-spacing: 0.5px;
+}
+.history-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  transition: background 0.2s; cursor: default;
+}
+.history-item:hover { background: var(--bg-hover); }
+.hi-time { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-3); min-width: 44px; padding-top: 2px; }
+.hi-favicon { width: 16px; height: 16px; border-radius: 3px; margin-top: 3px; flex-shrink: 0; background: var(--bg-surface); }
+.hi-info { flex: 1; min-width: 0; }
+.hi-title {
+  font-size: 0.85rem; font-weight: 500; color: var(--text-1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hi-domain { font-size: 0.72rem; color: var(--text-3); }
+.hi-link {
+  color: var(--accent); text-decoration: none; font-size: 0.72rem;
+  opacity: 0; transition: opacity 0.2s; flex-shrink: 0; margin-top: 3px;
+}
+.history-item:hover .hi-link { opacity: 1; }
+
+/* Pagination */
+.pagination {
+  display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 16px;
+}
+.pagination button {
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
+  padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-surface); color: var(--text-2); cursor: pointer;
+  transition: all 0.2s;
+}
+.pagination button:hover:not(:disabled) { border-color: var(--border-active); color: var(--text-1); }
+.pagination button:disabled { opacity: 0.3; cursor: default; }
+.pagination .page-info { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-3); }
+
+/* Heatmap */
+.heatmap-container { overflow-x: auto; }
+.heatmap-grid {
+  display: grid; grid-template-columns: 36px repeat(24, 1fr);
+  gap: 3px; min-width: 600px;
+}
+.hm-label {
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-3);
+  display: flex; align-items: center; justify-content: center;
+}
+.hm-hour-label { justify-content: center; padding-bottom: 4px; }
+.hm-cell {
+  aspect-ratio: 1; border-radius: 4px; position: relative;
+  transition: all 0.2s ease; cursor: default;
+  background: var(--bg-surface);
+}
+.hm-cell:hover { transform: scale(1.15); z-index: 2; }
+.hm-cell .hm-tooltip {
+  display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%); padding: 4px 8px; border-radius: 6px;
+  background: var(--bg-deep); border: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text-1);
+  white-space: nowrap; z-index: 10; pointer-events: none;
+}
+.hm-cell:hover .hm-tooltip { display: block; }
+.heatmap-legend {
+  display: flex; align-items: center; gap: 6px; margin-top: 14px;
+  justify-content: center;
+}
+.heatmap-legend span { font-size: 0.7rem; color: var(--text-3); }
+.legend-bar {
+  width: 120px; height: 10px; border-radius: 5px;
+  background: linear-gradient(90deg, var(--bg-surface), #0e7490, #22d3ee, #67e8f9);
+}
+html.light .legend-bar {
+  background: linear-gradient(90deg, #f1f5f9, #7dd3fc, #0ea5e9, #0369a1);
+}
+
+/* Charts */
+.chart-wrap { position: relative; max-height: 380px; }
+.chart-wrap canvas { max-height: 380px; }
+
+/* Category badges */
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 16px; }
+.cat-item {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: 10px; transition: all 0.2s;
+}
+.cat-item:hover { border-color: var(--border-active); }
+.cat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.cat-name { font-size: 0.85rem; font-weight: 500; flex: 1; }
+.cat-count { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; }
+
+/* Search queries */
+.query-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.query-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  font-size: 0.82rem; transition: all 0.2s;
+}
+.query-tag:hover { border-color: var(--border-active); }
+.query-tag .qt-count {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-3);
+  background: var(--bg-elevated); padding: 1px 6px; border-radius: 10px;
+}
+.no-data { text-align: center; padding: 40px 20px; color: var(--text-3); font-size: 0.9rem; }
+.no-data i { font-size: 2.5rem; margin-bottom: 12px; display: block; color: var(--text-3); opacity: 0.4; }
+
+/* Export bar */
+.export-bar {
+  display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end;
+  animation: fadeUp 0.5s ease-out 0.4s both;
+}
+.export-btn {
+  font-family: var(--font-body); font-size: 0.78rem; font-weight: 600;
+  padding: 8px 18px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-2); cursor: pointer; transition: all 0.25s;
+  display: flex; align-items: center; gap: 6px;
+}
+.export-btn:hover { border-color: var(--border-active); color: var(--text-1); }
+.export-btn i { font-size: 0.8rem; }
+.export-option {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-size: 0.78rem; color: var(--text-2); user-select: none;
+  padding: 6px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  transition: all 0.25s; margin-right: auto;
+}
+.export-option:hover { border-color: var(--border-active); color: var(--text-1); }
+.export-option input { display: none; }
+.export-option-check {
+  width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+  border: 1.5px solid var(--text-3); display: flex; align-items: center;
+  justify-content: center; transition: all 0.2s; font-size: 0.6rem; color: transparent;
+}
+.export-option input:checked ~ .export-option-check {
+  background: var(--accent); border-color: var(--accent); color: #0f172a;
+}
+.export-option small { color: var(--text-3); margin-left: 2px; }
+
+/* Record count */
+.record-count {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-3);
+  margin-bottom: 12px;
+}
+
+/* Animations */
+@keyframes fadeDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .stat-card .stat-value { font-size: 1.2rem; }
+  .header h1 { font-size: 1.2rem; }
+  .tab-btn { font-size: 0.72rem; padding: 8px 12px; }
+  .cat-grid { grid-template-columns: 1fr; }
+  .export-bar { justify-content: center; flex-wrap: wrap; }
+  .export-option { margin-right: 0; width: 100%; justify-content: center; }
+  .history-item { gap: 6px; }
+  .hi-time { min-width: 38px; font-size: 0.7rem; }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--text-3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-2); }
+
+/* Loading spinner */
+.spinner {
+  width: 28px; height: 28px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin: 40px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="bg-pattern"></div>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1><i class="fa-solid fa-globe"></i> CHROME 瀏覽記錄分析器</h1>
+    <p>Google Takeout 瀏覽數據可視化與匯出工具</p>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="uz-expanded">
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <div class="uz-title">拖放或點擊上傳 JSON 檔案</div>
+      <div class="uz-sub">支援 Google Takeout 匯出的瀏覽記錄 (BrowserHistory.json)</div>
+    </div>
+    <div class="uz-compact" style="display:none;">
+      <i class="fa-solid fa-file-code" style="font-size:1rem; margin:0 8px 0 0; vertical-align:middle;"></i>
+      <span id="fileName" style="font-size:0.85rem; font-weight:500;"></span>
+      <span style="font-size:0.75rem; color:var(--text-3); margin-left:8px;">— 點擊重新上傳</span>
+    </div>
+    <input type="file" id="fileInput" accept=".json">
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar" style="display:none;">
+    <div class="stat-card"><span class="stat-value" id="statTotal">0</span><span class="stat-label">總瀏覽次數</span></div>
+    <div class="stat-card"><span class="stat-value" id="statDomains">0</span><span class="stat-label">不重複網站</span></div>
+    <div class="stat-card"><span class="stat-value" id="statDays">0</span><span class="stat-label">活躍天數</span></div>
+    <div class="stat-card"><span class="stat-value" id="statPeak">-</span><span class="stat-label">最活躍時段</span></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar" id="filterBar" style="display:none;">
+    <div class="filter-presets">
+      <label><i class="fa-solid fa-filter"></i> 篩選</label>
+      <button class="preset-btn active" data-preset="all">全部</button>
+      <button class="preset-btn" data-preset="today">今天</button>
+      <button class="preset-btn" data-preset="7d">近 7 天</button>
+      <button class="preset-btn" data-preset="30d">近 30 天</button>
+      <button class="preset-btn" data-preset="lastMonth">上個月</button>
+      <button class="preset-btn" data-preset="custom">自選日期</button>
+    </div>
+    <div class="custom-range" id="customRange">
+      <label style="font-size:0.78rem; color:var(--text-2);">從</label>
+      <input type="date" id="dateFrom">
+      <label style="font-size:0.78rem; color:var(--text-2);">到</label>
+      <input type="date" id="dateTo">
+      <button class="apply-btn" id="applyCustom">套用</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabsBar" style="display:none;">
+    <button class="tab-btn active" data-tab="history"><i class="fa-solid fa-clock-rotate-left"></i> 記錄</button>
+    <button class="tab-btn" data-tab="heatmap"><i class="fa-solid fa-fire"></i> 熱力圖</button>
+    <button class="tab-btn" data-tab="domains"><i class="fa-solid fa-ranking-star"></i> 熱門網站</button>
+    <button class="tab-btn" data-tab="trend"><i class="fa-solid fa-chart-line"></i> 每日趨勢</button>
+    <button class="tab-btn" data-tab="category"><i class="fa-solid fa-chart-pie"></i> 分類統計</button>
+    <button class="tab-btn" data-tab="search"><i class="fa-solid fa-magnifying-glass"></i> 搜尋紀錄</button>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="tabContent" style="display:none;">
+    <!-- History -->
+    <div class="tab-pane active" id="pane-history">
+      <div class="search-input-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input class="search-input" id="historySearch" type="text" placeholder="搜尋標題或網址...">
+      </div>
+      <div class="record-count" id="recordCount"></div>
+      <div id="historyList"></div>
+      <div class="pagination" id="historyPagination"></div>
+    </div>
+    <!-- Heatmap -->
+    <div class="tab-pane" id="pane-heatmap">
+      <p style="font-size:0.82rem; color:var(--text-2); margin-bottom:14px;">每週各時段的瀏覽活躍度分佈（星期 × 小時）</p>
+      <div class="heatmap-container"><div class="heatmap-grid" id="heatmapGrid"></div></div>
+      <div class="heatmap-legend"><span>少</span><div class="legend-bar"></div><span>多</span></div>
+    </div>
+    <!-- Top Domains -->
+    <div class="tab-pane" id="pane-domains">
+      <p style="font-size:0.82rem; color:var(--text-2); margin-bottom:14px;">最常造訪的網站排行</p>
+      <div class="chart-wrap"><canvas id="domainChart"></canvas></div>
+    </div>
+    <!-- Daily Trend -->
+    <div class="tab-pane" id="pane-trend">
+      <p style="font-size:0.82rem; color:var(--text-2); margin-bottom:14px;">每日瀏覽次數趨勢</p>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+    <!-- Category -->
+    <div class="tab-pane" id="pane-category">
+      <p style="font-size:0.82rem; color:var(--text-2); margin-bottom:14px;">依網站類別分類的瀏覽比例</p>
+      <div class="chart-wrap" style="max-width:420px; margin:0 auto;"><canvas id="categoryChart"></canvas></div>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+    <!-- Search Queries -->
+    <div class="tab-pane" id="pane-search">
+      <p style="font-size:0.82rem; color:var(--text-2); margin-bottom:14px;">從 Google / Bing 搜尋中提取的關鍵字</p>
+      <div class="query-list" id="queryList"></div>
+    </div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-bar" id="exportBar" style="display:none;">
+    <label class="export-option" id="exportCompactLabel">
+      <input type="checkbox" id="exportCompact">
+      <span class="export-option-check"><i class="fa-solid fa-check"></i></span>
+      <span>壓縮版輸出<small>（移除 URL／分類、去除重複）</small></span>
+    </label>
+    <button class="export-btn" id="exportJSON"><i class="fa-solid fa-download"></i> 匯出 JSON</button>
+    <button class="export-btn" id="exportCSV"><i class="fa-solid fa-file-csv"></i> 匯出 CSV</button>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   State
+   ============================================================ */
+let allRecords = [];
+let filteredRecords = [];
+let currentPreset = 'all';
+let currentTab = 'history';
+let historyPage = 0;
+let historyKeyword = '';
+const PAGE_SIZE = 60;
+let domainChartInst = null;
+let trendChartInst = null;
+let categoryChartInst = null;
+
+const SAMPLE_URL = 'https://pfst.cf2.poecdn.net/base/application/e0529a446c2230416da30b15d768bb1568dc55d3964eb5c00d0ce941ba70cc0a';
+
+const DAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
+
+const CATEGORY_MAP = {
+  '社交': ['facebook.com','twitter.com','x.com','instagram.com','linkedin.com','reddit.com','whatsapp.com','web.whatsapp.com','threads.net','weibo.com','discord.com'],
+  '搜尋': ['google.com/search','bing.com/search','duckduckgo.com','baidu.com/s','yahoo.com/search'],
+  '電郵': ['mail.google.com','outlook.com','outlook.cloud.microsoft','outlook.live.com','yahoo.com/mail','proton.me/mail'],
+  '生產力': ['notion.so','trello.com','asana.com','jira.','toggl.com','track.toggl.com','ticktick.com','slack.com','clickup.com','monday.com','airtable.com','webtop.com','collaberty.com'],
+  '影音': ['youtube.com','netflix.com','spotify.com','twitch.tv','bilibili.com','vimeo.com','soundcloud.com','music.apple.com','primevideo.com'],
+  '新聞': ['bbc.com','cnn.com','news.google.com','hk01.com','lihkg.com','theguardian.com','nytimes.com','reuters.com'],
+  '購物': ['amazon.com','ebay.com','taobao.com','shopee.com','jd.com','hktvmall.com','lazada.com','aliexpress.com'],
+  '開發': ['github.com','stackoverflow.com','gitlab.com','npmjs.com','codepen.io','vercel.com','netlify.com','developer.mozilla.org'],
+  'AI': ['perplexity.ai','chat.openai.com','chatgpt.com','claude.ai','poe.com','bard.google.com','gemini.google.com','huggingface.co']
+};
+
+const CAT_COLORS = {
+  '社交': '#38bdf8', '搜尋': '#fbbf24', '電郵': '#a78bfa', '生產力': '#34d399',
+  '影音': '#fb7185', '新聞': '#f97316', '購物': '#e879f9', '開發': '#22d3ee',
+  'AI': '#4ade80', '其他': '#64748b'
+};
+
+/* ============================================================
+   Dark / Light mode
+   ============================================================ */
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+  document.documentElement.classList.add('light');
+}
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+  if (e.matches) document.documentElement.classList.add('light');
+  else document.documentElement.classList.remove('light');
+});
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+function usecToDate(usec) { return new Date(usec / 1000); }
+
+function getDomain(url) {
+  try { const u = new URL(url); return u.hostname.replace(/^www\./, ''); }
+  catch { return url; }
+}
+
+function categorize(url) {
+  const full = url.toLowerCase();
+  for (const [cat, patterns] of Object.entries(CATEGORY_MAP)) {
+    if (patterns.some(p => full.includes(p))) return cat;
+  }
+  return '其他';
+}
+
+function extractSearch(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host.includes('google.com') && u.pathname === '/search') return u.searchParams.get('q');
+    if (host.includes('bing.com') && u.pathname === '/search') return u.searchParams.get('q');
+    if (host.includes('duckduckgo.com')) return u.searchParams.get('q');
+    if (host.includes('baidu.com') && u.pathname === '/s') return u.searchParams.get('wd');
+    if (host.includes('yahoo.com') && u.pathname.startsWith('/search')) return u.searchParams.get('p');
+    return null;
+  } catch { return null; }
+}
+
+function dateStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function timeStr(d) {
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function startOfDay(d) { const c = new Date(d); c.setHours(0,0,0,0); return c; }
+
+function escapeHtml(s) {
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+/* ============================================================
+   Data loading
+   ============================================================ */
+function parseRecords(json) {
+  const hist = json['Browser History'];
+  if (!hist || !Array.isArray(hist)) return [];
+  return hist.map(r => {
+    const d = usecToDate(r.time_usec);
+    return {
+      date: d,
+      dateKey: dateStr(d),
+      time: timeStr(d),
+      hour: d.getHours(),
+      day: d.getDay(),
+      title: r.title || '(無標題)',
+      url: r.url,
+      domain: getDomain(r.url),
+      category: categorize(r.url),
+      favicon_url: r.favicon_url || ''
+    };
+  }).sort((a, b) => b.date - a.date);
+}
+
+async function loadSample() {
+  try {
+    const res = await fetch(SAMPLE_URL);
+    const json = await res.json();
+    allRecords = parseRecords(json);
+    onDataLoaded('歷史記錄-sample.json');
+  } catch (err) {
+    console.log('Failed to load sample: ' + err.message);
+  }
+}
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const json = JSON.parse(e.target.result);
+      allRecords = parseRecords(json);
+      if (allRecords.length === 0) {
+        showToast('找不到 Browser History 資料，請確認檔案格式');
+        return;
+      }
+      onDataLoaded(file.name);
+    } catch {
+      showToast('無法解析 JSON 檔案，請確認格式');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function onDataLoaded(name) {
+  const zone = document.getElementById('uploadZone');
+  zone.classList.add('has-data');
+  zone.querySelector('.uz-compact').style.display = 'block';
+  document.getElementById('fileName').textContent = name + ' (' + allRecords.length + ' 筆)';
+
+  document.getElementById('statsBar').style.display = '';
+  document.getElementById('filterBar').style.display = '';
+  document.getElementById('tabsBar').style.display = '';
+  document.getElementById('tabContent').style.display = '';
+  document.getElementById('exportBar').style.display = '';
+
+  currentPreset = 'all';
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === 'all'));
+  document.getElementById('customRange').classList.remove('show');
+
+  if (allRecords.length > 0) {
+    const earliest = allRecords[allRecords.length - 1].date;
+    const latest = allRecords[0].date;
+    document.getElementById('dateFrom').value = dateStr(earliest);
+    document.getElementById('dateTo').value = dateStr(latest);
+  }
+
+  applyFilter();
+}
+
+/* ============================================================
+   Filtering
+   ============================================================ */
+function applyFilter() {
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  let from = null;
+  let to = null;
+
+  switch (currentPreset) {
+    case 'today':
+      from = todayStart; to = now; break;
+    case '7d':
+      from = new Date(todayStart.getTime() - 6 * 86400000); to = now; break;
+    case '30d':
+      from = new Date(todayStart.getTime() - 29 * 86400000); to = now; break;
+    case 'lastMonth': {
+      const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const m = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+      from = new Date(y, m, 1);
+      to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'custom': {
+      const fv = document.getElementById('dateFrom').value;
+      const tv = document.getElementById('dateTo').value;
+      if (fv) from = startOfDay(new Date(fv));
+      if (tv) { to = new Date(tv); to.setHours(23,59,59,999); }
+      break;
+    }
+    default: break; // 'all'
+  }
+
+  filteredRecords = allRecords.filter(r => {
+    if (from && r.date < from) return false;
+    if (to && r.date > to) return false;
+    return true;
+  });
+
+  historyPage = 0;
+  historyKeyword = '';
+  document.getElementById('historySearch').value = '';
+  renderAll();
+}
+
+/* ============================================================
+   Stats
+   ============================================================ */
+function renderStats() {
+  document.getElementById('statTotal').textContent = filteredRecords.length.toLocaleString();
+  const domains = new Set(filteredRecords.map(r => r.domain));
+  document.getElementById('statDomains').textContent = domains.size.toLocaleString();
+  const days = new Set(filteredRecords.map(r => r.dateKey));
+  document.getElementById('statDays').textContent = days.size.toLocaleString();
+
+  const hourCounts = new Array(24).fill(0);
+  filteredRecords.forEach(r => hourCounts[r.hour]++);
+  const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+  document.getElementById('statPeak').textContent = filteredRecords.length
+    ? String(peakHour).padStart(2,'0') + ':00'
+    : '-';
+}
+
+/* ============================================================
+   History list
+   ============================================================ */
+function getFilteredHistory() {
+  if (!historyKeyword) return filteredRecords;
+  const kw = historyKeyword.toLowerCase();
+  return filteredRecords.filter(r =>
+    r.title.toLowerCase().includes(kw) || r.url.toLowerCase().includes(kw) || r.domain.toLowerCase().includes(kw)
+  );
+}
+
+function renderHistory() {
+  const list = getFilteredHistory();
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+  if (historyPage >= totalPages) historyPage = totalPages - 1;
+  const start = historyPage * PAGE_SIZE;
+  const page = list.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('recordCount').textContent =
+    '顯示 ' + (list.length ? start+1 : 0) + '-' + Math.min(start+PAGE_SIZE, list.length) + ' / 共 ' + list.length + ' 筆';
+
+  const container = document.getElementById('historyList');
+  if (page.length === 0) {
+    container.innerHTML = '<div class="no-data"><i class="fa-solid fa-box-open"></i>沒有符合條件的記錄</div>';
+    document.getElementById('historyPagination').innerHTML = '';
+    return;
+  }
+
+  // Group by date
+  const groups = {};
+  page.forEach(r => {
+    if (!groups[r.dateKey]) groups[r.dateKey] = [];
+    groups[r.dateKey].push(r);
+  });
+
+  let html = '';
+  for (const [dk, items] of Object.entries(groups)) {
+    const d = items[0].date;
+    const dayLabel = dk + ' (' + DAY_NAMES[d.getDay()] + ')';
+    html += '<div class="history-date-group">';
+    html += '<div class="history-date-label">' + dayLabel + '</div>';
+    items.forEach(r => {
+      const isAbsolute = r.url.startsWith('http://') || r.url.startsWith('https://');
+      html += '<div class="history-item">';
+      html += '<span class="hi-time">' + r.time + '</span>';
+      html += '<img class="hi-favicon" src="' + escapeHtml(r.favicon_url) + '" onerror="this.style.display=\'none\'" loading="lazy">';
+      html += '<div class="hi-info">';
+      html += '<div class="hi-title">' + escapeHtml(r.title) + '</div>';
+      html += '<div class="hi-domain">' + escapeHtml(r.domain) + '</div>';
+      html += '</div>';
+      if (isAbsolute) {
+        html += '<a class="hi-link" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  container.innerHTML = html;
+
+  // Pagination
+  const pag = document.getElementById('historyPagination');
+  if (totalPages <= 1) { pag.innerHTML = ''; return; }
+  let ph = '<button id="pgPrev" ' + (historyPage === 0 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+  ph += '<span class="page-info">' + (historyPage+1) + ' / ' + totalPages + '</span>';
+  ph += '<button id="pgNext" ' + (historyPage >= totalPages-1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+  pag.innerHTML = ph;
+  document.getElementById('pgPrev').addEventListener('click', () => { historyPage--; renderHistory(); });
+  document.getElementById('pgNext').addEventListener('click', () => { historyPage++; renderHistory(); });
+}
+
+/* ============================================================
+   Heatmap
+   ============================================================ */
+function renderHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  // Build 7×24 matrix (day 0=Sun → 6=Sat)
+  const matrix = Array.from({length: 7}, () => new Array(24).fill(0));
+  filteredRecords.forEach(r => matrix[r.day][r.hour]++);
+  const maxVal = Math.max(1, ...matrix.flat());
+
+  let html = '<div class="hm-label"></div>';
+  for (let h = 0; h < 24; h++) {
+    html += '<div class="hm-label hm-hour-label">' + String(h).padStart(2,'0') + '</div>';
+  }
+
+  const orderedDays = [1,2,3,4,5,6,0]; // Mon→Sun
+  orderedDays.forEach(d => {
+    html += '<div class="hm-label">' + DAY_NAMES[d] + '</div>';
+    for (let h = 0; h < 24; h++) {
+      const val = matrix[d][h];
+      const intensity = val / maxVal;
+      const bg = heatColor(intensity);
+      html += '<div class="hm-cell" style="background:' + bg + '">';
+      html += '<div class="hm-tooltip">' + DAY_NAMES[d] + ' ' + String(h).padStart(2,'0') + ':00 — ' + val + ' 次</div>';
+      html += '</div>';
+    }
+  });
+  grid.innerHTML = html;
+}
+
+function heatColor(t) {
+  if (t === 0) return 'var(--bg-surface)';
+  const isLight = document.documentElement.classList.contains('light');
+  if (isLight) {
+    const r = Math.round(190 - t * 180);
+    const g = Math.round(220 - t * 60);
+    const b = Math.round(255 - t * 50);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+  const r = Math.round(10 + t * 40);
+  const g = Math.round(30 + t * 180);
+  const b = Math.round(60 + t * 188);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+/* ============================================================
+   Top Domains Chart
+   ============================================================ */
+function renderDomains() {
+  const counts = {};
+  filteredRecords.forEach(r => { counts[r.domain] = (counts[r.domain] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 15);
+
+  if (sorted.length === 0) {
+    document.getElementById('domainChart').parentElement.innerHTML = '<div class="no-data"><i class="fa-solid fa-chart-bar"></i>沒有資料</div>';
+    return;
+  }
+
+  const ctx = document.getElementById('domainChart').getContext('2d');
+  if (domainChartInst) domainChartInst.destroy();
+
+  const isLight = document.documentElement.classList.contains('light');
+  domainChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{
+        data: sorted.map(s => s[1]),
+        backgroundColor: sorted.map((_,i) => {
+          const hue = (200 + i * 22) % 360;
+          return 'hsl(' + hue + ', 70%, ' + (isLight ? '50%' : '55%') + ')';
+        }),
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 32
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { titleFont: { family: "'Lexend'" }, bodyFont: { family: "'Red Hat Mono'" } }
+      },
+      scales: {
+        x: { grid: { color: 'var(--chart-grid)' }, ticks: { font: { family: "'Red Hat Mono'", size: 11 }, color: isLight ? '#475569' : '#94a3b8' } },
+        y: { grid: { display: false }, ticks: { font: { family: "'Lexend'", size: 11 }, color: isLight ? '#475569' : '#94a3b8' } }
+      }
+    }
+  });
+}
+
+/* ============================================================
+   Daily Trend Chart
+   ============================================================ */
+function renderTrend() {
+  const counts = {};
+  filteredRecords.forEach(r => { counts[r.dateKey] = (counts[r.dateKey] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
+
+  if (sorted.length === 0) {
+    document.getElementById('trendChart').parentElement.innerHTML = '<div class="no-data"><i class="fa-solid fa-chart-line"></i>沒有資料</div>';
+    return;
+  }
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendChartInst) trendChartInst.destroy();
+
+  const isLight = document.documentElement.classList.contains('light');
+  trendChartInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{
+        data: sorted.map(s => s[1]),
+        borderColor: isLight ? '#0284c7' : '#38bdf8',
+        backgroundColor: isLight ? 'rgba(2,132,199,0.1)' : 'rgba(56,189,248,0.1)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: sorted.length > 30 ? 0 : 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: isLight ? '#0284c7' : '#38bdf8',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { titleFont: { family: "'Lexend'" }, bodyFont: { family: "'Red Hat Mono'" } }
+      },
+      scales: {
+        x: { grid: { color: 'var(--chart-grid)' }, ticks: { font: { family: "'Red Hat Mono'", size: 10 }, color: isLight ? '#475569' : '#94a3b8', maxTicksLimit: 12 } },
+        y: { grid: { color: 'var(--chart-grid)' }, ticks: { font: { family: "'Red Hat Mono'", size: 11 }, color: isLight ? '#475569' : '#94a3b8', precision: 0 }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+/* ============================================================
+   Category Chart
+   ============================================================ */
+function renderCategory() {
+  const counts = {};
+  filteredRecords.forEach(r => { counts[r.category] = (counts[r.category] || 0) + 1; });
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+
+  if (sorted.length === 0) {
+    document.getElementById('categoryChart').parentElement.innerHTML = '<div class="no-data"><i class="fa-solid fa-chart-pie"></i>沒有資料</div>';
+    document.getElementById('catGrid').innerHTML = '';
+    return;
+  }
+
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  if (categoryChartInst) categoryChartInst.destroy();
+
+  const isLight = document.documentElement.classList.contains('light');
+  categoryChartInst = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(s => s[0]),
+      datasets: [{
+        data: sorted.map(s => s[1]),
+        backgroundColor: sorted.map(s => CAT_COLORS[s[0]] || '#64748b'),
+        borderColor: isLight ? '#ffffff' : '#162044',
+        borderWidth: 2,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      cutout: '55%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { titleFont: { family: "'Lexend'" }, bodyFont: { family: "'Red Hat Mono'" } }
+      }
+    }
+  });
+
+  const total = sorted.reduce((s, c) => s + c[1], 0);
+  let gridHtml = '';
+  sorted.forEach(([cat, count]) => {
+    const pct = ((count / total) * 100).toFixed(1);
+    gridHtml += '<div class="cat-item">';
+    gridHtml += '<div class="cat-dot" style="background:' + (CAT_COLORS[cat] || '#64748b') + '"></div>';
+    gridHtml += '<span class="cat-name">' + cat + '</span>';
+    gridHtml += '<span class="cat-count">' + count + ' <small style="color:var(--text-3);font-weight:400;">(' + pct + '%)</small></span>';
+    gridHtml += '</div>';
+  });
+  document.getElementById('catGrid').innerHTML = gridHtml;
+}
+
+/* ============================================================
+   Search Queries
+   ============================================================ */
+function renderSearchQueries() {
+  const queryCounts = {};
+  filteredRecords.forEach(r => {
+    const q = extractSearch(r.url);
+    if (q) {
+      const clean = q.replace(/\+/g, ' ').trim().toLowerCase();
+      if (clean) queryCounts[clean] = (queryCounts[clean] || 0) + 1;
+    }
+  });
+  const sorted = Object.entries(queryCounts).sort((a,b) => b[1] - a[1]);
+  const container = document.getElementById('queryList');
+
+  if (sorted.length === 0) {
+    container.innerHTML = '<div class="no-data" style="width:100%;"><i class="fa-solid fa-magnifying-glass"></i>未找到搜尋紀錄</div>';
+    return;
+  }
+
+  let html = '';
+  sorted.forEach(([q, c]) => {
+    html += '<div class="query-tag">' + escapeHtml(q);
+    if (c > 1) html += ' <span class="qt-count">×' + c + '</span>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+/* ============================================================
+   Render All
+   ============================================================ */
+function renderAll() {
+  renderStats();
+  renderHistory();
+  renderHeatmap();
+  renderDomains();
+  renderTrend();
+  renderCategory();
+  renderSearchQueries();
+}
+
+/* ============================================================
+   Export
+   ============================================================ */
+function deduplicateRecords(records) {
+  const seen = new Set();
+  return records.filter(r => {
+    const key = r.title + '|' + r.domain;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function exportJSON() {
+  const compact = document.getElementById('exportCompact').checked;
+  let records = filteredRecords;
+  if (compact) { records = deduplicateRecords(records); }
+  const data = { 'Browser History': records.map(r => {
+    const entry = { title: r.title, time_usec: r.date.getTime() * 1000, domain: r.domain };
+    if (!compact) { entry.url = r.url; entry.category = r.category; }
+    return entry;
+  })};
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, 'chrome_history_filtered.json');
+}
+
+function exportCSV() {
+  const compact = document.getElementById('exportCompact').checked;
+  let records = filteredRecords;
+  if (compact) { records = deduplicateRecords(records); }
+  const header = compact
+    ? '日期,時間,星期,標題,網域\n'
+    : '日期,時間,星期,標題,網址,網域,分類\n';
+  const rows = records.map(r => {
+    const cols = [r.dateKey, r.time, DAY_NAMES[r.day],
+      '"' + r.title.replace(/"/g, '""') + '"'];
+    if (!compact) { cols.push('"' + r.url.replace(/"/g, '""') + '"'); }
+    cols.push(r.domain);
+    if (!compact) { cols.push(r.category); }
+    return cols.join(',');
+  }).join('\n');
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + header + rows], { type: 'text/csv;charset=utf-8' });
+  downloadBlob(blob, 'chrome_history_filtered.csv');
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   Toast
+   ============================================================ */
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;background:var(--bg-elevated);border:1px solid var(--border-active);color:var(--text-1);font-size:0.85rem;z-index:999;box-shadow:var(--shadow);animation:fadeUp 0.3s ease-out;';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 2500);
+}
+
+/* ============================================================
+   Event listeners
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  // File upload
+  const zone = document.getElementById('uploadZone');
+  const input = document.getElementById('fileInput');
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', () => { if (input.files.length) handleFile(input.files[0]); });
+
+  // Presets
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPreset = btn.dataset.preset;
+      document.getElementById('customRange').classList.toggle('show', currentPreset === 'custom');
+      if (currentPreset !== 'custom') applyFilter();
+    });
+  });
+
+  document.getElementById('applyCustom').addEventListener('click', () => applyFilter());
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById('pane-' + currentTab).classList.add('active');
+    });
+  });
+
+  // History search
+  let searchTimer;
+  document.getElementById('historySearch').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      historyKeyword = e.target.value.trim();
+      historyPage = 0;
+      renderHistory();
+    }, 250);
+  });
+
+  // Export
+  document.getElementById('exportJSON').addEventListener('click', exportJSON);
+  document.getElementById('exportCSV').addEventListener('click', exportCSV);
+
+  // Load sample
+  loadSample();
+});
+</script>
+</body>
+</html>
+
+

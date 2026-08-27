@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文檔段落編輯器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        ink: {
+                            50: '#f7f6f3',
+                            100: '#e8e6df',
+                            200: '#d4d0c4',
+                            300: '#b8b2a1',
+                            400: '#9a9282',
+                            500: '#7d7567',
+                            600: '#635c51',
+                            700: '#4a4540',
+                            800: '#2d2a26',
+                            900: '#1a1816',
+                        },
+                        paper: {
+                            light: '#fffcf5',
+                            dark: '#1e1c1a',
+                        },
+                        accent: {
+                            DEFAULT: '#c9a227',
+                            hover: '#b8922a',
+                            dark: '#e4b82d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #9a9282 transparent;
+        }
+        *::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        *::-webkit-scrollbar-thumb {
+            background-color: #9a9282;
+            border-radius: 3px;
+        }
+        .dark *::-webkit-scrollbar-thumb {
+            background-color: #635c51;
+        }
+
+        /* Markdown Content Styles */
+        .markdown-body {
+            line-height: 1.8;
+        }
+        .markdown-body h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 1.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #c9a227;
+        }
+        .markdown-body h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 1.25rem 0 0.75rem;
+            color: #c9a227;
+        }
+        .markdown-body h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 1rem 0 0.5rem;
+        }
+        .markdown-body p {
+            margin: 0.75rem 0;
+        }
+        .markdown-body ul, .markdown-body ol {
+            margin: 0.75rem 0;
+            padding-left: 1.5rem;
+        }
+        .markdown-body li {
+            margin: 0.25rem 0;
+        }
+        .markdown-body strong {
+            font-weight: 700;
+            color: #4a4540;
+        }
+        .dark .markdown-body strong {
+            color: #e8e6df;
+        }
+        .markdown-body em {
+            font-style: italic;
+        }
+        .markdown-body blockquote {
+            border-left: 4px solid #c9a227;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #635c51;
+            background: rgba(201, 162, 39, 0.08);
+            padding: 0.75rem 1rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        .dark .markdown-body blockquote {
+            color: #b8b2a1;
+            background: rgba(201, 162, 39, 0.12);
+        }
+        .markdown-body code {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(0,0,0,0.06);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+        }
+        .dark .markdown-body code {
+            background: rgba(255,255,255,0.1);
+        }
+        .markdown-body pre {
+            background: #2d2a26;
+            color: #e8e6df;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        .markdown-body pre code {
+            background: transparent;
+            padding: 0;
+        }
+        .markdown-body hr {
+            border: none;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #c9a227, transparent);
+            margin: 1.5rem 0;
+        }
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.95rem;
+        }
+        .markdown-body th, .markdown-body td {
+            border: 1px solid #d4d0c4;
+            padding: 0.5rem 0.75rem;
+            text-align: left;
+        }
+        .dark .markdown-body th, .dark .markdown-body td {
+            border-color: #4a4540;
+        }
+        .markdown-body th {
+            background: rgba(201, 162, 39, 0.15);
+            font-weight: 600;
+        }
+        .markdown-body a {
+            color: #c9a227;
+            text-decoration: underline;
+        }
+        .markdown-body a:hover {
+            color: #b8922a;
+        }
+
+        /* Table wrapper with copy button */
+        .table-wrapper {
+            position: relative;
+            margin: 1rem 0;
+        }
+        .table-wrapper table {
+            margin: 0;
+        }
+        .copy-csv-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #635c51;
+            background: #e8e6df;
+            border: 1px solid #d4d0c4;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .copy-csv-btn:hover {
+            background: #d4d0c4;
+            color: #4a4540;
+        }
+        .copy-csv-btn.copied {
+            background: #c9a227;
+            color: #1a1816;
+            border-color: #c9a227;
+        }
+        .dark .copy-csv-btn {
+            color: #b8b2a1;
+            background: #4a4540;
+            border-color: #635c51;
+        }
+        .dark .copy-csv-btn:hover {
+            background: #635c51;
+            color: #e8e6df;
+        }
+        .dark .copy-csv-btn.copied {
+            background: #e4b82d;
+            color: #1a1816;
+            border-color: #e4b82d;
+        }
+        .copy-csv-btn svg {
+            width: 0.875rem;
+            height: 0.875rem;
+        }
+
+        /* Tab Animation */
+        .tab-btn {
+            transition: all 0.2s ease;
+        }
+        .tab-btn.active {
+            transform: translateY(-2px);
+        }
+
+        /* Sidebar styles */
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .sidebar-item {
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .sidebar-item:hover {
+            border-left-color: #c9a227;
+            background: rgba(201, 162, 39, 0.08);
+        }
+        .dark .sidebar-item:hover {
+            background: rgba(201, 162, 39, 0.12);
+        }
+        .sidebar-item.active {
+            border-left-color: #c9a227;
+            background: rgba(201, 162, 39, 0.15);
+        }
+        .dark .sidebar-item.active {
+            background: rgba(201, 162, 39, 0.2);
+        }
+
+        /* Three column layout */
+        .three-col-layout {
+            display: grid;
+            grid-template-columns: minmax(140px, 200px) minmax(160px, 240px) 1fr;
+            height: 100%;
+            transition: grid-template-columns 0.3s ease;
+        }
+        .three-col-layout.full-width {
+            grid-template-columns: 0 0 1fr;
+        }
+        .three-col-layout.full-width .sidebar {
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .three-col-layout {
+                grid-template-columns: 1fr;
+            }
+            .three-col-layout .sidebar {
+                display: none;
+            }
+            .three-col-layout.show-nav::before {
+                content: '';
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 40;
+            }
+            .three-col-layout.show-nav .sidebar-sections {
+                display: flex;
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 180px;
+                z-index: 50;
+                box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            }
+            .three-col-layout.show-nav .sidebar-subsections {
+                display: flex;
+                position: fixed;
+                left: 180px;
+                top: 0;
+                bottom: 0;
+                width: 180px;
+                z-index: 50;
+                box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            }
+        }
+
+        /* Line clamp for truncating text */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Fade animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        /* Upload area */
+        .upload-area {
+            border: 2px dashed #c9a227;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #e4b82d;
+            background: rgba(201, 162, 39, 0.08);
+        }
+        .dark .upload-area:hover, .dark .upload-area.dragover {
+            background: rgba(201, 162, 39, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-paper-light dark:bg-paper-dark text-ink-800 dark:text-ink-100 font-sans min-h-screen transition-colors duration-300">
+    <div id="app" class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-ink-800 dark:bg-ink-900 text-ink-50 px-4 py-3 shadow-lg flex-shrink-0">
+            <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <svg class="w-7 h-7 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h1 class="text-lg font-bold tracking-wide">文檔段落編輯器</h1>
+                </div>
+                <div id="fileInfo" class="hidden items-center gap-2 text-sm text-ink-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                    </svg>
+                    <span id="fileName" class="max-w-[150px] truncate"></span>
+                    <span id="modifiedBadge" class="hidden px-2 py-0.5 bg-accent/20 text-accent-dark rounded text-xs">已修改</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="importBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                        </svg>
+                        <span class="hidden sm:inline">上載</span>
+                    </button>
+                    <button id="pasteBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-ink-600 hover:bg-ink-500 text-ink-50 rounded-lg text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        </svg>
+                        <span class="hidden sm:inline">貼上</span>
+                    </button>
+                    <button id="exportBtn" class="hidden items-center gap-1.5 px-3 py-1.5 bg-ink-600 hover:bg-ink-500 text-ink-50 rounded-lg text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        <span class="hidden sm:inline">匯出</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden">
+            <!-- Upload Area (shown when no file) -->
+            <div id="uploadArea" class="flex-1 flex items-center justify-center p-6">
+                <div class="upload-area rounded-2xl p-8 sm:p-12 text-center max-w-md w-full cursor-pointer" onclick="document.getElementById('fileInput').click()">
+                    <svg class="w-16 h-16 mx-auto mb-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h2 class="text-xl font-bold mb-2 text-ink-700 dark:text-ink-200">上載文檔</h2>
+                    <p class="text-ink-500 dark:text-ink-400 mb-4">拖放 .txt 或 .md 檔案到此處<br>或點擊選擇檔案</p>
+                    <p class="text-xs text-ink-400 dark:text-ink-500">支援二級 <code class="bg-ink-200 dark:bg-ink-700 px-1.5 py-0.5 rounded">## 標題</code> 和三級 <code class="bg-ink-200 dark:bg-ink-700 px-1.5 py-0.5 rounded">### 子標題</code> 分段</p>
+                </div>
+                <input type="file" id="fileInput" accept=".txt,.md" class="hidden">
+            </div>
+
+            <!-- Editor Area (shown when file loaded) -->
+            <div id="editorArea" class="hidden flex-1 overflow-hidden">
+                <div id="threeColLayout" class="three-col-layout">
+                    <!-- Left Sidebar: Sections (二級) -->
+                    <div class="sidebar sidebar-sections flex flex-col bg-ink-100 dark:bg-ink-800 border-r border-ink-200 dark:border-ink-700 overflow-hidden">
+                        <div class="p-3 border-b border-ink-200 dark:border-ink-700 flex-shrink-0">
+                            <span class="text-xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">段落</span>
+                        </div>
+                        <div id="sectionsContainer" class="flex-1 overflow-y-auto p-2 space-y-1">
+                            <!-- Sections will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Middle Sidebar: Subsections (三級) -->
+                    <div class="sidebar sidebar-subsections flex flex-col bg-ink-50 dark:bg-ink-900 border-r border-ink-200 dark:border-ink-700 overflow-hidden">
+                        <div class="p-3 border-b border-ink-200 dark:border-ink-700 flex-shrink-0 flex items-center justify-between">
+                            <span class="text-xs font-bold text-ink-500 dark:text-ink-400 uppercase tracking-wider">子段落</span>
+                            <span id="subsectionCount" class="text-xs text-ink-400 dark:text-ink-500"></span>
+                        </div>
+                        <div id="subsectionsContainer" class="flex-1 overflow-y-auto p-2 space-y-1">
+                            <!-- Subsections will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Right: Content Area -->
+                    <div id="contentArea" class="flex flex-col overflow-hidden bg-paper-light dark:bg-paper-dark">
+                        <!-- Content Header -->
+                        <div class="flex items-center justify-between gap-3 p-3 border-b border-ink-200 dark:border-ink-700 flex-shrink-0">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <!-- Mobile nav toggle -->
+                                <button id="mobileNavBtn" class="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                                    </svg>
+                                </button>
+                                <div class="min-w-0">
+                                    <h2 id="sectionTitle" class="text-lg font-bold text-accent truncate"></h2>
+                                    <p id="subsectionTitle" class="text-sm text-ink-600 dark:text-ink-300 truncate hidden"></p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <!-- Toggle full width -->
+                                <button id="toggleWidthBtn" class="hidden md:flex items-center justify-center w-8 h-8 rounded-lg bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 transition-colors" title="切換全闊">
+                                    <svg id="expandIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                                    </svg>
+                                    <svg id="collapseIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/>
+                                    </svg>
+                                </button>
+                                <button id="editSectionBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors" title="編輯整個段落 (二級)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">整段</span>
+                                </button>
+                                <button id="editBtn" class="flex items-center gap-1.5 px-3 py-1.5 bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 rounded-lg text-sm font-medium transition-colors" title="編輯�����段落 (三級)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">編輯</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Content Body -->
+                        <div id="contentBody" class="flex-1 overflow-y-auto p-4 sm:p-6">
+                            <!-- View Mode -->
+                            <div id="viewMode" class="markdown-body fade-in max-w-4xl">
+                                <!-- Rendered markdown content -->
+                            </div>
+
+                            <!-- Edit Mode -->
+                            <div id="editMode" class="hidden fade-in">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <span id="editModeLabel" class="text-sm text-ink-500 dark:text-ink-400 mr-2"></span>
+                                    <button id="saveBtn" class="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                        儲存
+                                    </button>
+                                    <button id="cancelBtn" class="flex items-center gap-1.5 px-4 py-2 bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 rounded-lg text-sm font-medium transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                        取消
+                                    </button>
+                                </div>
+                                <textarea id="editor" class="w-full h-[calc(100vh-220px)] p-4 bg-ink-50 dark:bg-ink-900 border border-ink-300 dark:border-ink-600 rounded-xl font-mono text-base leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent" spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer id="footer" class="hidden bg-ink-100 dark:bg-ink-800 border-t border-ink-200 dark:border-ink-700 px-4 py-2 text-xs text-ink-500 dark:text-ink-400 flex-shrink-0">
+            <div class="max-w-6xl mx-auto flex items-center justify-between">
+                <span id="sectionCount">0 個段落</span>
+                <span id="charCount">0 字</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-paper-light dark:bg-ink-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+            <h3 id="confirmTitle" class="text-lg font-bold mb-2"></h3>
+            <p id="confirmMessage" class="text-ink-600 dark:text-ink-300 mb-6"></p>
+            <div class="flex justify-end gap-3">
+                <button id="confirmCancel" class="px-4 py-2 bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 rounded-lg text-sm font-medium transition-colors">取消</button>
+                <button id="confirmOk" class="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Configure marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        // App State
+        const state = {
+            sections: [],           // Array of { title, content, subsections: [] }
+            currentIndex: 0,        // Current section (## level)
+            currentSubIndex: 0,     // Current subsection (### level), -1 means viewing whole section
+            fileName: '',
+            originalContent: '',
+            isModified: false,
+            isEditing: false,
+            editingLevel: 2         // 2 = editing whole section, 3 = editing subsection
+        };
+
+        // DOM Elements
+        const elements = {
+            uploadArea: document.getElementById('uploadArea'),
+            editorArea: document.getElementById('editorArea'),
+            fileInput: document.getElementById('fileInput'),
+            importBtn: document.getElementById('importBtn'),
+            pasteBtn: document.getElementById('pasteBtn'),
+            exportBtn: document.getElementById('exportBtn'),
+            fileInfo: document.getElementById('fileInfo'),
+            fileName: document.getElementById('fileName'),
+            modifiedBadge: document.getElementById('modifiedBadge'),
+            threeColLayout: document.getElementById('threeColLayout'),
+            sectionsContainer: document.getElementById('sectionsContainer'),
+            subsectionsContainer: document.getElementById('subsectionsContainer'),
+            subsectionCount: document.getElementById('subsectionCount'),
+            contentArea: document.getElementById('contentArea'),
+            contentBody: document.getElementById('contentBody'),
+            sectionTitle: document.getElementById('sectionTitle'),
+            subsectionTitle: document.getElementById('subsectionTitle'),
+            viewMode: document.getElementById('viewMode'),
+            editMode: document.getElementById('editMode'),
+            editBtn: document.getElementById('editBtn'),
+            editSectionBtn: document.getElementById('editSectionBtn'),
+            editModeLabel: document.getElementById('editModeLabel'),
+            saveBtn: document.getElementById('saveBtn'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            editor: document.getElementById('editor'),
+            toggleWidthBtn: document.getElementById('toggleWidthBtn'),
+            expandIcon: document.getElementById('expandIcon'),
+            collapseIcon: document.getElementById('collapseIcon'),
+            mobileNavBtn: document.getElementById('mobileNavBtn'),
+            footer: document.getElementById('footer'),
+            sectionCount: document.getElementById('sectionCount'),
+            charCount: document.getElementById('charCount'),
+            confirmModal: document.getElementById('confirmModal'),
+            confirmTitle: document.getElementById('confirmTitle'),
+            confirmMessage: document.getElementById('confirmMessage'),
+            confirmOk: document.getElementById('confirmOk'),
+            confirmCancel: document.getElementById('confirmCancel')
+        };
+
+        // Utility: Show confirm modal
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                elements.confirmTitle.textContent = title;
+                elements.confirmMessage.textContent = message;
+                elements.confirmModal.classList.remove('hidden');
+
+                const handleOk = () => {
+                    elements.confirmModal.classList.add('hidden');
+                    cleanup();
+                    resolve(true);
+                };
+
+                const handleCancel = () => {
+                    elements.confirmModal.classList.add('hidden');
+                    cleanup();
+                    resolve(false);
+                };
+
+                const cleanup = () => {
+                    elements.confirmOk.removeEventListener('click', handleOk);
+                    elements.confirmCancel.removeEventListener('click', handleCancel);
+                };
+
+                elements.confirmOk.addEventListener('click', handleOk);
+                elements.confirmCancel.addEventListener('click', handleCancel);
+            });
+        }
+
+        // Parse subsections (### level) from section content
+        function parseSubsections(sectionContent) {
+            const subsections = [];
+            const lines = sectionContent.split('\n');
+            let currentSub = { title: '', content: '', startLine: 0 };
+            let inSubsection = false;
+            let lineIndex = 0;
+
+            for (const line of lines) {
+                if (line.startsWith('### ')) {
+                    // Save previous subsection if exists
+                    if (inSubsection && currentSub.content.trim()) {
+                        subsections.push({
+                            title: currentSub.title,
+                            content: currentSub.content.trim()
+                        });
+                    }
+                    // Start new subsection
+                    currentSub = {
+                        title: line.substring(4).trim(),
+                        content: line + '\n',
+                        startLine: lineIndex
+                    };
+                    inSubsection = true;
+                } else if (inSubsection) {
+                    currentSub.content += line + '\n';
+                }
+                lineIndex++;
+            }
+
+            // Add last subsection
+            if (inSubsection && currentSub.content.trim()) {
+                subsections.push({
+                    title: currentSub.title,
+                    content: currentSub.content.trim()
+                });
+            }
+
+            return subsections;
+        }
+
+        // Parse content into sections by ## headers
+        function parseContent(content) {
+            const sections = [];
+            const lines = content.split('\n');
+            let currentSection = { title: '前言', content: '' };
+            let hasIntro = false;
+
+            for (const line of lines) {
+                if (line.startsWith('## ') && !line.startsWith('### ')) {
+                    // Save previous section if it has content
+                    if (currentSection.content.trim() || hasIntro) {
+                        const subsections = parseSubsections(currentSection.content);
+                        sections.push({
+                            title: currentSection.title,
+                            content: currentSection.content.trim(),
+                            subsections: subsections
+                        });
+                    }
+                    // Start new section
+                    currentSection = {
+                        title: line.substring(3).trim(),
+                        content: line + '\n'
+                    };
+                } else {
+                    if (sections.length === 0 && currentSection.title === '前言' && line.trim()) {
+                        hasIntro = true;
+                    }
+                    currentSection.content += line + '\n';
+                }
+            }
+
+            // Add last section
+            if (currentSection.content.trim()) {
+                const subsections = parseSubsections(currentSection.content);
+                sections.push({
+                    title: currentSection.title,
+                    content: currentSection.content.trim(),
+                    subsections: subsections
+                });
+            }
+
+            // If only intro exists and it's empty, return empty array
+            if (sections.length === 1 && sections[0].title === '前言' && !sections[0].content.trim()) {
+                return [];
+            }
+
+            return sections;
+        }
+
+        // Render sections sidebar (left column)
+        function renderSections() {
+            elements.sectionsContainer.innerHTML = '';
+
+            state.sections.forEach((section, index) => {
+                const btn = document.createElement('button');
+                const isActive = index === state.currentIndex;
+                const hasSubsections = section.subsections && section.subsections.length > 0;
+
+                btn.className = `sidebar-item w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
+                    isActive
+                        ? 'active font-medium text-ink-800 dark:text-ink-100'
+                        : 'text-ink-600 dark:text-ink-300 hover:text-ink-800 dark:hover:text-ink-100'
+                }`;
+
+                // Build button content
+                let html = `<div class="flex items-center justify-between gap-2">
+                    <span class="truncate">${section.title}</span>`;
+
+                // Add subsection count badge
+                if (hasSubsections) {
+                    const badgeClass = isActive
+                        ? 'bg-accent/30 text-accent-dark'
+                        : 'bg-ink-300/50 dark:bg-ink-600/50 text-ink-500 dark:text-ink-400';
+                    html += `<span class="text-xs ${badgeClass} px-1.5 py-0.5 rounded-full flex-shrink-0">${section.subsections.length}</span>`;
+                }
+
+                html += '</div>';
+                btn.innerHTML = html;
+                btn.title = section.title;
+
+                btn.addEventListener('click', () => switchToSection(index));
+                elements.sectionsContainer.appendChild(btn);
+            });
+        }
+
+        // Render subsections sidebar (middle column)
+        function renderSubsections() {
+            const section = state.sections[state.currentIndex];
+            const subsections = section.subsections || [];
+
+            elements.subsectionsContainer.innerHTML = '';
+
+            if (subsections.length === 0) {
+                elements.subsectionCount.textContent = '';
+                elements.editBtn.classList.add('hidden');
+                // Show "no subsections" message
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'text-xs text-ink-400 dark:text-ink-500 text-center py-4';
+                emptyMsg.textContent = '此段落沒有子段落';
+                elements.subsectionsContainer.appendChild(emptyMsg);
+                return;
+            }
+
+            elements.editBtn.classList.remove('hidden');
+            elements.subsectionCount.textContent = `${subsections.length}`;
+
+            // Add "View All" option
+            const viewAllItem = document.createElement('button');
+            viewAllItem.className = `sidebar-item w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-2 ${
+                state.currentSubIndex === -1
+                    ? 'active font-medium text-ink-800 dark:text-ink-100'
+                    : 'text-ink-600 dark:text-ink-300 hover:text-ink-800 dark:hover:text-ink-100'
+            }`;
+            viewAllItem.innerHTML = `
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <span>���部���容</span>
+            `;
+            viewAllItem.addEventListener('click', () => switchToSubsection(-1));
+            elements.subsectionsContainer.appendChild(viewAllItem);
+
+            // Add divider
+            const divider = document.createElement('div');
+            divider.className = 'border-t border-ink-200 dark:border-ink-600 my-2';
+            elements.subsectionsContainer.appendChild(divider);
+
+            subsections.forEach((sub, index) => {
+                const item = document.createElement('button');
+                item.className = `sidebar-item w-full text-left px-3 py-2.5 rounded-lg text-sm ${
+                    index === state.currentSubIndex
+                        ? 'active font-medium text-ink-800 dark:text-ink-100'
+                        : 'text-ink-600 dark:text-ink-300 hover:text-ink-800 dark:hover:text-ink-100'
+                }`;
+
+                item.innerHTML = `<span class="line-clamp-2">${sub.title}</span>`;
+                item.title = sub.title;
+
+                item.addEventListener('click', () => switchToSubsection(index));
+                elements.subsectionsContainer.appendChild(item);
+            });
+        }
+
+        // Convert table element to CSV string
+        function tableToCSV(table) {
+            const rows = table.querySelectorAll('tr');
+            const csvRows = [];
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('th, td');
+                const csvCells = [];
+
+                cells.forEach(cell => {
+                    let text = cell.textContent.trim();
+                    // Always wrap cell content in double quotes to handle commas, newlines, quotes, etc.
+                    // First escape any existing double quotes by doubling them
+                    text = '"' + text.replace(/"/g, '""') + '"';
+                    csvCells.push(text);
+                });
+
+                csvRows.push(csvCells.join(','));
+            });
+
+            return csvRows.join('\n');
+        }
+
+        // Add copy CSV buttons to all tables in container
+        function addCopyCSVButtons(container) {
+            const tables = container.querySelectorAll('table');
+
+            tables.forEach((table, index) => {
+                // Create wrapper
+                const wrapper = document.createElement('div');
+                wrapper.className = 'table-wrapper';
+
+                // Create button
+                const btn = document.createElement('button');
+                btn.className = 'copy-csv-btn';
+                btn.innerHTML = `
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    <span>複製成CSV</span>
+                `;
+
+                btn.addEventListener('click', async () => {
+                    try {
+                        const csv = tableToCSV(table);
+                        await navigator.clipboard.writeText(csv);
+
+                        // Show success feedback
+                        btn.classList.add('copied');
+                        const originalHTML = btn.innerHTML;
+                        btn.innerHTML = `
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            <span>已複製</span>
+                        `;
+
+                        setTimeout(() => {
+                            btn.classList.remove('copied');
+                            btn.innerHTML = originalHTML;
+                        }, 2000);
+                    } catch (err) {
+                        console.error('Failed to copy CSV:', err);
+                    }
+                });
+
+                // Wrap the table
+                table.parentNode.insertBefore(wrapper, table);
+                wrapper.appendChild(btn);
+                wrapper.appendChild(table);
+            });
+        }
+
+        // Render current section content
+        function renderContent() {
+            if (state.sections.length === 0) return;
+
+            const section = state.sections[state.currentIndex];
+            const subsections = section.subsections || [];
+            const hasSubsections = subsections.length > 0;
+
+            elements.sectionTitle.textContent = section.title;
+
+            // Render subsection navigation
+            renderSubsections();
+
+            let contentToRender = '';
+
+            if (hasSubsections && state.currentSubIndex >= 0 && state.currentSubIndex < subsections.length) {
+                // Show specific subsection
+                const sub = subsections[state.currentSubIndex];
+                elements.subsectionTitle.textContent = sub.title;
+                elements.subsectionTitle.classList.remove('hidden');
+
+                // Render subsection content (skip the title line)
+                contentToRender = sub.content;
+                if (contentToRender.startsWith('### ')) {
+                    const firstNewline = contentToRender.indexOf('\n');
+                    if (firstNewline !== -1) {
+                        contentToRender = contentToRender.substring(firstNewline + 1).trim();
+                    } else {
+                        contentToRender = '';
+                    }
+                }
+            } else {
+                // Show whole section
+                elements.subsectionTitle.classList.add('hidden');
+
+                // Render markdown (skip the ## title line)
+                contentToRender = section.content;
+                if (contentToRender.startsWith('## ')) {
+                    const firstNewline = contentToRender.indexOf('\n');
+                    if (firstNewline !== -1) {
+                        contentToRender = contentToRender.substring(firstNewline + 1).trim();
+                    } else {
+                        contentToRender = '';
+                    }
+                }
+            }
+
+            elements.viewMode.innerHTML = marked.parse(contentToRender);
+
+            // Add copy CSV buttons to tables
+            addCopyCSVButtons(elements.viewMode);
+
+            // Update char count
+            const totalChars = state.sections.reduce((sum, s) => sum + s.content.length, 0);
+            elements.charCount.textContent = `${totalChars.toLocaleString()} 字`;
+        }
+
+        // Switch to subsection (-1 means view all)
+        async function switchToSubsection(index) {
+            if (index === state.currentSubIndex) return;
+
+            // If editing, ask to save
+            if (state.isEditing) {
+                const confirmed = await showConfirm('未儲存的更改', '您有未儲存的更改，是否放棄？');
+                if (!confirmed) return;
+                exitEditMode(false);
+            }
+
+            state.currentSubIndex = index;
+            renderSubsections();
+            renderContent();
+
+            // Scroll content area to top
+            elements.contentBody.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Close mobile nav
+            elements.threeColLayout.classList.remove('show-nav');
+        }
+
+        // Switch to section
+        async function switchToSection(index) {
+            if (index === state.currentIndex) return;
+
+            // If editing, ask to save
+            if (state.isEditing) {
+                const confirmed = await showConfirm('未儲存的更改', '您有未儲存的更改，是否放棄？');
+                if (!confirmed) return;
+                exitEditMode(false);
+            }
+
+            state.currentIndex = index;
+            // Reset subsection index to first if exists, or 0
+            const section = state.sections[index];
+            state.currentSubIndex = (section.subsections && section.subsections.length > 0) ? 0 : -1;
+
+            renderSections();
+            renderSubsections();
+            renderContent();
+
+            // Scroll content area to top
+            elements.contentBody.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // Close mobile nav
+            elements.threeColLayout.classList.remove('show-nav');
+        }
+
+        // Enter edit mode - level 3 (subsection)
+        function enterEditMode() {
+            const section = state.sections[state.currentIndex];
+            const subsections = section.subsections || [];
+
+            if (subsections.length === 0 || state.currentSubIndex < 0) {
+                // No subsections or viewing all, edit whole section instead
+                enterSectionEditMode();
+                return;
+            }
+
+            state.isEditing = true;
+            state.editingLevel = 3;
+            elements.editBtn.classList.add('hidden');
+            elements.editSectionBtn.classList.add('hidden');
+            elements.viewMode.classList.add('hidden');
+            elements.editMode.classList.remove('hidden');
+
+            // Load subsection content
+            const sub = subsections[state.currentSubIndex];
+            elements.editor.value = sub.content;
+            elements.editModeLabel.textContent = `編輯子段落：${sub.title}`;
+            elements.editor.focus();
+        }
+
+        // Enter edit mode - level 2 (whole section)
+        function enterSectionEditMode() {
+            state.isEditing = true;
+            state.editingLevel = 2;
+            elements.editBtn.classList.add('hidden');
+            elements.editSectionBtn.classList.add('hidden');
+            elements.viewMode.classList.add('hidden');
+            elements.editMode.classList.remove('hidden');
+
+            // Load whole section content
+            const section = state.sections[state.currentIndex];
+            elements.editor.value = section.content;
+            elements.editModeLabel.textContent = `編輯整段：${section.title}`;
+            elements.editor.focus();
+        }
+
+        // Exit edit mode
+        function exitEditMode(save) {
+            if (save) {
+                const newContent = elements.editor.value;
+
+                if (state.editingLevel === 3) {
+                    // Editing subsection (level 3)
+                    const section = state.sections[state.currentIndex];
+                    const subsections = section.subsections || [];
+                    const sub = subsections[state.currentSubIndex];
+                    const oldContent = sub.content;
+
+                    if (newContent !== oldContent) {
+                        // Update subsection content
+                        sub.content = newContent;
+
+                        // Update subsection title if changed
+                        const titleMatch = newContent.match(/^### (.+)/m);
+                        if (titleMatch) {
+                            sub.title = titleMatch[1].trim();
+                        }
+
+                        // Rebuild section content from subsections
+                        rebuildSectionContent(state.currentIndex);
+
+                        state.isModified = true;
+                        elements.modifiedBadge.classList.remove('hidden');
+                    }
+                } else {
+                    // Editing whole section (level 2)
+                    const oldContent = state.sections[state.currentIndex].content;
+
+                    if (newContent !== oldContent) {
+                        state.sections[state.currentIndex].content = newContent;
+
+                        // Update section title if changed
+                        const titleMatch = newContent.match(/^## (.+)/m);
+                        if (titleMatch) {
+                            state.sections[state.currentIndex].title = titleMatch[1].trim();
+                        }
+
+                        // Re-parse subsections
+                        state.sections[state.currentIndex].subsections = parseSubsections(newContent);
+
+                        // Reset subsection index
+                        const subsections = state.sections[state.currentIndex].subsections;
+                        state.currentSubIndex = subsections.length > 0 ? 0 : -1;
+
+                        state.isModified = true;
+                        elements.modifiedBadge.classList.remove('hidden');
+                        renderSections();
+                        renderSubsections();
+                    }
+                }
+            }
+
+            state.isEditing = false;
+            elements.editSectionBtn.classList.remove('hidden');
+            elements.viewMode.classList.remove('hidden');
+            elements.editMode.classList.add('hidden');
+            elements.editModeLabel.textContent = '';
+            renderContent();
+        }
+
+        // Rebuild section content from subsections
+        function rebuildSectionContent(sectionIndex) {
+            const section = state.sections[sectionIndex];
+            const subsections = section.subsections || [];
+
+            // Get the content before first subsection
+            let newContent = '';
+            const lines = section.content.split('\n');
+            let foundFirstSub = false;
+
+            for (const line of lines) {
+                if (line.startsWith('### ')) {
+                    foundFirstSub = true;
+                    break;
+                }
+                newContent += line + '\n';
+            }
+
+            // Append all subsections
+            for (const sub of subsections) {
+                newContent += '\n' + sub.content + '\n';
+            }
+
+            section.content = newContent.trim();
+        }
+
+        // Load file
+        function loadFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                state.originalContent = content;
+                state.fileName = file.name;
+                state.sections = parseContent(content);
+                state.currentIndex = 0;
+                state.isModified = false;
+                state.isEditing = false;
+                state.editingLevel = 2;
+
+                if (state.sections.length === 0) {
+                    // If no sections found, create one with all content
+                    state.sections = [{
+                        title: '內容',
+                        content: content,
+                        subsections: parseSubsections(content)
+                    }];
+                }
+
+                // Set initial subsection index
+                const firstSection = state.sections[0];
+                state.currentSubIndex = (firstSection.subsections && firstSection.subsections.length > 0) ? 0 : -1;
+
+                // Update UI
+                elements.uploadArea.classList.add('hidden');
+                elements.editorArea.classList.remove('hidden');
+                elements.exportBtn.classList.remove('hidden');
+                elements.exportBtn.classList.add('flex');
+                elements.fileInfo.classList.remove('hidden');
+                elements.fileInfo.classList.add('flex');
+                elements.footer.classList.remove('hidden');
+                elements.fileName.textContent = file.name;
+                elements.modifiedBadge.classList.add('hidden');
+                elements.sectionCount.textContent = `${state.sections.length} 個段落`;
+
+                renderSections();
+                renderSubsections();
+                renderContent();
+            };
+            reader.readAsText(file);
+        }
+
+        // Export file
+        function exportFile() {
+            const content = state.sections.map(s => s.content).join('\n\n');
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            const baseName = state.fileName.replace(/\.[^/.]+$/, '');
+            a.download = `${baseName}_edited.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Event Listeners
+        elements.fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadFile(e.target.files[0]);
+            }
+        });
+
+        elements.importBtn.addEventListener('click', async () => {
+            if (state.sections.length > 0 && state.isModified) {
+                const confirmed = await showConfirm('載入新檔案', '您有未儲存的更改，載入新檔案將會覆蓋目前內容，是否繼續？');
+                if (!confirmed) return;
+            }
+            elements.fileInput.click();
+        });
+
+        // Paste from clipboard
+        elements.pasteBtn.addEventListener('click', async () => {
+            if (state.sections.length > 0 && state.isModified) {
+                const confirmed = await showConfirm('貼上新內容', '您有未儲存的更改，貼上新內容將會覆蓋目前內容，是否繼續？');
+                if (!confirmed) return;
+            }
+
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text || text.trim() === '') {
+                    showPasteError('剪貼簿為空或沒有文字內容。');
+                    return;
+                }
+                loadFromText(text, '貼上文檔.md');
+            } catch (err) {
+                // Clipboard read is not supported in iframe, show a modal with textarea
+                showPasteModal();
+            }
+        });
+
+        // Show paste error message
+        function showPasteError(message) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-paper-light dark:bg-ink-800 rounded-2xl shadow-2xl max-w-sm w-full p-6 fade-in">
+                    <h3 class="text-lg font-bold mb-2 text-ink-800 dark:text-ink-100">無法貼上</h3>
+                    <p class="text-ink-600 dark:text-ink-300 mb-6">${message}</p>
+                    <div class="flex justify-end">
+                        <button class="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors" onclick="this.closest('.fixed').remove()">確定</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Show paste modal with textarea for manual paste
+        function showPasteModal() {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.id = 'pasteModal';
+            modal.innerHTML = `
+                <div class="bg-paper-light dark:bg-ink-800 rounded-2xl shadow-2xl max-w-lg w-full p-6 fade-in">
+                    <h3 class="text-lg font-bold mb-2 text-ink-800 dark:text-ink-100">貼上文檔內容</h3>
+                    <p class="text-ink-600 dark:text-ink-300 mb-4 text-sm">請在下方貼上您的文檔內容（支援 Markdown 格式）：</p>
+                    <textarea id="pasteTextarea" class="w-full h-48 p-3 bg-ink-50 dark:bg-ink-900 border border-ink-300 dark:border-ink-600 rounded-xl font-mono text-base leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent mb-4" placeholder="在此貼上文字內容..."></textarea>
+                    <div class="flex justify-end gap-3">
+                        <button id="pasteModalCancel" class="px-4 py-2 bg-ink-200 dark:bg-ink-700 hover:bg-ink-300 dark:hover:bg-ink-600 rounded-lg text-sm font-medium transition-colors">取消</button>
+                        <button id="pasteModalConfirm" class="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-900 rounded-lg text-sm font-medium transition-colors">確認載入</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const textarea = document.getElementById('pasteTextarea');
+            const confirmBtn = document.getElementById('pasteModalConfirm');
+            const cancelBtn = document.getElementById('pasteModalCancel');
+
+            textarea.focus();
+
+            confirmBtn.addEventListener('click', () => {
+                const text = textarea.value;
+                if (!text || text.trim() === '') {
+                    textarea.classList.add('ring-2', 'ring-red-500');
+                    return;
+                }
+                modal.remove();
+                loadFromText(text, '貼上文檔.md');
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+
+            // Close on escape
+            modal.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                }
+            });
+        }
+
+        // Load content from text string
+        function loadFromText(content, fileName) {
+            state.originalContent = content;
+            state.fileName = fileName;
+            state.sections = parseContent(content);
+            state.currentIndex = 0;
+            state.isModified = false;
+            state.isEditing = false;
+            state.editingLevel = 2;
+
+            if (state.sections.length === 0) {
+                state.sections = [{
+                    title: '內容',
+                    content: content,
+                    subsections: parseSubsections(content)
+                }];
+            }
+
+            const firstSection = state.sections[0];
+            state.currentSubIndex = (firstSection.subsections && firstSection.subsections.length > 0) ? 0 : -1;
+
+            elements.uploadArea.classList.add('hidden');
+            elements.editorArea.classList.remove('hidden');
+            elements.exportBtn.classList.remove('hidden');
+            elements.exportBtn.classList.add('flex');
+            elements.fileInfo.classList.remove('hidden');
+            elements.fileInfo.classList.add('flex');
+            elements.footer.classList.remove('hidden');
+            elements.fileName.textContent = fileName;
+            elements.modifiedBadge.classList.add('hidden');
+            elements.sectionCount.textContent = `${state.sections.length} 個段落`;
+
+            renderSections();
+            renderSubsections();
+            renderContent();
+        }
+
+        elements.exportBtn.addEventListener('click', exportFile);
+
+        elements.editBtn.addEventListener('click', enterEditMode);
+
+        elements.editSectionBtn.addEventListener('click', enterSectionEditMode);
+
+        elements.saveBtn.addEventListener('click', () => exitEditMode(true));
+
+        elements.cancelBtn.addEventListener('click', async () => {
+            let originalContent = '';
+            if (state.editingLevel === 3) {
+                const section = state.sections[state.currentIndex];
+                const subsections = section.subsections || [];
+                if (state.currentSubIndex >= 0 && state.currentSubIndex < subsections.length) {
+                    originalContent = subsections[state.currentSubIndex].content;
+                }
+            } else {
+                originalContent = state.sections[state.currentIndex].content;
+            }
+
+            const hasChanges = elements.editor.value !== originalContent;
+            if (hasChanges) {
+                const confirmed = await showConfirm('放棄更改', '確定要放棄所有更改嗎？');
+                if (!confirmed) return;
+            }
+            exitEditMode(false);
+        });
+
+        // Drag and drop
+        const uploadAreaEl = elements.uploadArea.querySelector('.upload-area');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadAreaEl.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadAreaEl.addEventListener(eventName, () => {
+                uploadAreaEl.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadAreaEl.addEventListener(eventName, () => {
+                uploadAreaEl.classList.remove('dragover');
+            });
+        });
+
+        uploadAreaEl.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+                    loadFile(file);
+                }
+            }
+        });
+
+        // Toggle full width
+        elements.toggleWidthBtn.addEventListener('click', () => {
+            const isFullWidth = elements.threeColLayout.classList.toggle('full-width');
+            elements.expandIcon.classList.toggle('hidden', isFullWidth);
+            elements.collapseIcon.classList.toggle('hidden', !isFullWidth);
+        });
+
+        // Mobile nav toggle
+        elements.mobileNavBtn.addEventListener('click', () => {
+            elements.threeColLayout.classList.toggle('show-nav');
+        });
+
+        // Close mobile nav when clicking outside
+        document.addEventListener('click', (e) => {
+            if (elements.threeColLayout.classList.contains('show-nav')) {
+                const isClickInsideSidebar = e.target.closest('.sidebar');
+                const isClickOnNavBtn = e.target.closest('#mobileNavBtn');
+                if (!isClickInsideSidebar && !isClickOnNavBtn) {
+                    elements.threeColLayout.classList.remove('show-nav');
+                }
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (state.isEditing) {
+                if (e.key === 'Escape') {
+                    elements.cancelBtn.click();
+                } else if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    exitEditMode(true);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+

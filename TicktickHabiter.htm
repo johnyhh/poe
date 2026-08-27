@@ -1,0 +1,1850 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tick Tick 習慣分析器</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-accent: #e7f3ff;
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a5568;
+            --text-accent: #0066cc;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-accent: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --button-bg: #667eea;
+            --button-hover: #5568d3;
+        }
+
+        .dark {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-accent: #1e3a5f;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-accent: #60a5fa;
+            --border-color: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+            --button-bg: #764ba2;
+            --button-hover: #8b5fb5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .upload-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            border: 2px dashed var(--border-color);
+            text-align: center;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease 0.1s both;
+        }
+
+        .upload-section:hover {
+            border-color: var(--text-accent);
+            transform: translateY(-2px);
+        }
+
+        .upload-section.drag-over {
+            background: var(--bg-accent);
+            border-color: var(--text-accent);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.6;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            background: var(--gradient-primary);
+            color: white;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow);
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .file-name {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .worksheet-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            animation: fadeInUp 0.6s ease 0.2s both;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .worksheet-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .worksheet-item {
+            padding: 1.25rem;
+            background: var(--bg-accent);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .worksheet-item:hover {
+            border-color: var(--text-accent);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow);
+        }
+
+        .worksheet-item.active {
+            background: var(--gradient-accent);
+            color: white;
+            border-color: transparent;
+            font-weight: 600;
+        }
+
+        .worksheet-item input[type="checkbox"]:checked {
+            accent-color: #f5576c;
+            transform: scale(1.1);
+        }
+
+        .data-section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            animation: fadeInUp 0.6s ease 0.3s both;
+            overflow: hidden;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        thead {
+            background: var(--gradient-primary);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+
+        tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-accent);
+        }
+
+        tbody tr:nth-child(even) {
+            background: var(--bg-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            opacity: 0.3;
+            margin-bottom: 1rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .upload-section {
+                padding: 2rem 1rem;
+            }
+
+            .worksheet-list {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.75rem;
+            }
+        }
+
+        .stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--text-accent);
+        }
+
+        .filter-section {
+            background: var(--bg-accent);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .filter-group label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        select, input[type="date"] {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 16px;
+            font-family: 'Noto Sans TC', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input[type="date"]:focus {
+            outline: none;
+            border-color: var(--text-accent);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.875rem 1.75rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Noto Sans TC', sans-serif;
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--text-accent);
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .selected-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--gradient-accent);
+            color: white;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            backdrop-filter: blur(4px);
+        }
+
+        .loading-content {
+            background: var(--bg-secondary);
+            padding: 2rem 3rem;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--text-accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .ai-response {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border: 1px solid var(--border-color);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .ai-response h3 {
+            margin-bottom: 1rem;
+            color: var(--text-accent);
+        }
+
+        .ai-response-content {
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .sheet-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .sheet-tab {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-accent);
+            border: 2px solid var(--border-color);
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .sheet-tab:hover {
+            border-color: var(--text-accent);
+            color: var(--text-accent);
+        }
+
+        .sheet-tab.active {
+            background: var(--gradient-primary);
+            color: white;
+            border-color: transparent;
+            transform: translateY(2px);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1500;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .modal-content p {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Tick Tick 習慣分析器</h1>
+            <p class="subtitle">輕鬆讀取與瀏覽您 Ticktick 匯出之 Excel 試算表</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-icon">📁</div>
+            <h2>上傳 Excel 檔案</h2>
+            <p class="subtitle">支援 .xlsx, .xls 格式</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" accept=".xlsx,.xls" >
+                <label for="fileInput" class="file-input-label">選擇檔案</label>
+            </div>
+            <div class="file-name" id="fileName"></div>
+        </div>
+
+        <div class="worksheet-section hidden" id="worksheetSection">
+            <h2 class="section-title">📋 工作表列表</h2>
+            <div class="stats" id="stats"></div>
+            <div class="checkbox-wrapper" style="margin-top: 1rem; margin-bottom: 1rem;">
+                <input type="checkbox" id="multiSelectMode">
+                <label for="multiSelectMode">允許多選工作表</label>
+            </div>
+            <div class="worksheet-list" id="worksheetList"></div>
+            <div id="selectedSheetsInfo" style="margin-top: 1rem;"></div>
+        </div>
+
+        <div class="data-section hidden" id="dataSection">
+            <h2 class="section-title">📈 工作表內容</h2>
+
+            <!-- Sheet Tabs (顯示於多選模式) -->
+            <div class="sheet-tabs" id="sheetTabs" style="display: none;"></div>
+
+            <div class="stats" id="dataStats"></div>
+
+            <!-- 日期篩選區 -->
+            <div class="filter-section">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary);">🗓️ 日期範圍篩選</h3>
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label for="dateRangePreset">快速選擇</label>
+                        <select id="dateRangePreset">
+                            <option value="all">全部資料</option>
+                            <option value="this-month">本月</option>
+                            <option value="last-month">上月</option>
+                            <option value="this-year">今年</option>
+                            <option value="last-year">去年</option>
+                            <option value="last-7-days">最近 7 天</option>
+                            <option value="last-30-days">最近 30 天</option>
+                            <option value="last-90-days">最近 90 天</option>
+                            <option value="custom">自訂範圍</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" id="customDateRange" style="display: none;">
+                        <label for="startDate">起始日期</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="filter-group" id="customDateRangeEnd" style="display: none;">
+                        <label for="endDate">結束日期</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <button class="btn btn-secondary" onclick="applyDateFilter()" style="align-self: flex-end;">套用篩選</button>
+                </div>
+
+                <!-- AI LLM 選擇 -->
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">🤖 AI 模型選擇</h3>
+                    <div class="filter-controls">
+                        <div class="filter-group">
+                            <label for="llmSelect">選擇 LLM 模型</label>
+                            <select id="llmSelect" style="min-width: 250px;">
+                                <option value="GPT-5.1" selected>GPT-5.1 (推薦 - 全能型)</option>
+                                <option value="Claude-Sonnet-4.5">Claude-Sonnet-4.5 (程式碼分析)</option>
+                                <option value="Grok-4-Fast-Non-Reasoning">Grok-4-Fast-Non-Reasoning (快速經濟)</option>
+                                <option value="Gemini-3.0-Pro">Gemini-3.0-Pro (超長文本)</option>
+                                <option value="Gemini-2.5-Flash">Gemini-2.5-Flash (快速平衡)</option>
+                                <option value="Claude-Opus-4.5">Claude-Opus-4.5 (高階分析)</option>
+                                <option value="Grok-Code-Fast-1">Grok-Code-Fast-1 (程式碼快速)</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div id="llmDescription" style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">
+                                <strong>GPT-5.1:</strong> OpenAI 最新旗艦模型，擁有優秀的程式碼能力、長上下文 (400k tokens) 和改進的指令遵循。適合大多數分析任務。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="sendToAI()" id="sendToAIBtn">
+                        🤖 傳送給 AI 分析
+                    </button>
+                    <button class="btn btn-primary" onclick="exportFilteredData()" id="exportBtn">
+                        📥 匯出篩選資料
+                    </button>
+                    <button class="btn btn-primary" onclick="exportAIAnalysis()" id="exportAIBtn">
+                        📊 匯出 AI 分析結果
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetFilter()">
+                        🔄 重設篩選
+                    </button>
+                    <button class="btn btn-secondary" onclick="showPromptSettings()">
+                        ⚙️ 分析 Prompt 設定
+                    </button>
+                </div>
+            </div>
+
+            <!-- Prompt 設定區 -->
+            <div class="filter-section" id="promptSection" style="display: none;">
+                <h3 style="margin-bottom: 1rem; color: var(--text-primary);">📝 分析 Prompt 設定</h3>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary);">
+                        當前工作表: <span id="currentSheetName" style="color: var(--text-accent);"></span>
+                    </label>
+                    <textarea id="promptTextarea" rows="6" style="
+                        width: 100%;
+                        padding: 1rem;
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                        background: var(--bg-secondary);
+                        color: var(--text-primary);
+                        font-size: 16px;
+                        font-family: 'Noto Sans TC', sans-serif;
+                        resize: vertical;
+                    " placeholder="輸入此工作表的分析 prompt..."></textarea>
+                </div>
+
+                <!-- 預設選取工作表設定 -->
+                <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--border-color);">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">📋 預設選取工作表設定</h3>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                        在多選模式下,這些工作表會自動被選取用於分析
+                    </p>
+                    <textarea id="defaultSheetsTextarea" rows="3" style="
+                        width: 100%;
+                        padding: 1rem;
+                        border: 1px solid var(--border-color);
+                        border-radius: 8px;
+                        background: var(--bg-secondary);
+                        color: var(--text-primary);
+                        font-size: 16px;
+                        font-family: 'Noto Sans TC', sans-serif;
+                        resize: vertical;
+                    " placeholder="輸入工作表名稱，以逗號分隔（例如：家庭祭壇, 讀經, 禱告敬拜）"></textarea>
+                    <button class="btn btn-primary" onclick="saveDefaultSheets()" style="margin-top: 0.5rem;">
+                        💾 儲存預設選取
+                    </button>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="saveCurrentPrompt()">
+                        💾 儲存 Prompt
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadDefaultPrompt()">
+                        🔄 載入預設值
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportPromptsJSON()">
+                        📤 匯出所有設定 (JSON)
+                    </button>
+                    <button class="btn btn-secondary" onclick="importPromptsJSON()">
+                        📥 匯入設定 (JSON)
+                    </button>
+                    <button class="btn btn-secondary" onclick="hidePromptSettings()">
+                        ✕ 關閉
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-wrapper" id="tableWrapper">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <p>請選擇一個工作表來查看內容</p>
+                </div>
+            </div>
+
+            <!-- AI 回應區 -->
+            <div id="aiResponseSection" style="display: none;">
+                <div class="ai-response">
+                    <h3>🤖 AI 分析結果</h3>
+                    <div class="ai-response-content" id="aiResponseContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 暗色模式支援
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        let workbook = null;
+        let currentSheet = null;
+        let selectedSheets = new Set();
+        let allSheetData = {}; // 儲存所有工作表的原始資料
+        let filteredData = null; // 當前篩選後的資料
+        let filteredSheetData = {}; // 儲存每個 sheet 的篩選資料
+        let sheetInfo = {}; // 儲存每個工作表的 A1 資訊
+        let activeTabSheet = null; // 當前 active 的 tab sheet
+
+        // 儲存每個工作表的分析 prompt
+        let sheetPrompts = {};
+
+        // 預設 prompts（從 config 載入）
+        const DEFAULT_PROMPTS = {
+            "禱告 敬拜": "",
+            "家庭祭壇": "任務: 分析反思內容, 留意訊息彼此關係,發展進程",
+            "讀經": "任務: 分析讀經內容, 留意訊息彼此關係,發展進程",
+            "日行聽道": "任務一: 分析聽道習慣, 趨勢變化, 講道主題\n任務二: 把相同講道 group 起來, 並分析整體領受",
+            "H-Chanel": "任務一: 分析觀影習慣, 趨勢變化, 喜好\n任務二: 把相同影集 group 起來, 總結看了那幾集, 並劇集內容",
+            "日行一善": "任務: 分析行善內容, 變化趨勢, 把同類型善行分組",
+            "Slowly 收到信": "任務: 分析收信規律, 信件內容"
+        };
+
+        // 預設任務（當工作表被選中但沒有 prompt 時使用）
+        const DEFAULT_TASK = "分析內容, 找出內容間的關係, 分組及趨勢";
+
+        // 預設要選取的工作表列表（從 config 載入）
+        let defaultSelectedSheets = ["禱告 敬拜", "家庭祭壇", "凱凱健康", "芒芒健康", "正正健康", "讀經", "日行聽道", "H-Chanel", "日行一善", "Slowly 收到信", "po", "在家下廚"];
+
+        // 儲存所有 AI 分析結果
+        let aiAnalysisResults = {};
+
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const uploadSection = document.getElementById('uploadSection');
+        const worksheetSection = document.getElementById('worksheetSection');
+        const worksheetList = document.getElementById('worksheetList');
+        const dataSection = document.getElementById('dataSection');
+        const tableWrapper = document.getElementById('tableWrapper');
+        const stats = document.getElementById('stats');
+        const dataStats = document.getElementById('dataStats');
+        const multiSelectMode = document.getElementById('multiSelectMode');
+        const dateRangePreset = document.getElementById('dateRangePreset');
+
+        // LLM 模型描述
+        const LLM_DESCRIPTIONS = {
+            'GPT-5.1': '<strong>GPT-5.1:</strong> OpenAI 最新旗艦模型，擁有優秀的程式碼能力、長上下文 (400k tokens) 和改進的指令遵循。適合大多數分析任務。',
+            'Claude-Sonnet-4.5': '<strong>Claude-Sonnet-4.5:</strong> Anthropic 的 Claude Sonnet 4.5，支援自訂思考預算 (最高 32k tokens) 和 200k 上下文窗口。特別適合程式碼相關任務。',
+            'Grok-4-Fast-Non-Reasoning': '<strong>Grok-4-Fast-Non-Reasoning:</strong> xAI 的高效能模型，2M token 上下文，速度快且成本極低。適合簡單任務。',
+            'Gemini-3.0-Pro': '<strong>Gemini-3.0-Pro:</strong> Google 進階模型，支援 1M tokens 超長上下文、網路搜尋和影片輸入。適合需要大量上下文的任務。',
+            'Gemini-2.5-Flash': '<strong>Gemini-2.5-Flash:</strong> Google 高速模型，1M tokens 上下文，優先考慮速度和成本。適合需要長上下文但速度優先的任務。',
+            'Claude-Opus-4.5': '<strong>Claude-Opus-4.5:</strong> Anthropic 最強大的模型，支援最高 64k tokens 思考預算和 200k 上下文。適合最複雜的分析任務。',
+            'Grok-Code-Fast-1': '<strong>Grok-Code-Fast-1:</strong> xAI 專為程式碼設計的高效能模型，256k 上下文，成本低且速度快。適合程式碼相關任務。'
+        };
+
+        // 檔案上傳處理
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // 日期範圍選擇監聽
+        dateRangePreset.addEventListener('change', function() {
+            const customDateRange = document.getElementById('customDateRange');
+            const customDateRangeEnd = document.getElementById('customDateRangeEnd');
+            if (this.value === 'custom') {
+                customDateRange.style.display = 'flex';
+                customDateRangeEnd.style.display = 'flex';
+            } else {
+                customDateRange.style.display = 'none';
+                customDateRangeEnd.style.display = 'none';
+            }
+        });
+
+        // LLM 選擇監聽
+        document.getElementById('llmSelect').addEventListener('change', function() {
+            const descriptionDiv = document.getElementById('llmDescription');
+            descriptionDiv.innerHTML = LLM_DESCRIPTIONS[this.value] || '';
+        });
+
+        // 多選模式切換
+        multiSelectMode.addEventListener('change', function() {
+            selectedSheets.clear();
+            filteredSheetData = {};
+            allSheetData = {};
+            activeTabSheet = null;
+            currentSheet = null;
+
+            // 隱藏資料區���
+            dataSection.classList.add('hidden');
+            document.getElementById('sheetTabs').style.display = 'none';
+
+            // 重新顯示工作表列表（會自動套用預設選取）
+            displayWorksheets();
+        });
+
+        // 拖放功能
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('drag-over');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('drag-over');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('drag-over');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            fileName.textContent = `📄 ${file.name}`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    workbook = XLSX.read(data, { type: 'array' });
+                    displayWorksheets();
+                } catch (error) {
+                    console.error('讀取檔案時發生錯誤:', error);
+                    showCustomAlert('讀取檔案失敗,請確認檔案格式正確。');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function displayWorksheets() {
+            worksheetList.innerHTML = '';
+            worksheetSection.classList.remove('hidden');
+
+            const sheetNames = workbook.SheetNames;
+            const isMultiSelect = multiSelectMode.checked;
+
+            stats.innerHTML = `
+                <div class="stat-item">
+                    <span>工作表數量:</span>
+                    <span class="stat-value">${sheetNames.length}</span>
+                </div>
+            `;
+
+            sheetNames.forEach((name, index) => {
+                const item = document.createElement('div');
+                item.className = 'worksheet-item';
+
+                if (isMultiSelect) {
+                    // 多選模式：加入 checkbox
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.style.marginRight = '0.5rem';
+
+                    // 檢查是否應該預設選取此工作表
+                    const shouldAutoSelect = defaultSelectedSheets.includes(name);
+                    if (shouldAutoSelect) {
+                        checkbox.checked = true;
+                        item.classList.add('active');
+                        selectedSheets.add(name);
+                        // 載入 sheet 資料
+                        if (!allSheetData[name]) {
+                            loadSheetData(name);
+                        }
+                    }
+
+                    checkbox.addEventListener('change', (e) => {
+                        e.stopPropagation();
+                        toggleSheetSelection(name, item, checkbox.checked);
+                    });
+                    item.appendChild(checkbox);
+
+                    const label = document.createElement('span');
+                    label.textContent = name;
+                    item.appendChild(label);
+
+                    item.addEventListener('click', (e) => {
+                        if (e.target !== checkbox) {
+                            checkbox.checked = !checkbox.checked;
+                            toggleSheetSelection(name, item, checkbox.checked);
+                        }
+                    });
+                } else {
+                    // 單���模式
+                    item.textContent = name;
+                    item.addEventListener('click', () => selectWorksheet(name, item));
+                }
+
+                worksheetList.appendChild(item);
+
+                // 自動選擇第一個工作表（僅單選模式）
+                if (index === 0 && !isMultiSelect) {
+                    setTimeout(() => item.click(), 300);
+                }
+            });
+
+            // 多選模式：處理預設選取後的顯示
+            if (isMultiSelect && selectedSheets.size > 0) {
+                updateSelectedSheetsInfo();
+                renderSheetTabs();
+                const firstSelected = Array.from(selectedSheets)[0];
+                activeTabSheet = firstSelected;
+                currentSheet = firstSelected;
+                setTimeout(() => displayCurrentSheetData(), 100);
+            }
+        }
+
+        function toggleSheetSelection(sheetName, element, isSelected) {
+            if (isSelected) {
+                selectedSheets.add(sheetName);
+                element.classList.add('active');
+                // 載入新選中的 sheet 資料
+                if (!allSheetData[sheetName]) {
+                    loadSheetData(sheetName);
+                }
+            } else {
+                selectedSheets.delete(sheetName);
+                element.classList.remove('active');
+                // 清除該 sheet 的篩選資料
+                delete filteredSheetData[sheetName];
+            }
+            updateSelectedSheetsInfo();
+
+            // 更新顯示
+            if (selectedSheets.size > 0) {
+                renderSheetTabs();
+                const firstSelected = Array.from(selectedSheets)[0];
+                activeTabSheet = firstSelected;
+                currentSheet = firstSelected;
+                displayCurrentSheetData();
+            } else {
+                dataSection.classList.add('hidden');
+                document.getElementById('sheetTabs').style.display = 'none';
+            }
+        }
+
+        function loadSheetData(sheetName) {
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+            // 取得並儲存 A1 儲存格內容（sheet info）
+            const a1Cell = worksheet['A1'];
+            const a1Content = a1Cell ? (a1Cell.v || a1Cell.w || '') : '';
+            sheetInfo[sheetName] = a1Content;
+
+            // 儲存原始資料
+            allSheetData[sheetName] = jsonData;
+
+            // 初始化 prompt（如果不存在）
+            if (!sheetPrompts[sheetName]) {
+                // 檢查是否有預設 prompt，如果沒有則使用預設任務
+                if (DEFAULT_PROMPTS[sheetName] !== undefined) {
+                    // 如果 config 中有定義但為空字串，使用預設任務
+                    sheetPrompts[sheetName] = DEFAULT_PROMPTS[sheetName] || DEFAULT_TASK;
+                } else {
+                    // 如果 config 中沒有定義，也使用預設任務
+                    sheetPrompts[sheetName] = DEFAULT_TASK;
+                }
+            }
+        }
+
+        function renderSheetTabs() {
+            const tabsContainer = document.getElementById('sheetTabs');
+
+            if (selectedSheets.size <= 1) {
+                // 單一 sheet,不顯示 tabs
+                tabsContainer.style.display = 'none';
+                return;
+            }
+
+            // 多個 sheets,顯示 tabs
+            tabsContainer.style.display = 'flex';
+            tabsContainer.innerHTML = '';
+
+            for (const sheetName of selectedSheets) {
+                const tab = document.createElement('div');
+                tab.className = 'sheet-tab';
+                tab.textContent = sheetName;
+
+                if (sheetName === activeTabSheet) {
+                    tab.classList.add('active');
+                }
+
+                tab.addEventListener('click', () => {
+                    // 更新 active tab
+                    document.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    activeTabSheet = sheetName;
+                    currentSheet = sheetName;
+                    displayCurrentSheetData();
+                });
+
+                tabsContainer.appendChild(tab);
+            }
+        }
+
+        function displayCurrentSheetData() {
+            dataSection.classList.remove('hidden');
+
+            // 如果有篩選資料,使用篩選資料,否則使用原始資料
+            const dataToDisplay = filteredSheetData[activeTabSheet] || allSheetData[activeTabSheet];
+
+            if (!dataToDisplay || dataToDisplay.length === 0) {
+                tableWrapper.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>此工作表沒有資料</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filteredData = dataToDisplay;
+            renderTable(dataToDisplay);
+        }
+
+        function updateSelectedSheetsInfo() {
+            const info = document.getElementById('selectedSheetsInfo');
+            if (selectedSheets.size > 0) {
+                info.innerHTML = `<div class="selected-count">已選擇 ${selectedSheets.size} 個工作表</div>`;
+            } else {
+                info.innerHTML = '';
+            }
+        }
+
+        function selectWorksheet(sheetName, element) {
+            // 移除其他工作表的選中狀態
+            document.querySelectorAll('.worksheet-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            element.classList.add('active');
+
+            currentSheet = sheetName;
+            selectedSheets.clear();
+            selectedSheets.add(sheetName);
+            activeTabSheet = sheetName;
+            filteredSheetData = {};
+            displaySheetData(sheetName);
+        }
+
+        function displaySheetData(sheetName) {
+            loadSheetData(sheetName);
+
+            const jsonData = allSheetData[sheetName];
+
+            if (jsonData.length === 0) {
+                tableWrapper.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>此工作表沒有資料</p>
+                    </div>
+                `;
+                dataSection.classList.remove('hidden');
+                return;
+            }
+
+            // 預設顯示全部資料,並按日期升序排序
+            const sortedData = sortDataByDate(jsonData);
+            filteredData = sortedData;
+            renderTable(sortedData);
+            dataSection.classList.remove('hidden');
+            document.getElementById('sheetTabs').style.display = 'none';
+        }
+
+        function renderTable(data) {
+            if (!data || data.length === 0) {
+                tableWrapper.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>沒有符合條件的資料</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // 統計資訊
+            const rowCount = data.length;
+            const colCount = data[0] ? data[0].length : 0;
+
+            dataStats.innerHTML = `
+                <div class="stat-item">
+                    <span>列數:</span>
+                    <span class="stat-value">${rowCount}</span>
+                </div>
+                <div class="stat-item">
+                    <span>欄數:</span>
+                    <span class="stat-value">${colCount}</span>
+                </div>
+            `;
+
+            // 建立表格
+            let tableHTML = '<table><thead><tr>';
+
+            // 表頭 - 假設第三列是表頭（Row 3）
+            const headerRowIndex = data.findIndex(row =>
+                row.some(cell => cell === 'Date' || cell === '日期')
+            );
+
+            const headers = headerRowIndex >= 0 ? data[headerRowIndex] : data[0];
+            const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
+
+            headers.forEach((header, index) => {
+                tableHTML += `<th>${header || `欄位 ${index + 1}`}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // 資料行
+            for (let i = dataStartIndex; i < data.length; i++) {
+                tableHTML += '<tr>';
+                for (let j = 0; j < headers.length; j++) {
+                    const cellValue = data[i][j] !== undefined ? data[i][j] : '';
+                    tableHTML += `<td>${escapeHtml(String(cellValue))}</td>`;
+                }
+                tableHTML += '</tr>';
+            }
+
+            tableHTML += '</tbody></table>';
+            tableWrapper.innerHTML = tableHTML;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function getDateRange() {
+            const preset = dateRangePreset.value;
+            const today = new Date();
+            let startDate, endDate;
+
+            switch (preset) {
+                case 'this-month':
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    break;
+                case 'last-month':
+                    startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                    break;
+                case 'this-year':
+                    startDate = new Date(today.getFullYear(), 0, 1);
+                    endDate = new Date(today.getFullYear(), 11, 31);
+                    break;
+                case 'last-year':
+                    startDate = new Date(today.getFullYear() - 1, 0, 1);
+                    endDate = new Date(today.getFullYear() - 1, 11, 31);
+                    break;
+                case 'last-7-days':
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - 7);
+                    endDate = today;
+                    break;
+                case 'last-30-days':
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - 30);
+                    endDate = today;
+                    break;
+                case 'last-90-days':
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - 90);
+                    endDate = today;
+                    break;
+                case 'custom':
+                    const startInput = document.getElementById('startDate').value;
+                    const endInput = document.getElementById('endDate').value;
+                    if (!startInput || !endInput) {
+                        showCustomAlert('請選擇起始和結束日期');
+                        return null;
+                    }
+                    startDate = new Date(startInput);
+                    endDate = new Date(endInput);
+                    break;
+                case 'all':
+                default:
+                    return null;
+            }
+
+            return { startDate, endDate };
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr) return null;
+            // 支援多種日期格式
+            const str = String(dateStr).trim();
+
+            // YYYY-MM-DD 格式
+            if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) {
+                return new Date(str);
+            }
+
+            // Excel 序列號格式
+            if (!isNaN(dateStr) && dateStr > 40000) {
+                const excelEpoch = new Date(1899, 11, 30);
+                const date = new Date(excelEpoch.getTime() + dateStr * 86400000);
+                return date;
+            }
+
+            // 嘗試直接解析
+            const parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+                return parsed;
+            }
+
+            return null;
+        }
+
+        function sortDataByDate(data) {
+            // 找到日期欄位的索引
+            const headerRowIndex = data.findIndex(row =>
+                row.some(cell => cell === 'Date' || cell === '日期')
+            );
+
+            if (headerRowIndex < 0) {
+                return data;
+            }
+
+            const headers = data[headerRowIndex];
+            const dateColumnIndex = headers.findIndex(h => h === 'Date' || h === '日期');
+
+            if (dateColumnIndex < 0) {
+                return data;
+            }
+
+            // 分離 header 和資料行
+            const headerRows = data.slice(0, headerRowIndex + 1);
+            const dataRows = data.slice(headerRowIndex + 1);
+
+            // 排序資料行 (ascending order)
+            dataRows.sort((a, b) => {
+                const dateA = parseDate(a[dateColumnIndex]);
+                const dateB = parseDate(b[dateColumnIndex]);
+
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+
+                return dateA - dateB; // ascending order
+            });
+
+            // 合併回來
+            return [...headerRows, ...dataRows];
+        }
+
+        function filterSheetData(sheetName, dateRange) {
+            const data = allSheetData[sheetName];
+
+            if (!dateRange || !data) {
+                // 即使沒有篩選,也要排序
+                return sortDataByDate(data);
+            }
+
+            // 找到日期欄位的索引
+            const headerRowIndex = data.findIndex(row =>
+                row.some(cell => cell === 'Date' || cell === '日期')
+            );
+
+            if (headerRowIndex < 0) {
+                return data;
+            }
+
+            const headers = data[headerRowIndex];
+            const dateColumnIndex = headers.findIndex(h => h === 'Date' || h === '日期');
+
+            if (dateColumnIndex < 0) {
+                return data;
+            }
+
+            // 篩選資料
+            const filtered = [data[0], data[1], data[2]]; // 保留前三行（info 和 header）
+
+            for (let i = headerRowIndex + 1; i < data.length; i++) {
+                const dateValue = data[i][dateColumnIndex];
+                const rowDate = parseDate(dateValue);
+
+                if (rowDate && rowDate >= dateRange.startDate && rowDate <= dateRange.endDate) {
+                    filtered.push(data[i]);
+                }
+            }
+
+            // 排序篩選後的結果
+            return sortDataByDate(filtered);
+        }
+
+        function applyDateFilter() {
+            if (selectedSheets.size === 0) {
+                showCustomAlert('請先選擇至少一個工作表');
+                return;
+            }
+
+            const dateRange = getDateRange();
+
+            // 套用篩選到所有選中的 sheets
+            for (const sheetName of selectedSheets) {
+                if (!allSheetData[sheetName]) continue;
+
+                if (!dateRange) {
+                    // 清除篩選,顯示全部資料
+                    delete filteredSheetData[sheetName];
+                } else {
+                    // 套用篩選
+                    const filtered = filterSheetData(sheetName, dateRange);
+                    filteredSheetData[sheetName] = filtered;
+                }
+            }
+
+            // 重新顯示當前 active 的 sheet
+            displayCurrentSheetData();
+        }
+
+        function resetFilter() {
+            dateRangePreset.value = 'all';
+            document.getElementById('customDateRange').style.display = 'none';
+            document.getElementById('customDateRangeEnd').style.display = 'none';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+
+            // 清除所有篩選資料
+            filteredSheetData = {};
+
+            // 重新顯示
+            if (selectedSheets.size > 0) {
+                displayCurrentSheetData();
+            }
+        }
+
+        async function sendToAI() {
+            if (selectedSheets.size === 0) {
+                showCustomAlert('請選擇至少一個工作表');
+                return;
+            }
+
+            // 準備要傳送的資料
+            let dataToSend = '';
+
+            for (const sheetName of selectedSheets) {
+                const info = sheetInfo[sheetName] || '';
+                // 確保每個工作表都有 prompt（使用已儲存的或預設任務）
+                const prompt = sheetPrompts[sheetName] || DEFAULT_TASK;
+                // 使用篩選後的資料,如果沒有則使用原始資料
+                const data = filteredSheetData[sheetName] || allSheetData[sheetName];
+
+                if (!data || data.length === 0) continue;
+
+                dataToSend += `\n\n=== ���作表: ${sheetName} ===\n`;
+                dataToSend += `\n工作表資訊:\n${info}\n`;
+
+                if (prompt) {
+                    dataToSend += `\n分析任務:\n${prompt}\n`;
+                }
+
+                dataToSend += '\n資料:\n';
+
+                // 將資料轉換為表格格式
+                const headerRowIndex = data.findIndex(row =>
+                    row.some(cell => cell === 'Date' || cell === '日期')
+                );
+
+                const headers = headerRowIndex >= 0 ? data[headerRowIndex] : data[0];
+                const dataStartIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
+
+                // 標題行
+                dataToSend += headers.join(' | ') + '\n';
+                dataToSend += headers.map(() => '---').join(' | ') + '\n';
+
+                // 資料行
+                for (let i = dataStartIndex; i < data.length; i++) {
+                    const row = data[i];
+                    dataToSend += row.map(cell => cell || '').join(' | ') + '\n';
+                }
+            }
+
+            // 顯示載入動畫
+            showLoading('正在傳送資料給 AI 分析...');
+
+            try {
+                // 註冊 AI 回應處理器
+                if (!window.Poe) {
+                    hideLoading();
+                    showCustomAlert('Poe API 未載入,無法使用此功能');
+                    return;
+                }
+
+                window.Poe.registerHandler('data-analysis-handler', (result) => {
+                    const msg = result.responses[0];
+                    const aiResponseSection = document.getElementById('aiResponseSection');
+                    const aiResponseContent = document.getElementById('aiResponseContent');
+
+                    if (msg.status === 'error') {
+                        hideLoading();
+                        aiResponseContent.innerHTML = `<p style="color: #f56565;">錯誤: ${msg.statusText}</p>`;
+                        aiResponseSection.style.display = 'block';
+                    } else if (msg.status === 'incomplete') {
+                        // 顯示串流回應
+                        hideLoading();
+                        aiResponseContent.innerHTML = marked.parse(msg.content);
+                        aiResponseSection.style.display = 'block';
+                    } else if (msg.status === 'complete') {
+                        hideLoading();
+                        aiResponseContent.innerHTML = marked.parse(msg.content);
+                        aiResponseSection.style.display = 'block';
+
+                        // 儲存 AI 分析結果
+                        const timestamp = new Date().toISOString();
+                        const selectedLLM = document.getElementById('llmSelect').value;
+                        const analysisKey = `${timestamp}_${Array.from(selectedSheets).join('_')}`;
+                        aiAnalysisResults[analysisKey] = {
+                            timestamp: timestamp,
+                            sheets: Array.from(selectedSheets),
+                            llm: selectedLLM,
+                            content: msg.content
+                        };
+                    }
+                });
+
+                // 取得選擇的 LLM
+                const selectedLLM = document.getElementById('llmSelect').value;
+
+                // 傳送訊息給 AI
+                await window.Poe.sendUserMessage(
+                    `@${selectedLLM} 請根據以下分析任務來分析 Excel 資料：\n${dataToSend}`,
+                    {
+                        handler: 'data-analysis-handler',
+                        stream: true,
+                        openChat: false
+                    }
+                );
+
+            } catch (err) {
+                hideLoading();
+                showCustomAlert('傳送失敗: ' + err.message);
+            }
+        }
+
+        function showPromptSettings() {
+            if (selectedSheets.size === 0) {
+                showCustomAlert('請先選擇至少一個工作表');
+                return;
+            }
+
+            const promptSection = document.getElementById('promptSection');
+            const currentSheetNameSpan = document.getElementById('currentSheetName');
+            const promptTextarea = document.getElementById('promptTextarea');
+            const defaultSheetsTextarea = document.getElementById('defaultSheetsTextarea');
+
+            // 顯示當前工作表名稱和 prompt
+            currentSheetNameSpan.textContent = activeTabSheet || Array.from(selectedSheets)[0];
+            const currentPrompt = sheetPrompts[currentSheetNameSpan.textContent] || '';
+            promptTextarea.value = currentPrompt;
+
+            // 顯示預設選取的工作表列表
+            defaultSheetsTextarea.value = defaultSelectedSheets.join(', ');
+
+            promptSection.style.display = 'block';
+            promptTextarea.focus();
+        }
+
+        function hidePromptSettings() {
+            document.getElementById('promptSection').style.display = 'none';
+        }
+
+        function saveDefaultSheets() {
+            const defaultSheetsTextarea = document.getElementById('defaultSheetsTextarea');
+            const inputValue = defaultSheetsTextarea.value.trim();
+
+            if (!inputValue) {
+                defaultSelectedSheets = [];
+                showCustomAlert('已清除預設選取的工作表');
+                return;
+            }
+
+            // 解析輸入的工作表名稱（以逗號分隔）
+            defaultSelectedSheets = inputValue.split(',').map(name => name.trim()).filter(name => name.length > 0);
+
+            showCustomAlert(`已儲存 ${defaultSelectedSheets.length} 個預設選取的工作表`);
+        }
+
+        function saveCurrentPrompt() {
+            const currentSheetName = document.getElementById('currentSheetName').textContent;
+            const promptTextarea = document.getElementById('promptTextarea');
+
+            if (!currentSheetName) {
+                showCustomAlert('無法找到當前工作表');
+                return;
+            }
+
+            sheetPrompts[currentSheetName] = promptTextarea.value;
+            showCustomAlert(`已儲存 "${currentSheetName}" 的分析 prompt`);
+        }
+
+        function loadDefaultPrompt() {
+            const currentSheetName = document.getElementById('currentSheetName').textContent;
+            const promptTextarea = document.getElementById('promptTextarea');
+
+            if (DEFAULT_PROMPTS[currentSheetName]) {
+                promptTextarea.value = DEFAULT_PROMPTS[currentSheetName];
+                showCustomAlert('已載入預設 prompt');
+            } else {
+                showCustomAlert('此工作表沒有預設 prompt');
+            }
+        }
+
+        function exportPromptsJSON() {
+            try {
+                // ���含 prompts 和���設選取的工作表
+                const exportData = {
+                    sheetPrompts: sheetPrompts,
+                    defaultSelectedSheets: defaultSelectedSheets
+                };
+
+                const json = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sheet_settings.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showCustomAlert('已匯出設定為 JSON 檔案（包含 Prompts 和預設選取）');
+            } catch (err) {
+                showCustomAlert('匯出失敗: ' + err.message);
+            }
+        }
+
+        function importPromptsJSON() {
+            // 建立檔案輸入元素
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    try {
+                        const importedData = JSON.parse(event.target.result);
+
+                        let promptCount = 0;
+                        let defaultSheetsUpdated = false;
+
+                        // 檢查是否為新格式（包含 sheetPrompts 和 defaultSelectedSheets）
+                        if (importedData.sheetPrompts !== undefined) {
+                            // 新格式
+                            Object.assign(sheetPrompts, importedData.sheetPrompts);
+                            promptCount = Object.keys(importedData.sheetPrompts).length;
+
+                            if (importedData.defaultSelectedSheets !== undefined) {
+                                defaultSelectedSheets = importedData.defaultSelectedSheets;
+                                defaultSheetsUpdated = true;
+                                // 更新預設選取的文字框
+                                document.getElementById('defaultSheetsTextarea').value = defaultSelectedSheets.join(', ');
+                            }
+                        } else {
+                            // 舊格式（只有 prompts）
+                            Object.assign(sheetPrompts, importedData);
+                            promptCount = Object.keys(importedData).length;
+                        }
+
+                        // 更新顯示
+                        const currentSheetName = document.getElementById('currentSheetName').textContent;
+                        if (currentSheetName && sheetPrompts[currentSheetName]) {
+                            document.getElementById('promptTextarea').value = sheetPrompts[currentSheetName];
+                        }
+
+                        let message = `已成功匯入 ${promptCount} 個 prompts`;
+                        if (defaultSheetsUpdated) {
+                            message += ` 及 ${defaultSelectedSheets.length} 個預設選取工作表`;
+                        }
+                        showCustomAlert(message);
+                    } catch (err) {
+                        showCustomAlert('匯入失敗: JSON 格式錯誤');
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            input.click();
+        }
+
+        function showLoading(message) {
+            const overlay = document.createElement('div');
+            overlay.className = 'loading-overlay';
+            overlay.id = 'loadingOverlay';
+            overlay.innerHTML = `
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+
+        function showCustomAlert(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                padding: 2rem;
+                border-radius: 12px;
+                box-shadow: var(--shadow-lg);
+                z-index: 1000;
+                max-width: 90%;
+                text-align: center;
+            `;
+            alertDiv.innerHTML = `
+                <p style="margin-bottom: 1rem;">${message}</p>
+                <button onclick="this.parentElement.remove()" style="
+                    padding: 0.75rem 2rem;
+                    background: var(--gradient-primary);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    font-weight: 500;
+                ">確定</button>
+            `;
+            document.body.appendChild(alertDiv);
+        }
+
+        function exportFilteredData() {
+            if (selectedSheets.size === 0) {
+                showCustomAlert('請先選擇至少一個工作表');
+                return;
+            }
+
+            try {
+                showLoading('正在準備匯出資料...');
+
+                // 建立新的 workbook
+                const newWorkbook = XLSX.utils.book_new();
+                let hasData = false;
+
+                // 遍歷所有選中的工作表
+                for (const sheetName of selectedSheets) {
+                    // 使用篩選後的資料,如果沒有則使用原始資料
+                    const data = filteredSheetData[sheetName] || allSheetData[sheetName];
+
+                    if (!data || data.length === 0) {
+                        continue;
+                    }
+
+                    // 將資料轉換為工作表
+                    const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+                    // 將工作表加入 workbook
+                    XLSX.utils.book_append_sheet(newWorkbook, worksheet, sheetName);
+                    hasData = true;
+                }
+
+                hideLoading();
+
+                if (!hasData) {
+                    showCustomAlert('沒有可匯出的資料');
+                    return;
+                }
+
+                // 生成檔案名稱
+                const now = new Date();
+                const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
+                const fileName = `篩選資料_${dateStr}_${timeStr}.xlsx`;
+
+                // 匯出檔案
+                XLSX.writeFile(newWorkbook, fileName);
+
+                showCustomAlert(`成功匯出 ${selectedSheets.size} 個工作表！`);
+
+            } catch (err) {
+                hideLoading();
+                console.error('匯出錯誤:', err);
+                showCustomAlert('匯出失敗: ' + err.message);
+            }
+        }
+
+        function exportAIAnalysis() {
+            if (Object.keys(aiAnalysisResults).length === 0) {
+                showCustomAlert('目前沒有 AI 分析結果可匯出。請先進行 AI 分析。');
+                return;
+            }
+
+            try {
+                // 建立 Markdown 內容
+                let markdown = '# AI 分析結果匯出\n\n';
+                markdown += `匯出時間: ${new Date().toLocaleString('zh-TW')}\n\n`;
+                markdown += '---\n\n';
+
+                // 按時間排序結果 (最新的在前)
+                const sortedKeys = Object.keys(aiAnalysisResults).sort((a, b) => {
+                    return new Date(aiAnalysisResults[b].timestamp) - new Date(aiAnalysisResults[a].timestamp);
+                });
+
+                // 遍歷所有分析結果
+                sortedKeys.forEach((key, index) => {
+                    const result = aiAnalysisResults[key];
+                    const analysisTime = new Date(result.timestamp).toLocaleString('zh-TW');
+
+                    markdown += `## 分析 ${index + 1}\n\n`;
+                    markdown += `**分析時間:** ${analysisTime}\n\n`;
+                    markdown += `**使用模型:** ${result.llm || 'GPT-5.1'}\n\n`;
+                    markdown += `**工作表:** ${result.sheets.join(', ')}\n\n`;
+                    markdown += '### 分析內容\n\n';
+                    markdown += result.content;
+                    markdown += '\n\n---\n\n';
+                });
+
+                // 建立並下載檔案
+                const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+
+                const now = new Date();
+                const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+                const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '');
+                const fileName = `AI分析結果_${dateStr}_${timeStr}.md`;
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showCustomAlert(`成功匯出 ${sortedKeys.length} 筆 AI 分析結果！`);
+
+            } catch (err) {
+                console.error('匯出錯誤:', err);
+                showCustomAlert('匯出失敗: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+

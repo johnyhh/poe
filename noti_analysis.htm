@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>通知記錄分析器</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* ===== CSS Variables ===== */
+    :root {
+      --bg: #faf7f2;
+      --bg-alt: #f3ede4;
+      --surface: #ffffff;
+      --surface-hover: #fef9f3;
+      --border: #e8e0d4;
+      --border-light: #f0ead9;
+      --text-1: #1c1917;
+      --text-2: #57534e;
+      --text-3: #a8a29e;
+      --accent: #c2410c;
+      --accent-hover: #9a3412;
+      --accent-bg: #fff7ed;
+      --accent-border: #fed7aa;
+      --accent-soft: #fdba74;
+      --success: #16a34a;
+      --error: #dc2626;
+      --error-bg: #fef2f2;
+      --shadow-sm: 0 1px 2px rgba(28,25,23,0.04);
+      --shadow: 0 2px 8px rgba(28,25,23,0.06);
+      --shadow-lg: 0 8px 24px rgba(28,25,23,0.1);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --radius-lg: 16px;
+      --font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+      --font-body: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      --gradient-start: rgba(194,65,12,0.04);
+    }
+    html.dark {
+      --bg: #0c0a09;
+      --bg-alt: #1a1714;
+      --surface: #1c1917;
+      --surface-hover: #292524;
+      --border: #3a3530;
+      --border-light: #292524;
+      --text-1: #fafaf9;
+      --text-2: #a8a29e;
+      --text-3: #78716c;
+      --accent: #fb923c;
+      --accent-hover: #fdba74;
+      --accent-bg: #1c1208;
+      --accent-border: #5c3a10;
+      --accent-soft: #92400e;
+      --success: #4ade80;
+      --error: #f87171;
+      --error-bg: #1f1010;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+      --shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+      --gradient-start: rgba(251,146,60,0.03);
+    }
+
+    /* ===== Reset & Base ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: var(--font-body);
+      background: radial-gradient(ellipse at 10% 0%, var(--gradient-start), var(--bg) 60%);
+      background-color: var(--bg);
+      color: var(--text-1);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    input, select, textarea, button { font-family: inherit; font-size: 16px; }
+    a { color: var(--accent); text-decoration: none; }
+
+    /* ===== Animations ===== */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .hidden { display: none !important; }
+
+    /* ===== Layout ===== */
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    #main-view {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ===== Empty State ===== */
+    #empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      animation: fadeIn 0.6s ease;
+    }
+    .empty-card {
+      text-align: center;
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+    }
+    .empty-card .icon-big {
+      font-size: 56px;
+      color: var(--accent);
+      margin-bottom: 20px;
+      display: block;
+    }
+    .empty-card h2 {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .empty-card p {
+      color: var(--text-2);
+      font-size: 0.95rem;
+      margin-bottom: 28px;
+    }
+
+    /* ===== Buttons ===== */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-secondary:hover { background: var(--surface-hover); border-color: var(--accent-border); }
+    .btn-sm { padding: 6px 14px; font-size: 0.85rem; }
+    .btn-full { width: 100%; justify-content: center; }
+
+    .upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: var(--radius-sm);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-label:hover { background: var(--accent-hover); }
+    .upload-label-small {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      background: var(--surface);
+      color: var(--text-1);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+    .upload-label-small:hover { background: var(--surface-hover); border-color: var(--accent-border); }
+
+    /* ===== Header ===== */
+    header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      animation: fadeInUp 0.4s ease;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      white-space: nowrap;
+    }
+    header h1 i { color: var(--accent); font-size: 1.1rem; }
+    .filename-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ===== Filters ===== */
+    #filters {
+      flex-shrink: 0;
+      display: flex;
+      gap: 12px;
+      padding: 14px 20px;
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border-light);
+      flex-wrap: wrap;
+      animation: fadeInUp 0.4s ease 0.05s both;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .filter-group label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .filter-group label i { font-size: 0.65rem; }
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text-1);
+      font-size: 0.9rem;
+      min-width: 140px;
+      transition: border-color 0.2s;
+    }
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+    .search-group { flex: 1; min-width: 180px; }
+    .search-group input { width: 100%; }
+
+    /* Dedup toggle */
+    .dedup-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    .dedup-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+      user-select: none;
+      font-size: 0.88rem;
+      color: var(--text-2);
+      white-space: nowrap;
+    }
+    .dedup-toggle:hover { border-color: var(--accent-border); background: var(--surface-hover); }
+    .dedup-toggle.active { border-color: var(--accent); background: var(--accent-bg); color: var(--accent); }
+    .dedup-toggle .dedup-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      color: transparent;
+    }
+    .dedup-toggle.active .dedup-check {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .dedup-badge {
+      display: inline-block;
+      padding: 1px 7px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-left: 4px;
+    }
+
+    /* ===== Stats ===== */
+    #stats {
+      flex-shrink: 0;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-light);
+      animation: fadeInUp 0.4s ease 0.1s both;
+    }
+    .stats-text {
+      font-size: 0.85rem;
+      color: var(--text-2);
+    }
+    .stats-text strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* ===== Table ===== */
+    #table-container {
+      flex: 1;
+      overflow: auto;
+      animation: fadeInUp 0.4s ease 0.15s both;
+    }
+    .table-wrapper {
+      min-width: 100%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+    thead th {
+      background: var(--bg-alt);
+      color: var(--text-2);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+      user-select: none;
+    }
+    .th-num { width: 44px; text-align: center; }
+    .th-source { width: 72px; }
+    .th-sender { width: 140px; }
+    .th-date { width: 110px; }
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border-light);
+    }
+    tbody tr:hover { background: var(--surface-hover); }
+    tbody tr.expanded { background: var(--accent-bg); }
+    tbody td {
+      padding: 10px 14px;
+      vertical-align: top;
+    }
+    .cell-num {
+      text-align: center;
+      color: var(--text-3);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .cell-source {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .source-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--accent-bg);
+      color: var(--accent);
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .cell-sender {
+      font-weight: 600;
+      color: var(--text-1);
+      font-size: 0.88rem;
+    }
+    .cell-content {
+      color: var(--text-2);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      max-width: 400px;
+    }
+    .content-preview {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+    .cell-date {
+      font-size: 0.82rem;
+      color: var(--text-2);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .expand-row td {
+      padding: 0 14px 14px 14px;
+      border-bottom: 2px solid var(--accent-border);
+    }
+    .expand-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: var(--text-1);
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-3);
+    }
+    .no-results i { font-size: 2.5rem; display: block; margin-bottom: 12px; }
+
+    /* ===== Actions Bar ===== */
+    #actions {
+      flex-shrink: 0;
+      display: flex;
+      gap: 10px;
+      padding: 14px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      justify-content: flex-end;
+      animation: fadeInUp 0.4s ease 0.2s both;
+    }
+
+    /* ===== Modal ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(28,25,23,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      overflow-y: auto;
+      animation: fadeIn 0.2s ease;
+    }
+    html.dark .modal-overlay { background: rgba(0,0,0,0.65); }
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 640px;
+      box-shadow: var(--shadow-lg);
+      animation: slideInRight 0.3s ease;
+      max-height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-header h2 i { color: var(--accent); }
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--text-2);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.1rem;
+    }
+    .modal-close:hover { background: var(--bg-alt); color: var(--text-1); }
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 6px;
+    }
+    .form-group .optional { font-weight: 400; color: var(--text-3); }
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--text-1);
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .form-group textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+    .row-count-info {
+      font-size: 0.85rem;
+      color: var(--text-2);
+      padding: 8px 12px;
+      background: var(--accent-bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--accent-border);
+    }
+    .row-count-info strong { color: var(--accent); }
+    .row-count-warning {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--error);
+    }
+
+    /* ===== AI Result ===== */
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+    .result-header h3 {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .markdown-body {
+      font-size: 0.9rem;
+      line-height: 1.75;
+      color: var(--text-1);
+      overflow-wrap: break-word;
+    }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+      font-family: var(--font-display);
+      margin-top: 1.2em;
+      margin-bottom: 0.5em;
+      font-weight: 700;
+    }
+    .markdown-body h1 { font-size: 1.4rem; }
+    .markdown-body h2 { font-size: 1.15rem; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .markdown-body h3 { font-size: 1rem; }
+    .markdown-body p { margin-bottom: 0.8em; }
+    .markdown-body ul, .markdown-body ol { margin-bottom: 0.8em; padding-left: 1.5em; }
+    .markdown-body li { margin-bottom: 0.3em; }
+    .markdown-body code {
+      background: var(--bg-alt);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+    .markdown-body pre {
+      background: var(--bg-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      overflow-x: auto;
+      margin-bottom: 1em;
+    }
+    .markdown-body pre code { background: none; padding: 0; }
+    .markdown-body blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 0.8em 0;
+      padding: 0.5em 1em;
+      color: var(--text-2);
+      background: var(--accent-bg);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .markdown-body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 1em;
+    }
+    .markdown-body th, .markdown-body td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .markdown-body th { background: var(--bg-alt); font-weight: 600; }
+    .markdown-body strong { font-weight: 700; }
+
+    /* ===== Loading / Typing ===== */
+    .typing-indicator {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+      padding: 12px 0;
+    }
+    .typing-indicator span {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+    .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0s; }
+    .loading-text { text-align: center; color: var(--text-3); font-size: 0.85rem; }
+    .spinner-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(28,25,23,0.3);
+      backdrop-filter: blur(2px);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    .error-text { color: var(--error); font-size: 0.9rem; }
+
+    /* ===== Detail Modal ===== */
+    .detail-meta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .detail-meta-item {
+      font-size: 0.85rem;
+    }
+    .detail-meta-item .meta-label {
+      color: var(--text-3);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .detail-body {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: var(--text-1);
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--text-1);
+      color: var(--bg);
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      z-index: 400;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      box-shadow: var(--shadow-lg);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.1rem; }
+      .filename-badge { display: none; }
+      #filters { gap: 8px; }
+      .filter-group select, .filter-group input { min-width: 0; }
+      .filter-group { flex: 1; min-width: calc(50% - 8px); }
+      .search-group { min-width: 100%; }
+      .dedup-group { min-width: calc(50% - 8px); }
+      .th-source, .cell-source-td { display: none; }
+      .cell-content { max-width: 200px; }
+      .modal-content { max-width: 100%; }
+      .modal-body { padding: 16px; }
+      #actions { padding: 12px 16px; }
+    }
+    @media (max-width: 480px) {
+      header { padding: 12px 14px; }
+      #filters { padding: 10px 14px; }
+      #stats { padding: 8px 14px; }
+      thead th, tbody td { padding: 8px 10px; font-size: 0.82rem; }
+      #actions { flex-direction: column; }
+      #actions .btn-primary, #actions .btn-secondary { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Empty State -->
+  <div id="empty-state">
+    <div class="empty-card">
+      <i class="fas fa-bell icon-big"></i>
+      <h2>通知記錄分析器</h2>
+      <p>上傳 CSV 檔案以瀏覽、篩選並用 AI 分析你的通知記錄</p>
+      <label class="upload-label" id="upload-empty-label">
+        <i class="fas fa-cloud-upload-alt"></i> 選擇 CSV 檔案
+        <input type="file" accept=".csv,.txt" id="file-input-empty" hidden>
+      </label>
+      <p id="load-status" style="margin-top:14px;font-size:0.8rem;color:var(--text-3)"></p>
+    </div>
+  </div>
+
+  <!-- Main View -->
+  <div id="main-view" class="hidden">
+    <header>
+      <div class="header-left">
+        <h1><i class="fas fa-bell"></i> 通知分析</h1>
+        <span class="filename-badge" id="filename-badge"></span>
+      </div>
+      <label class="upload-label-small">
+        <i class="fas fa-cloud-upload-alt"></i> 上傳
+        <input type="file" accept=".csv,.txt" id="file-input-main" hidden>
+      </label>
+    </header>
+
+    <div id="filters">
+      <div class="filter-group">
+        <label><i class="fas fa-user-tag"></i> 發件人</label>
+        <select id="group-filter"></select>
+      </div>
+      <div class="filter-group">
+        <label><i class="fas fa-calendar-alt"></i> 日期範圍</label>
+        <select id="date-filter">
+          <option value="all">所有</option>
+          <option value="today">今日</option>
+          <option value="yesterday">昨日</option>
+          <option value="thisWeek">今週</option>
+          <option value="lastWeek">上週</option>
+          <option value="thisMonth">今月</option>
+          <option value="lastMonth">上月</option>
+        </select>
+      </div>
+      <div class="filter-group search-group">
+        <label><i class="fas fa-search"></i> 搜尋</label>
+        <input type="text" id="search-input" placeholder="輸入關鍵字搜尋所有欄位...">
+      </div>
+      <div class="dedup-group">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:5px;"><i class="fas fa-filter" style="font-size:0.65rem;"></i> 重複</label>
+        <div class="dedup-toggle" id="dedup-toggle" role="checkbox" aria-checked="false" tabindex="0">
+          <span class="dedup-check"><i class="fas fa-check"></i></span>
+          <span>過濾重複</span>
+          <span class="dedup-badge hidden" id="dedup-count">0</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="stats">
+      <span class="stats-text" id="record-count"></span>
+    </div>
+
+    <div id="table-container">
+      <div class="table-wrapper">
+        <table id="data-table">
+          <thead>
+            <tr>
+              <th class="th-num">#</th>
+              <th class="th-source">來源</th>
+              <th class="th-sender">發件人</th>
+              <th>內容</th>
+              <th class="th-date">日期</th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="actions">
+      <button id="btn-analyze" class="btn-primary">
+        <i class="fas fa-robot"></i> AI 分析
+      </button>
+      <button id="btn-download" class="btn-secondary">
+        <i class="fas fa-file-csv"></i> 下載 CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- AI Analysis Modal -->
+  <div id="ai-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-robot"></i> AI 分析</h2>
+        <button class="modal-close" id="close-ai-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>選擇模型</label>
+          <select id="llm-select"></select>
+        </div>
+        <div class="form-group">
+          <label>分析指示 <span class="optional">(可選)</span></label>
+          <textarea id="ai-prompt" placeholder="例如：請總結這些通知的主要內容、分類通知類型、找出重要事項..."></textarea>
+        </div>
+        <div class="form-group">
+          <div class="row-count-info" id="ai-row-info"></div>
+        </div>
+        <button id="btn-send-ai" class="btn-primary btn-full">
+          <i class="fas fa-paper-plane"></i> 開始分析
+        </button>
+
+        <div id="ai-loading" class="hidden" style="margin-top:20px;">
+          <div class="typing-indicator"><span></span><span></span><span></span></div>
+          <p class="loading-text">AI 正在分析你的通知記錄...</p>
+        </div>
+
+        <div id="ai-error" class="hidden" style="margin-top:16px;">
+          <p class="error-text" id="ai-error-text"></p>
+        </div>
+
+        <div id="ai-result" class="hidden" style="margin-top:4px;">
+          <div class="result-header">
+            <h3><i class="fas fa-check-circle" style="color:var(--success);margin-right:6px"></i>分析結果</h3>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button id="btn-copy-result" class="btn-secondary btn-sm">
+                <i class="fas fa-copy"></i> 複製
+              </button>
+              <button id="btn-download-md" class="btn-secondary btn-sm">
+                <i class="fas fa-download"></i> 下載 Markdown
+              </button>
+            </div>
+          </div>
+          <div id="ai-output" class="markdown-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="detail-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="fas fa-envelope-open-text" style="color:var(--accent)"></i> 記錄詳情</h2>
+        <button class="modal-close" id="close-detail-modal"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" id="detail-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =========================================================
+   State & Constants
+   ========================================================= */
+const LLM_CONFIG_URL = 'https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json';
+const DEFAULT_CONFIG = {
+  llms: [
+    { id: 'l1', name: 'GPT-5.2', description: 'OpenAI 最新旗艦模型，400k context，支援網路搜尋', category: 'text', isPinned: true },
+    { id: 'l2', name: 'Claude-Sonnet-4.5', description: 'Anthropic 模型，200k context，適合程式開發', category: 'text', isPinned: true },
+    { id: 'l4', name: 'Gemini-3.0-Pro', description: 'Google 進階模型，1M context，支援影片輸入', category: 'text', isPinned: false },
+    { id: 'l5', name: 'Gemini-2.5-Flash', description: 'Google 快速模型，1M context，低成本', category: 'text', isPinned: false }
+  ]
+};
+
+const state = {
+  allRows: [],
+  filteredRows: [],
+  fileName: '',
+  llmConfig: null,
+  analysisRaw: '',
+  analysisLlm: '',
+  isAnalyzing: false
+};
+
+/* =========================================================
+   Dark Mode
+   ========================================================= */
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+  if (e.matches) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+});
+
+/* =========================================================
+   DOM Refs
+   ========================================================= */
+const $emptyState      = document.getElementById('empty-state');
+const $mainView        = document.getElementById('main-view');
+const $fileInputEmpty   = document.getElementById('file-input-empty');
+const $fileInputMain    = document.getElementById('file-input-main');
+const $filenameBadge    = document.getElementById('filename-badge');
+const $groupFilter      = document.getElementById('group-filter');
+const $dateFilter       = document.getElementById('date-filter');
+const $searchInput      = document.getElementById('search-input');
+const $recordCount      = document.getElementById('record-count');
+const $tableBody        = document.getElementById('table-body');
+const $btnAnalyze       = document.getElementById('btn-analyze');
+const $btnDownload      = document.getElementById('btn-download');
+const $aiModal          = document.getElementById('ai-modal');
+const $closeAiModal     = document.getElementById('close-ai-modal');
+const $llmSelect        = document.getElementById('llm-select');
+const $aiPrompt         = document.getElementById('ai-prompt');
+const $aiRowInfo        = document.getElementById('ai-row-info');
+const $btnSendAi        = document.getElementById('btn-send-ai');
+const $aiLoading        = document.getElementById('ai-loading');
+const $aiError          = document.getElementById('ai-error');
+const $aiErrorText      = document.getElementById('ai-error-text');
+const $aiResult         = document.getElementById('ai-result');
+const $aiOutput         = document.getElementById('ai-output');
+const $btnDownloadMd    = document.getElementById('btn-download-md');
+const $btnCopyResult    = document.getElementById('btn-copy-result');
+const $detailModal      = document.getElementById('detail-modal');
+const $closeDetailModal = document.getElementById('close-detail-modal');
+const $detailBody       = document.getElementById('detail-body');
+const $toast            = document.getElementById('toast');
+const $loadStatus       = document.getElementById('load-status');
+const $dedupToggle      = document.getElementById('dedup-toggle');
+const $dedupCount       = document.getElementById('dedup-count');
+
+/* =========================================================
+   Toast
+   ========================================================= */
+function showToast(msg) {
+  $toast.textContent = msg;
+  $toast.classList.add('show');
+  setTimeout(() => { $toast.classList.remove('show'); }, 2600);
+}
+
+/* =========================================================
+   LLM Config Loading
+   ========================================================= */
+async function loadLLMConfig() {
+  try {
+    const url = LLM_CONFIG_URL + '?t=' + Date.now();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data && data.llms && Array.isArray(data.llms)) {
+      state.llmConfig = data;
+      return;
+    }
+    throw new Error('Invalid config structure');
+  } catch (e) {
+    console.log('LLM config load failed, using default: ' + e.message);
+    state.llmConfig = DEFAULT_CONFIG;
+  }
+}
+
+function getTextLLMs() {
+  if (!state.llmConfig) return DEFAULT_CONFIG.llms.filter(l => l.category === 'text');
+  const textLlms = state.llmConfig.llms.filter(l => l.category === 'text');
+  // Sort: pinned first, then by id
+  textLlms.sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
+    return 0;
+  });
+  return textLlms;
+}
+
+function populateLLMSelect() {
+  const llms = getTextLLMs();
+  $llmSelect.innerHTML = '';
+  llms.forEach(l => {
+    const opt = document.createElement('option');
+    opt.value = l.name;
+    opt.textContent = l.name + (l.isPinned ? ' ⭐' : '') + ' — ' + l.description;
+    $llmSelect.appendChild(opt);
+  });
+}
+
+/* =========================================================
+   CSV Parsing
+   ========================================================= */
+function parseDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const s = dateStr.trim();
+  if (!s) return null;
+
+  let y, m, d, hr = 0, mi = 0, sc = 0;
+
+  // Extract optional time part (HH:MM or HH:MM:SS, with optional AM/PM)
+  function extractTime(timeStr) {
+    if (!timeStr) return;
+    const tMatch = timeStr.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(AM|PM|am|pm|上午|下午))?/);
+    if (tMatch) {
+      hr = parseInt(tMatch[1], 10);
+      mi = parseInt(tMatch[2], 10);
+      sc = parseInt(tMatch[3], 10) || 0;
+      const ampm = (tMatch[4] || '').toLowerCase();
+      if ((ampm === 'pm' || ampm === '下午') && hr < 12) hr += 12;
+      if ((ampm === 'am' || ampm === '上午') && hr === 12) hr = 0;
+    }
+  }
+
+  // Pattern 0: MM-DD HH:MM:SS (no year — common in notification logs)
+  const noYearRe = /^(\d{1,2})[\/\-.](\d{1,2})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(AM|PM|am|pm|上午|下午))?$/;
+  const noYearMatch = s.match(noYearRe);
+  if (noYearMatch) {
+    const p1 = parseInt(noYearMatch[1], 10);
+    const p2 = parseInt(noYearMatch[2], 10);
+    y = new Date().getFullYear();
+    // Treat as MM-DD (month-day)
+    m = p1 - 1;
+    d = p2;
+    hr = parseInt(noYearMatch[3], 10);
+    mi = parseInt(noYearMatch[4], 10);
+    sc = parseInt(noYearMatch[5], 10) || 0;
+    const ampm = (noYearMatch[6] || '').toLowerCase();
+    if ((ampm === 'pm' || ampm === '下午') && hr < 12) hr += 12;
+    if ((ampm === 'am' || ampm === '上午') && hr === 12) hr = 0;
+    const dt = new Date(y, m, d, hr, mi, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Pattern 1: YYYY/MM/DD or YYYY-MM-DD (East Asian / ISO — most common for zh-Hant)
+  const isoRe = /^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})(?:[\sT]+(.+))?$/;
+  const isoMatch = s.match(isoRe);
+  if (isoMatch) {
+    y = parseInt(isoMatch[1], 10);
+    m = parseInt(isoMatch[2], 10) - 1;
+    d = parseInt(isoMatch[3], 10);
+    extractTime(isoMatch[4]);
+    const dt = new Date(y, m, d, hr, mi, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Pattern 2: MM/DD/YYYY or DD/MM/YYYY or DD-MM-YYYY (American / European)
+  const mdyRe = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[\sT]+(.+))?$/;
+  const mdyMatch = s.match(mdyRe);
+  if (mdyMatch) {
+    const p1 = parseInt(mdyMatch[1], 10);
+    const p2 = parseInt(mdyMatch[2], 10);
+    y = parseInt(mdyMatch[3], 10);
+    extractTime(mdyMatch[4]);
+    // Heuristic: if first part > 12, it's DD/MM/YYYY; otherwise assume MM/DD/YYYY
+    if (p1 > 12 && p2 <= 12) {
+      d = p1; m = p2 - 1;
+    } else {
+      m = p1 - 1; d = p2;
+    }
+    const dt = new Date(y, m, d, hr, mi, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Pattern 3: YYYY年MM月DD日 (Chinese format)
+  const cnRe = /^(\d{4})年(\d{1,2})月(\d{1,2})日(?:\s*(.+))?$/;
+  const cnMatch = s.match(cnRe);
+  if (cnMatch) {
+    y = parseInt(cnMatch[1], 10);
+    m = parseInt(cnMatch[2], 10) - 1;
+    d = parseInt(cnMatch[3], 10);
+    extractTime(cnMatch[4]);
+    const dt = new Date(y, m, d, hr, mi, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Pattern 4: DD/MM/YYYY or MM/DD/YYYY with 2-digit year
+  const shortYrRe = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})(?:[\sT]+(.+))?$/;
+  const shortYrMatch = s.match(shortYrRe);
+  if (shortYrMatch) {
+    const p1 = parseInt(shortYrMatch[1], 10);
+    const p2 = parseInt(shortYrMatch[2], 10);
+    let yr2 = parseInt(shortYrMatch[3], 10);
+    y = yr2 < 70 ? 2000 + yr2 : 1900 + yr2;
+    extractTime(shortYrMatch[4]);
+    if (p1 > 12 && p2 <= 12) {
+      d = p1; m = p2 - 1;
+    } else {
+      m = p1 - 1; d = p2;
+    }
+    const dt = new Date(y, m, d, hr, mi, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Fallback: native Date.parse
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function loadCSVText(text, fileName) {
+  const result = Papa.parse(text.trim(), {
+    header: false,
+    skipEmptyLines: true
+  });
+  if (!result.data || result.data.length === 0) {
+    showToast('CSV 檔案為空或無法解析');
+    return;
+  }
+
+  state.allRows = result.data.map((row, idx) => ({
+    index: idx,
+    source: (row[0] || '').trim(),
+    sender: (row[1] || '').trim(),
+    content: (row[2] || '').trim(),
+    dateStr: (row[3] || '').trim(),
+    date: parseDate(row[3])
+  }));
+
+  state.fileName = fileName || 'data.csv';
+  showMainView();
+}
+
+function handleFileUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    loadCSVText(ev.target.result, file.name);
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+/* =========================================================
+   View Switching
+   ========================================================= */
+function showMainView() {
+  $emptyState.classList.add('hidden');
+  $mainView.classList.remove('hidden');
+  $filenameBadge.textContent = state.fileName;
+  buildGroupFilter();
+  applyFilters();
+  populateLLMSelect();
+}
+
+/* =========================================================
+   Filters
+   ========================================================= */
+function buildGroupFilter() {
+  const counts = {};
+  state.allRows.forEach(r => {
+    counts[r.sender] = (counts[r.sender] || 0) + 1;
+  });
+  const senders = Object.keys(counts).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+
+  $groupFilter.innerHTML = '';
+  const allOpt = document.createElement('option');
+  allOpt.value = '__all__';
+  allOpt.textContent = '全部 (' + state.allRows.length + ')';
+  $groupFilter.appendChild(allOpt);
+
+  senders.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s;
+    opt.textContent = s + ' (' + counts[s] + ')';
+    $groupFilter.appendChild(opt);
+  });
+}
+
+function getDateRange(filterValue) {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (filterValue) {
+    case 'today':
+      return { start: today, end: new Date(today.getTime() + 86400000 - 1) };
+    case 'yesterday': {
+      const y = new Date(today.getTime() - 86400000);
+      return { start: y, end: new Date(y.getTime() + 86400000 - 1) };
+    }
+    case 'thisWeek': {
+      const day = today.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      const mon = new Date(today);
+      mon.setDate(today.getDate() + diff);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      sun.setHours(23, 59, 59, 999);
+      return { start: mon, end: sun };
+    }
+    case 'lastWeek': {
+      const day = today.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      const thisMon = new Date(today);
+      thisMon.setDate(today.getDate() + diff);
+      const lastMon = new Date(thisMon);
+      lastMon.setDate(thisMon.getDate() - 7);
+      const lastSun = new Date(lastMon);
+      lastSun.setDate(lastMon.getDate() + 6);
+      lastSun.setHours(23, 59, 59, 999);
+      return { start: lastMon, end: lastSun };
+    }
+    case 'thisMonth':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth(), 1),
+        end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+      };
+    case 'lastMonth':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+      };
+    default:
+      return null;
+  }
+}
+
+function deduplicateRows(rows) {
+  // Keep only the last message when source, sender and content are identical.
+  // We iterate forward so that later entries overwrite earlier ones in the map.
+  const map = new Map();
+  rows.forEach(row => {
+    const key = row.source + '\x00' + row.sender + '\x00' + row.content;
+    map.set(key, row);
+  });
+  return Array.from(map.values());
+}
+
+function applyFilters() {
+  const senderVal = $groupFilter.value;
+  const dateVal = $dateFilter.value;
+  const keyword = $searchInput.value.trim().toLowerCase();
+  const dateRange = getDateRange(dateVal);
+  const dedupActive = $dedupToggle.classList.contains('active');
+
+  let rows = state.allRows.filter(row => {
+    if (senderVal !== '__all__' && row.sender !== senderVal) return false;
+    if (dateRange && row.date) {
+      if (row.date < dateRange.start || row.date > dateRange.end) return false;
+    } else if (dateRange && !row.date) {
+      return false;
+    }
+    if (keyword) {
+      const haystack = (row.source + ' ' + row.sender + ' ' + row.content + ' ' + row.dateStr).toLowerCase();
+      if (!haystack.includes(keyword)) return false;
+    }
+    return true;
+  });
+
+  if (dedupActive) {
+    const beforeCount = rows.length;
+    rows = deduplicateRows(rows);
+    const removed = beforeCount - rows.length;
+    $dedupCount.textContent = '-' + removed;
+    if (removed > 0) {
+      $dedupCount.classList.remove('hidden');
+    } else {
+      $dedupCount.classList.add('hidden');
+    }
+  } else {
+    $dedupCount.classList.add('hidden');
+  }
+
+  state.filteredRows = rows;
+  renderTable();
+  updateStats();
+}
+
+function updateStats() {
+  const total = state.allRows.length;
+  const shown = state.filteredRows.length;
+  $recordCount.innerHTML = '顯示 <strong>' + shown + '</strong> / ' + total + ' 條記錄';
+}
+
+/* =========================================================
+   Table Rendering
+   ========================================================= */
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function truncate(str, max) {
+  if (!str) return '';
+  const oneLine = str.replace(/\n/g, ' ');
+  if (oneLine.length <= max) return oneLine;
+  return oneLine.substring(0, max) + '…';
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  // MM/DD/YYYY HH:MM → compact display
+  return dateStr;
+}
+
+function renderTable() {
+  if (state.filteredRows.length === 0) {
+    $tableBody.innerHTML = '<tr><td colspan="5" class="no-results">' +
+      '<i class="fas fa-inbox"></i>沒有符合條件的記錄</td></tr>';
+    return;
+  }
+
+  let html = '';
+  state.filteredRows.forEach((row, i) => {
+    html += '<tr class="data-row" data-idx="' + i + '">' +
+      '<td class="cell-num">' + (i + 1) + '</td>' +
+      '<td class="cell-source-td"><span class="source-badge">' + escapeHtml(row.source) + '</span></td>' +
+      '<td class="cell-sender">' + escapeHtml(row.sender) + '</td>' +
+      '<td class="cell-content"><div class="content-preview">' + escapeHtml(truncate(row.content, 120)) + '</div></td>' +
+      '<td class="cell-date">' + escapeHtml(formatDate(row.dateStr)) + '</td>' +
+      '</tr>';
+  });
+  $tableBody.innerHTML = html;
+}
+
+/* =========================================================
+   Detail Modal
+   ========================================================= */
+function showDetail(row) {
+  $detailBody.innerHTML =
+    '<div class="detail-meta">' +
+    '<div class="detail-meta-item"><span class="meta-label">來源</span>' + escapeHtml(row.source) + '</div>' +
+    '<div class="detail-meta-item"><span class="meta-label">發件人</span>' + escapeHtml(row.sender) + '</div>' +
+    '<div class="detail-meta-item"><span class="meta-label">日期</span>' + escapeHtml(row.dateStr) + '</div>' +
+    '</div>' +
+    '<div class="detail-body">' + escapeHtml(row.content) + '</div>';
+  $detailModal.classList.remove('hidden');
+}
+
+/* =========================================================
+   AI Analysis
+   ========================================================= */
+function openAiModal() {
+  if (state.filteredRows.length === 0) {
+    showToast('沒有可分析的記錄，請調整篩選條件');
+    return;
+  }
+  populateLLMSelect();
+  const count = state.filteredRows.length;
+  let infoHtml = '將傳送 <strong>' + count + '</strong> 條篩選後的記錄給 AI 分析';
+  if (count > 50) {
+    infoHtml += '<div class="row-count-warning"><i class="fas fa-exclamation-triangle"></i> 記錄數量較多，分析可能需要較長時間</div>';
+  }
+  $aiRowInfo.innerHTML = infoHtml;
+  $aiResult.classList.add('hidden');
+  $aiError.classList.add('hidden');
+  $aiLoading.classList.add('hidden');
+  $btnSendAi.disabled = false;
+  $aiModal.classList.remove('hidden');
+}
+
+function buildAnalysisPrompt() {
+  const rows = state.filteredRows;
+  const userPrompt = $aiPrompt.value.trim();
+
+  let prompt = '你是一位資料分析助手。以下是使用者的通知記錄數據（共 ' + rows.length + ' 條），請用繁體中文進行分析，使用 Markdown 格式回覆。\n\n';
+
+  if (userPrompt) {
+    prompt += '使用者分析指示：' + userPrompt + '\n\n';
+  } else {
+    prompt += '請對這些通知記錄進行全面分析，包括：\n1. 通知來源和發件人分佈\n2. 主要內容分類和摘要\n3. 重要事項和行動項目\n4. 時間分佈模式\n\n';
+  }
+
+  prompt += '--- 數據開始 ---\n\n';
+
+  rows.forEach((row, i) => {
+    const contentPreview = row.content.length > 800
+      ? row.content.substring(0, 800) + '... (已截斷)'
+      : row.content;
+    prompt += '#' + (i + 1) + '\n';
+    prompt += '來源: ' + row.source + '\n';
+    prompt += '發件人: ' + row.sender + '\n';
+    prompt += '日期: ' + row.dateStr + '\n';
+    prompt += '內容: ' + contentPreview + '\n\n---\n\n';
+  });
+
+  prompt += '--- 數據結束 ---';
+  return prompt;
+}
+
+async function startAnalysis() {
+  if (state.isAnalyzing) return;
+  state.isAnalyzing = true;
+  $btnSendAi.disabled = true;
+  $aiLoading.classList.remove('hidden');
+  $aiResult.classList.add('hidden');
+  $aiError.classList.add('hidden');
+  state.analysisRaw = '';
+
+  const selectedLlm = $llmSelect.value;
+  state.analysisLlm = selectedLlm;
+  const prompt = buildAnalysisPrompt();
+
+  window.Poe.registerHandler('ai-analysis-handler', function(result) {
+    const msg = result.responses[0];
+    if (!msg) return;
+
+    if (msg.status === 'error') {
+      $aiLoading.classList.add('hidden');
+      $aiError.classList.remove('hidden');
+      $aiErrorText.textContent = '分析失敗：' + (msg.statusText || '未知錯誤');
+      state.isAnalyzing = false;
+      $btnSendAi.disabled = false;
+      return;
+    }
+
+    if (msg.status === 'incomplete') {
+      state.analysisRaw = msg.content;
+      $aiLoading.classList.add('hidden');
+      $aiResult.classList.remove('hidden');
+      $aiOutput.innerHTML = marked.parse(msg.content);
+      return;
+    }
+
+    if (msg.status === 'complete') {
+      state.analysisRaw = msg.content;
+      $aiLoading.classList.add('hidden');
+      $aiResult.classList.remove('hidden');
+      $aiOutput.innerHTML = marked.parse(msg.content);
+      state.isAnalyzing = false;
+      $btnSendAi.disabled = false;
+    }
+  });
+
+  try {
+    await window.Poe.sendUserMessage(
+      '@' + selectedLlm + ' ' + prompt,
+      {
+        handler: 'ai-analysis-handler',
+        stream: true,
+        openChat: false,
+        parameters: {}
+      }
+    );
+  } catch (err) {
+    $aiLoading.classList.add('hidden');
+    $aiError.classList.remove('hidden');
+    const errMsg = err && err.errorType === 'USER_REJECTED_CONFIRMATION'
+      ? '你已取消操作'
+      : '發送失敗：' + (err.message || err);
+    $aiErrorText.textContent = errMsg;
+    state.isAnalyzing = false;
+    $btnSendAi.disabled = false;
+  }
+}
+
+/* =========================================================
+   Downloads
+   ========================================================= */
+function downloadFilteredCSV() {
+  if (state.filteredRows.length === 0) {
+    showToast('沒有可下載的記錄');
+    return;
+  }
+  const data = state.filteredRows.map(r => [r.source, r.sender, r.content, r.dateStr]);
+  const csv = Papa.unparse(data);
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'filtered_' + (state.fileName || 'data.csv');
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV 已下載');
+}
+
+function downloadMarkdown() {
+  if (!state.analysisRaw) {
+    showToast('沒有分析結果可下載');
+    return;
+  }
+  const now = new Date();
+  const dateStr = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0') + ' ' +
+    String(now.getHours()).padStart(2, '0') + ':' +
+    String(now.getMinutes()).padStart(2, '0');
+
+  let md = '# 通知記錄分析報告\n\n';
+  md += '**分析日期**: ' + dateStr + '\n\n';
+  md += '**使用模型**: ' + state.analysisLlm + '\n\n';
+  md += '**記錄數量**: ' + state.filteredRows.length + ' 條\n\n';
+  md += '---\n\n';
+  md += state.analysisRaw;
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'analysis_' + dateStr.replace(/[: ]/g, '-') + '.md';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Markdown 已下載');
+}
+
+/* =========================================================
+   Copy Rich Text
+   ========================================================= */
+async function copyAnalysisResult() {
+  if (!state.analysisRaw) {
+    showToast('沒有分析結果可複製');
+    return;
+  }
+  try {
+    const htmlContent = $aiOutput.innerHTML;
+    const plainText = state.analysisRaw;
+    const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+    const textBlob = new Blob([plainText], { type: 'text/plain' });
+    const clipItem = new ClipboardItem({
+      'text/html': htmlBlob,
+      'text/plain': textBlob
+    });
+    await navigator.clipboard.write([clipItem]);
+    // Visual feedback on button
+    const icon = $btnCopyResult.querySelector('i');
+    const originalClass = icon.className;
+    const originalText = $btnCopyResult.innerHTML;
+    icon.className = 'fas fa-check';
+    $btnCopyResult.querySelector('i').nextSibling.textContent = ' 已複製';
+    showToast('分析結果已複製到剪貼簿');
+    setTimeout(function() {
+      $btnCopyResult.innerHTML = '<i class="' + originalClass + '"></i> 複製';
+    }, 2000);
+  } catch (err) {
+    // Fallback: copy plain markdown text
+    try {
+      await navigator.clipboard.writeText(state.analysisRaw);
+      showToast('已複製為純文字');
+    } catch (e2) {
+      showToast('複製失敗，請手動選取複製');
+    }
+  }
+}
+
+/* =========================================================
+   Event Listeners
+   ========================================================= */
+$fileInputEmpty.addEventListener('change', handleFileUpload);
+$fileInputMain.addEventListener('change', handleFileUpload);
+
+$groupFilter.addEventListener('change', applyFilters);
+$dateFilter.addEventListener('change', applyFilters);
+
+$dedupToggle.addEventListener('click', function() {
+  $dedupToggle.classList.toggle('active');
+  const isActive = $dedupToggle.classList.contains('active');
+  $dedupToggle.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  applyFilters();
+});
+$dedupToggle.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    $dedupToggle.click();
+  }
+});
+
+let searchTimeout;
+$searchInput.addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(applyFilters, 250);
+});
+
+$tableBody.addEventListener('click', function(e) {
+  const row = e.target.closest('.data-row');
+  if (!row) return;
+  const idx = parseInt(row.dataset.idx, 10);
+  if (isNaN(idx) || !state.filteredRows[idx]) return;
+  showDetail(state.filteredRows[idx]);
+});
+
+$btnAnalyze.addEventListener('click', openAiModal);
+$btnDownload.addEventListener('click', downloadFilteredCSV);
+
+$closeAiModal.addEventListener('click', function() { $aiModal.classList.add('hidden'); });
+$aiModal.addEventListener('click', function(e) {
+  if (e.target === $aiModal) $aiModal.classList.add('hidden');
+});
+
+$btnSendAi.addEventListener('click', startAnalysis);
+$btnCopyResult.addEventListener('click', copyAnalysisResult);
+$btnDownloadMd.addEventListener('click', downloadMarkdown);
+
+$closeDetailModal.addEventListener('click', function() { $detailModal.classList.add('hidden'); });
+$detailModal.addEventListener('click', function(e) {
+  if (e.target === $detailModal) $detailModal.classList.add('hidden');
+});
+
+// Keyboard: Escape to close modals
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (!$detailModal.classList.contains('hidden')) {
+      $detailModal.classList.add('hidden');
+    } else if (!$aiModal.classList.contains('hidden') && !state.isAnalyzing) {
+      $aiModal.classList.add('hidden');
+    }
+  }
+});
+
+/* =========================================================
+   Initialization
+   ========================================================= */
+async function init() {
+  $loadStatus.textContent = '正在載入設定...';
+  await loadLLMConfig();
+  $loadStatus.textContent = state.llmConfig === DEFAULT_CONFIG ? '使用預設模型列表' : '模型列表已載入';
+
+  // Try trigger message for CSV attachment
+  try {
+    if (window.Poe && window.Poe.getTriggerMessage) {
+      const msg = await window.Poe.getTriggerMessage();
+      if (msg && msg.attachments && msg.attachments.length > 0) {
+        const csvAtt = msg.attachments.find(function(a) {
+          return (a.name && (a.name.endsWith('.csv') || a.name.endsWith('.txt'))) ||
+                 (a.mimeType && a.mimeType.includes('csv'));
+        });
+        if (csvAtt && csvAtt.url) {
+          $loadStatus.textContent = '正在載入附件 ' + csvAtt.name + '...';
+          const resp = await fetch(csvAtt.url);
+          const text = await resp.text();
+          loadCSVText(text, csvAtt.name);
+          return;
+        }
+      }
+    }
+  } catch (e) {
+    console.log('Trigger message check: ' + (e.message || JSON.stringify(e)));
+  }
+
+  $loadStatus.textContent = '';
+}
+
+// Configure marked
+marked.setOptions({ breaks: true, gfm: true });
+
+init();
+</script>
+</body>
+</html>
+
+
+
+

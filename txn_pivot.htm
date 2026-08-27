@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交易記錄分析器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE'
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <style>
+        .tooltip {
+            position: fixed;
+            z-index: 1000;
+            max-width: 400px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            font-size: 14px;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .tooltip.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .dark .tooltip {
+            background: #374151;
+            border-color: #4b5563;
+            color: #f9fafb;
+        }
+        .tooltip-arrow {
+            position: absolute;
+            top: -6px;
+            left: 20px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid white;
+        }
+        .dark .tooltip-arrow {
+            border-bottom-color: #374151;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+    <div class="container mx-auto px-4 py-6 max-w-7xl">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary mb-2">交易記錄分析器</h1>
+            <p class="text-gray-600 dark:text-gray-400">上傳Excel檔案生成收支分析表</p>
+        </div>
+
+        <!-- 檔案上傳區域 -->
+        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 mb-6 border-2 border-dashed border-gray-300 dark:border-gray-600" id="uploadArea">
+            <div class="text-center">
+                <div class="mb-4">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
+                <label for="fileInput" class="cursor-pointer">
+                    <span class="mt-2 block text-sm font-medium text-gray-900 dark:text-gray-100">
+                        點擊選擇Excel檔案或拖放到此處
+                    </span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">支援.xlsx格式</span>
+                </label>
+                <input type="file" id="fileInput" class="hidden" accept=".xlsx,.xls" />
+            </div>
+        </div>
+
+        <!-- 載入指示器 -->
+        <div id="loading" class="hidden text-center py-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">正在解析檔案...</p>
+        </div>
+
+        <!-- 過濾器設定區域 -->
+        <div id="filterSettings" class="hidden mb-6">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold">過濾器設定</h3>
+                    <div class="flex space-x-2">
+                        <button id="exportSettings" class="text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded">
+                            匯出設定
+                        </button>
+                        <label for="importSettings" class="text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded cursor-pointer">
+                            匯入設定
+                        </label>
+                        <input type="file" id="importSettings" class="hidden" accept=".json" />
+                        <button id="resetSettings" class="text-sm bg-red-100 dark:bg-red-900/20 hover:bg-red-200 dark:hover:bg-red-800/30 text-red-600 dark:text-red-400 px-3 py-1 rounded">
+                            重置
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 支出過濾 -->
+                    <div>
+                        <h4 class="text-md font-medium mb-3 text-red-600 dark:text-red-400">支出類別過濾</h4>
+                        <div id="expenseFilters" class="space-y-2 max-h-40 overflow-y-auto">
+                            <!-- 動態生成 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 收入過濾 -->
+                    <div>
+                        <h4 class="text-md font-medium mb-3 text-green-600 dark:text-green-400">收入類別過濾</h4>
+                        <div id="incomeFilters" class="space-y-2 max-h-40 overflow-y-auto">
+                            <!-- 動態生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 text-center">
+                    <button id="applyFilters" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200">
+                        套用過濾器
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果區域 -->
+        <div id="results" class="hidden">
+            <!-- 支出分析表 -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4 text-red-600 dark:text-red-400">支出分析</h2>
+                <div class="overflow-x-auto">
+                    <div id="expenseTable" class="bg-white dark:bg-gray-800 rounded-lg shadow"></div>
+                </div>
+            </div>
+
+            <!-- 收入分析表 -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold mb-4 text-green-600 dark:text-green-400">收入分析</h2>
+                <div class="overflow-x-auto">
+                    <div id="incomeTable" class="bg-white dark:bg-gray-800 rounded-lg shadow"></div>
+                </div>
+            </div>
+
+            <!-- 內容排名分析 -->
+            <div class="mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-purple-600 dark:text-purple-400">交易內容排名</h2>
+                    <button id="aiGroupBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                        <span>AI 智能分組</span>
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- 支出排名 -->
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-red-600 dark:text-red-400">支出排名 (按內容)</h3>
+                        <div class="overflow-x-auto">
+                            <div id="expenseRanking" class="bg-white dark:bg-gray-800 rounded-lg shadow"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 收入排名 -->
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-green-600 dark:text-green-400">收入排名 (按內容)</h3>
+                        <div class="overflow-x-auto">
+                            <div id="incomeRanking" class="bg-white dark:bg-gray-800 rounded-lg shadow"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 錯誤訊息 -->
+        <div id="error" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+            <div class="flex">
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200">處理檔案時發生錯誤</h3>
+                    <div class="mt-2 text-sm text-red-700 dark:text-red-300" id="errorMessage"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下載按鈕 -->
+        <div id="downloadSection" class="hidden text-center mt-6">
+            <button id="downloadBtn" class="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200">
+                下載編輯後的資料 (CSV)
+            </button>
+        </div>
+    </div>
+
+    <!-- AI分組預覽模態框 -->
+    <div id="aiGroupModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">AI 商戶智能分組建議</h3>
+                <button id="closeAiGroupModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- AI分析進度 -->
+            <div id="aiAnalysisProgress" class="text-center py-8">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                <p class="mt-2 text-gray-600 dark:text-gray-400">AI 正在分析交易內容...</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">這可能需要幾秒鐘時間</p>
+            </div>
+            
+            <!-- AI分析結果 -->
+            <div id="aiGroupResults" class="hidden">
+                <div class="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <h4 class="font-semibold text-blue-800 dark:text-blue-200 mb-2">AI 分析摘要</h4>
+                    <div id="aiGroupSummary" class="text-sm text-blue-700 dark:text-blue-300"></div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold mb-3">建議的商戶分組映射</h4>
+                    <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        以下是 AI 根據商戶名稱相似性建議的分組。您可以勾選想要應用的分組，或手動編輯分組名稱。
+                    </div>
+                    <div id="aiGroupMappings" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center space-x-4">
+                        <button id="selectAllMappings" class="text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-200">
+                            全選
+                        </button>
+                        <button id="deselectAllMappings" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                            取消全選
+                        </button>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button id="cancelAiGroup" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            取消
+                        </button>
+                        <button id="applyAiGroup" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                            套用選中的分組
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI分析錯誤 -->
+            <div id="aiGroupError" class="hidden text-center py-8">
+                <div class="text-red-500 mb-4">
+                    <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h4 class="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">AI 分析失敗</h4>
+                <p id="aiGroupErrorMessage" class="text-gray-600 dark:text-gray-400 mb-4"></p>
+                <button id="retryAiGroup" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
+                    重試
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯模態框 -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold" id="editModalTitle">編輯交易記錄</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="editModalContent">
+                <!-- 動態內容 -->
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button id="cancelEdit" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    取消
+                </button>
+                <button id="saveEdit" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                    儲存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 深色模式支援
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // ===== LLM Configure 載入設定（新增）=====
+        const LLM_CONFIG_URL = 'https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json';
+
+        const DEFAULT_LLM_CONFIG = {
+            "items": [
+                {
+                    "id": "l1",
+                    "name": "GPT-5.5",
+                    "description": "OpenAI 最新旗艦模型，400k context，支援網路搜尋",
+                    "category": "text",
+                    "isPinned": true,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-3059-200-ftfdcmjibjzhyaworsxmtkykumwdemnw.jpeg"
+                },
+                {
+                    "id": "l2",
+                    "name": "Claude-Sonnet-4.5",
+                    "description": "Anthropic 模型，1M context",
+                    "category": "text",
+                    "isPinned": false,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
+                },
+                {
+                    "id": "l6",
+                    "name": "Claude-Sonnet-4.6",
+                    "description": "Anthropic 模型，1M context，預設思考",
+                    "category": "text",
+                    "isPinned": false,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
+                },
+                {
+                    "id": "l7",
+                    "name": "Claude-Opus-4.8",
+                    "description": "Anthropic 模型，1M context，預設思考",
+                    "category": "text",
+                    "isPinned": true,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg"
+                },
+                {
+                    "id": "l4",
+                    "name": "Gemini-3.0-Pro",
+                    "description": "Google 進階模型，1M context，支援影片輸入",
+                    "category": "text",
+                    "isPinned": false
+                },
+                {
+                    "id": "l5",
+                    "name": "Gemini-2.5-Flash",
+                    "description": "Google 快速模型，1M context，低成本",
+                    "category": "text",
+                    "isPinned": false
+                },
+                {
+                    "id": "l11",
+                    "name": "Nano-Banana-2",
+                    "description": "Gemini 圖片編輯，支援多輪對話",
+                    "category": "image",
+                    "isPinned": false
+                },
+                {
+                    "id": "l14",
+                    "name": "Sora-2",
+                    "description": "OpenAI 影片生成，支援 text/image to video",
+                    "category": "video",
+                    "isPinned": false
+                },
+                {
+                    "id": "l15",
+                    "name": "Veo-v3.1",
+                    "description": "Google 影片生成，帶原生音訊",
+                    "category": "video",
+                    "isPinned": false
+                },
+                {
+                    "id": "l16",
+                    "name": "ElevenLabs-v2.5-Turbo",
+                    "description": "文字轉語音，支援 40k 字元",
+                    "category": "audio",
+                    "isPinned": false,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-5176044-200-ixsrhozcvbrhrvwgdxghshtrqpjjashv.jpeg"
+                },
+                {
+                    "id": "l17",
+                    "name": "ElevenLabs-v3",
+                    "description": "多人對話語音，支援情緒控制",
+                    "category": "audio",
+                    "isPinned": false
+                },
+                {
+                    "id": "l18",
+                    "name": "ElevenLabs-Music",
+                    "description": "音樂生成，最長 5 分鐘",
+                    "category": "audio",
+                    "isPinned": false,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6372089-200-yuwvwbjdljzmykjpdzbxizuqqgowdgzq.jpeg"
+                },
+                {
+                    "id": "l19",
+                    "name": "Claude-Code",
+                    "description": "代理模型，可執行 Python、操作檔案",
+                    "category": "agent",
+                    "isPinned": false,
+                    "iconUrl": "https://qph.cf2.poecdn.net/main-thumb-pb-6624122-200-eqzlivkawkxozndgzdufnolrgzrwlgko.jpeg"
+                },
+                {
+                    "id": "l20",
+                    "name": "Whisper-V3-Large-T",
+                    "description": "語音轉文字",
+                    "category": "agent",
+                    "isPinned": false
+                },
+                {
+                    "id": "l21",
+                    "name": "remove-background",
+                    "description": "移除圖片背景",
+                    "category": "agent",
+                    "isPinned": false
+                }
+            ],
+            "categories": [
+                {
+                    "id": "text",
+                    "name": "💬 文字生成",
+                    "icon": "ri-chat-3-line",
+                    "color": "#2563eb"
+                },
+                {
+                    "id": "image",
+                    "name": "🖼️ 圖片生成",
+                    "icon": "ri-image-line",
+                    "color": "#db2777"
+                },
+                {
+                    "id": "video",
+                    "name": "🎬 影片生成",
+                    "icon": "ri-video-line",
+                    "color": "#059669"
+                },
+                {
+                    "id": "audio",
+                    "name": "🔊 語音音樂",
+                    "icon": "ri-volume-up-line",
+                    "color": "#d97706"
+                },
+                {
+                    "id": "agent",
+                    "name": "🤖 代理工具",
+                    "icon": "ri-cpu-line",
+                    "color": "#4f46e5"
+                }
+            ]
+        };
+
+        let llmConfig = JSON.parse(JSON.stringify(DEFAULT_LLM_CONFIG));
+        let activeAiModelMention = '@Claude-Sonnet-4';
+
+        function isValidLlmConfig(data) {
+            return data &&
+                Array.isArray(data.items) &&
+                Array.isArray(data.categories);
+        }
+
+        function resolvePreferredTextModelName(config) {
+            const fallback = 'Claude-Sonnet-4';
+            if (!config || !Array.isArray(config.items)) return fallback;
+
+            const textItems = config.items.filter(item => item && item.category === 'text' && typeof item.name === 'string' && item.name.trim());
+            if (textItems.length === 0) return fallback;
+
+            const pinned = textItems.find(item => item.isPinned);
+            return (pinned ? pinned.name : textItems[0].name).trim();
+        }
+
+        async function loadLlmConfigOnStartup() {
+            const bustUrl = `${LLM_CONFIG_URL}?t=${Date.now()}`; // cache-busting
+            try {
+                const res = await fetch(bustUrl, {
+                    method: 'GET',
+                    cache: 'no-store'
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                const remoteConfig = await res.json();
+                if (!isValidLlmConfig(remoteConfig)) {
+                    throw new Error('LLM configure 格式不正確');
+                }
+
+                llmConfig = remoteConfig;
+                console.log('[LLM Config] 已從遠端載入：', bustUrl);
+            } catch (err) {
+                llmConfig = JSON.parse(JSON.stringify(DEFAULT_LLM_CONFIG));
+                console.warn('[LLM Config] 載入失敗，改用預設 configure：', err.message);
+            } finally {
+                const modelName = resolvePreferredTextModelName(llmConfig);
+                activeAiModelMention = `@${modelName}`;
+                console.log('[LLM Config] AI 分組預設模型：', activeAiModelMention);
+            }
+        }
+        // ===== LLM Configure 載入設定（新增結束）=====
+
+        // 全局變數
+        let allTransactions = [];
+        let allFieldNames = []; // 保存所有欄位名稱
+        let currentEditingData = null;
+        
+        // 過濾器設定
+        let filterSettings = {
+            hiddenExpenseCategories: ['內部轉帳'],
+            hiddenIncomeCategories: ['內部轉帳', '交際', '飲食']
+        };
+
+        // DOM 元素
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+        const errorMessage = document.getElementById('errorMessage');
+        const expenseTable = document.getElementById('expenseTable');
+        const incomeTable = document.getElementById('incomeTable');
+        const expenseRanking = document.getElementById('expenseRanking');
+        const incomeRanking = document.getElementById('incomeRanking');
+        const downloadSection = document.getElementById('downloadSection');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const editModal = document.getElementById('editModal');
+        const editModalTitle = document.getElementById('editModalTitle');
+        const editModalContent = document.getElementById('editModalContent');
+        const closeModal = document.getElementById('closeModal');
+        const cancelEdit = document.getElementById('cancelEdit');
+        const saveEdit = document.getElementById('saveEdit');
+        
+        // 過濾器相關元素
+        const filterSettingsPanel = document.getElementById('filterSettings');
+        const expenseFilters = document.getElementById('expenseFilters');
+        const incomeFilters = document.getElementById('incomeFilters');
+        const applyFilters = document.getElementById('applyFilters');
+        const exportSettingsBtn = document.getElementById('exportSettings');
+        const importSettingsInput = document.getElementById('importSettings');
+        const resetSettingsBtn = document.getElementById('resetSettings');
+
+        // 檔案上傳處理
+        fileInput.addEventListener('change', handleFile);
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-primary', 'bg-primary/5');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-primary', 'bg-primary/5');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-primary', 'bg-primary/5');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFile();
+            }
+        });
+
+        function handleFile() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            // 重置所有狀態
+            resetAppState();
+            hideError();
+            showLoading();
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    processExcelFile(e.target.result);
+                } catch (err) {
+                    showError('檔案格式錯誤或內容無法解析：' + err.message);
+                    hideLoading();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processExcelFile(data) {
+            try {
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (jsonData.length < 2) {
+                    throw new Error('檔案內容太少，請確認檔案格式正確');
+                }
+
+                const transactions = parseTransactions(jsonData);
+                allTransactions = transactions; // 儲存所有交易資料
+                
+                // 生成過濾器選項
+                generateFilterOptions();
+                
+                const { expenses, income } = categorizeTransactions(transactions);
+                
+                renderPivotTable(expenses, expenseTable, '支出');
+                renderPivotTable(income, incomeTable, '收入');
+                renderContentRanking(expenses, expenseRanking, '支出');
+                renderContentRanking(income, incomeRanking, '收入');
+                
+                hideLoading();
+                showResults();
+                filterSettingsPanel.classList.remove('hidden');
+                downloadSection.classList.remove('hidden');
+            } catch (err) {
+                showError('處理檔案時發生錯誤：' + err.message);
+                hideLoading();
+            }
+        }
+
+        function parseTransactions(data) {
+            const headers = data[0];
+            allFieldNames = [...headers]; // 保存所有欄位名稱
+            const transactions = [];
+
+            // 尋找必要欄位索引
+            const dateIndex = headers.findIndex(h => h === 'Transaction Date' || h === '日期');
+            const categoryIndex = headers.findIndex(h => h === '類別');
+            const amountIndex = headers.findIndex(h => h === '金顛' || h === '金額');
+            const typeIndex = headers.findIndex(h => h === '收支');
+
+            if (dateIndex === -1 || categoryIndex === -1 || amountIndex === -1 || typeIndex === -1) {
+                throw new Error('找不到必要的欄位：日期、類別、金額、收支');
+            }
+
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (!row || row.length === 0) continue;
+
+                // 建立包含所有欄位的交易記錄
+                const transaction = {};
+                
+                // 先填入所有欄位
+                headers.forEach((header, index) => {
+                    transaction[header] = row[index] || '';
+                });
+
+                // 特殊處理必要欄位
+                const rawDate = row[dateIndex];
+                const category = row[categoryIndex];
+                const rawAmount = row[amountIndex];
+                const type = row[typeIndex];
+
+                if (!rawDate || !category || !rawAmount || !type) continue;
+
+                try {
+                    // 處理日期和金額
+                    transaction[headers[dateIndex]] = convertExcelDate(rawDate);
+                    transaction[headers[amountIndex]] = parseAmount(rawAmount);
+                    
+                    // 添加標準化的欄位名稱以便後續處理
+                    transaction.date = transaction[headers[dateIndex]];
+                    transaction.category = transaction[headers[categoryIndex]];
+                    transaction.amount = transaction[headers[amountIndex]];
+                    transaction.type = transaction[headers[typeIndex]];
+                    
+                    transactions.push(transaction);
+                } catch (err) {
+                    console.warn('跳過無法解析的行:', row, err.message);
+                }
+            }
+
+            return transactions;
+        }
+
+        function convertExcelDate(excelDate) {
+            if (typeof excelDate === 'string') {
+                return excelDate;
+            }
+            
+            // Excel日期轉換（1900年1月1日為基準）
+            const baseDate = new Date(1900, 0, 1);
+            const convertedDate = new Date(baseDate.getTime() + (excelDate - 2) * 24 * 60 * 60 * 1000);
+            
+            const options = { 
+                month: 'numeric', 
+                day: 'numeric',
+                weekday: 'short'
+            };
+            return convertedDate.toLocaleDateString('zh-TW', options);
+        }
+
+        function parseAmount(amountStr) {
+            if (typeof amountStr === 'number') {
+                return amountStr;
+            }
+            
+            // 移除$符號、逗號和空格
+            const cleanAmount = amountStr.toString().replace(/[$,\s]/g, '');
+            const amount = parseFloat(cleanAmount);
+            
+            if (isNaN(amount)) {
+                throw new Error('無法解析金額：' + amountStr);
+            }
+            
+            return amount;
+        }
+
+        function categorizeTransactions(transactions) {
+            const expenses = transactions.filter(t => 
+                t.type === '支出' && 
+                t.amount < 0 && 
+                !filterSettings.hiddenExpenseCategories.includes(t.category)
+            );
+            
+            const income = transactions.filter(t => 
+                t.type === '收入' && 
+                t.amount > 0 && 
+                !filterSettings.hiddenIncomeCategories.includes(t.category)
+            );
+            
+            return { expenses, income };
+        }
+
+        function renderPivotTable(transactions, container, title) {
+            if (transactions.length === 0) {
+                container.innerHTML = `<p class="p-4 text-gray-500 dark:text-gray-400">無${title}記錄</p>`;
+                return;
+            }
+
+            // 建立pivot數據結構
+            const pivotData = {};
+            const dates = new Set();
+            const categories = new Set();
+
+            transactions.forEach(t => {
+                dates.add(t.date);
+                categories.add(t.category);
+                
+                if (!pivotData[t.date]) {
+                    pivotData[t.date] = {};
+                }
+                if (!pivotData[t.date][t.category]) {
+                    pivotData[t.date][t.category] = 0;
+                }
+                pivotData[t.date][t.category] += Math.abs(t.amount);
+            });
+
+            const sortedDates = Array.from(dates).sort((a, b) => {
+                // 解析日期字串 (格式: "M/D 週X")
+                const parseDate = (dateStr) => {
+                    if (typeof dateStr === 'string' && dateStr.includes('/')) {
+                        const datePart = dateStr.split(' ')[0]; // 取得 "M/D" 部分
+                        const [month, day] = datePart.split('/').map(num => parseInt(num));
+                        // 假設是當前年份
+                        const currentYear = new Date().getFullYear();
+                        return new Date(currentYear, month - 1, day);
+                    }
+                    return new Date(dateStr);
+                };
+                
+                const dateA = parseDate(a);
+                const dateB = parseDate(b);
+                return dateA - dateB;
+            });
+            const sortedCategories = Array.from(categories).sort();
+
+            // 建立表格HTML
+            let html = '<table class="min-w-full">';
+            
+            // 表頭
+            html += '<thead class="bg-gray-100 dark:bg-gray-700">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">日期</th>';
+            sortedCategories.forEach(category => {
+                html += `<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">${category}</th>`;
+            });
+            html += '<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">總計</th>';
+            html += '</tr>';
+            html += '</thead>';
+
+            // 表格內容
+            html += '<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">';
+            
+            const categoryTotals = {};
+            let grandTotal = 0;
+            
+            // 找出表格中的最大值用於熱度圖
+            let maxValue = 0;
+            sortedDates.forEach(date => {
+                sortedCategories.forEach(category => {
+                    const amount = pivotData[date] && pivotData[date][category] ? pivotData[date][category] : 0;
+                    if (amount > maxValue) {
+                        maxValue = amount;
+                    }
+                });
+            });
+
+            sortedDates.forEach(date => {
+                html += '<tr>';
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${date}</td>`;
+                
+                let rowTotal = 0;
+                sortedCategories.forEach(category => {
+                    const amount = pivotData[date] && pivotData[date][category] ? pivotData[date][category] : 0;
+                    rowTotal += amount;
+                    
+                    if (!categoryTotals[category]) {
+                        categoryTotals[category] = 0;
+                    }
+                    categoryTotals[category] += amount;
+                    
+                    const displayAmount = amount > 0 ? formatAmount(amount) : '-';
+                    const clickable = amount > 0 ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400' : '';
+                    const cellData = amount > 0 ? `data-date="${date}" data-category="${category}" data-type="${title}"` : '';
+                    
+                    // 計算熱度圖顏色
+                    let bgColorStyle = '';
+                    if (amount > 0 && maxValue > 0) {
+                        const intensity = amount / maxValue;
+                        // 根據交易類型使用不同的顏色主題
+                        if (title === '支出') {
+                            // 支出使用紅色系
+                            const alpha = Math.max(0.1, intensity * 0.7); // 確保最低透明度
+                            bgColorStyle = `style="background-color: rgba(239, 68, 68, ${alpha});"`;
+                        } else {
+                            // 收入使用綠色系
+                            const alpha = Math.max(0.1, intensity * 0.7);
+                            bgColorStyle = `style="background-color: rgba(34, 197, 94, ${alpha});"`;
+                        }
+                    }
+                    
+                    html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-right ${clickable} transition-colors duration-200" ${cellData} ${bgColorStyle} onclick="${amount > 0 ? 'openEditModal(this)' : ''}" onmouseenter="${amount > 0 ? 'showTooltip(event, this)' : ''}" onmouseleave="${amount > 0 ? 'hideTooltip()' : ''}">${displayAmount}</td>`;
+                });
+                
+                grandTotal += rowTotal;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-right">${formatAmount(rowTotal)}</td>`;
+                html += '</tr>';
+            });
+
+            // 總計行
+            html += '<tr class="bg-gray-50 dark:bg-gray-700 font-semibold">';
+            html += '<td class="px-4 py-3 whitespace-nowrap text-sm">總計</td>';
+            sortedCategories.forEach(category => {
+                const total = categoryTotals[category] || 0;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-right">${formatAmount(total)}</td>`;
+            });
+            html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-right">${formatAmount(grandTotal)}</td>`;
+            html += '</tr>';
+
+            html += '</tbody>';
+            html += '</table>';
+
+            container.innerHTML = html;
+        }
+
+        function formatAmount(amount) {
+            return new Intl.NumberFormat('zh-TW', {
+                style: 'currency',
+                currency: 'HKD',
+                minimumFractionDigits: 1
+            }).format(amount);
+        }
+
+        function showLoading() {
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+            error.classList.add('hidden');
+        }
+
+        function hideLoading() {
+            loading.classList.add('hidden');
+        }
+
+        function showResults() {
+            results.classList.remove('hidden');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            error.classList.remove('hidden');
+            results.classList.add('hidden');
+        }
+
+        function hideError() {
+            error.classList.add('hidden');
+        }
+
+        function resetAppState() {
+            // 清空所有資料
+            allTransactions = [];
+            allFieldNames = [];
+            currentEditingData = null;
+            
+            // 隱藏所有結果和下載區域
+            results.classList.add('hidden');
+            downloadSection.classList.add('hidden');
+            filterSettingsPanel.classList.add('hidden');
+            
+            // 關閉編輯模態框
+            closeEditModal();
+            
+            // 清空表格內容
+            expenseTable.innerHTML = '';
+            incomeTable.innerHTML = '';
+            
+            // 重置檔案輸入
+            fileInput.value = '';
+        }
+
+        // 編輯功能
+        function openEditModal(cell) {
+            const date = cell.dataset.date;
+            const category = cell.dataset.category;
+            const type = cell.dataset.type;
+            
+            // 篩選該日期和類別的交易記錄
+            const filteredTransactions = allTransactions.filter(t => 
+                t.date === date && 
+                t.category === category && 
+                t.type === type
+            );
+            
+            currentEditingData = {
+                date: date,
+                category: category,
+                type: type,
+                transactions: JSON.parse(JSON.stringify(filteredTransactions)) // 深拷貝
+            };
+            
+            editModalTitle.textContent = `編輯 ${date} - ${category} (${type})`;
+            renderEditForm(currentEditingData.transactions);
+            editModal.classList.remove('hidden');
+        }
+
+        function renderEditForm(transactions) {
+            // 收集所有可用的類別選項
+            const allCategories = new Set();
+            allTransactions.forEach(t => {
+                if (t.category) {
+                    allCategories.add(t.category);
+                }
+            });
+            const sortedCategories = Array.from(allCategories).sort();
+            
+            let html = '<div class="space-y-6">';
+            
+            transactions.forEach((transaction, index) => {
+                html += `
+                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-lg font-semibold">記錄 ${index + 1}</h4>
+                            <button onclick="removeTransaction(${index})" class="text-red-600 hover:text-red-800 text-sm bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded">
+                                刪除此記錄
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                `;
+                
+                // 顯示所有欄位
+                allFieldNames.forEach(fieldName => {
+                    const value = transaction[fieldName] || '';
+                    const isAmountField = fieldName === '金額' || fieldName === '金顛';
+                    const isCategoryField = fieldName === '類別';
+                    
+                    html += `<div><label class="block text-sm font-medium mb-1">${fieldName}</label>`;
+                    
+                    if (isCategoryField) {
+                        // 類別欄位使用下拉選單
+                        html += `
+                            <select class="w-full text-base px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700" 
+                                    data-field="${fieldName}" 
+                                    data-index="${index}">
+                        `;
+                        
+                        sortedCategories.forEach(category => {
+                            const selected = category === value ? 'selected' : '';
+                            html += `<option value="${category}" ${selected}>${category}</option>`;
+                        });
+                        
+                        html += `</select>`;
+                    } else if (isAmountField) {
+                        // 金額欄位
+                        html += `
+                            <input type="number" step="0.01" 
+                                   class="w-full text-base px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700" 
+                                   value="${value}" 
+                                   data-field="${fieldName}" 
+                                   data-index="${index}">
+                        `;
+                    } else {
+                        // 其他欄位
+                        html += `
+                            <input type="text" 
+                                   class="w-full text-base px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700" 
+                                   value="${value}" 
+                                   data-field="${fieldName}" 
+                                   data-index="${index}">
+                        `;
+                    }
+                    
+                    html += `</div>`;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                <button onclick="addNewTransaction()" class="w-full py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                    + 新增記錄
+                </button>
+            `;
+            html += '</div>';
+            
+            editModalContent.innerHTML = html;
+        }
+
+        function removeTransaction(index) {
+            currentEditingData.transactions.splice(index, 1);
+            renderEditForm(currentEditingData.transactions);
+        }
+
+        function addNewTransaction() {
+            // 建立新記錄，包含所有欄位
+            const newTransaction = {};
+            
+            if (currentEditingData.editMode === 'content') {
+                // 內容編輯模式：根據現有交易記錄推斷合適的預設值
+                const existingTransactions = currentEditingData.transactions;
+                const mostCommonCategory = getMostCommonValue(existingTransactions, 'category');
+                
+                allFieldNames.forEach(fieldName => {
+                    if (fieldName === '日期' || fieldName === 'Transaction Date') {
+                        // 使用當前日期或最新的日期
+                        const latestDate = getLatestDate(existingTransactions, fieldName);
+                        newTransaction[fieldName] = latestDate || getCurrentDateString();
+                    } else if (fieldName === '類別') {
+                        newTransaction[fieldName] = mostCommonCategory || '';
+                    } else if (fieldName === '收支') {
+                        newTransaction[fieldName] = currentEditingData.type;
+                    } else if (fieldName === '金額' || fieldName === '金顛') {
+                        newTransaction[fieldName] = 0;
+                    } else if (fieldName === '交易內容' || fieldName === '內容' || fieldName === '交易描述' || fieldName === '描述' || 
+                              fieldName === '商家' || fieldName === '商戶' || fieldName === '收款方' || fieldName === '備註' || fieldName === '備注') {
+                        // 設為當前編輯的內容
+                        newTransaction[fieldName] = currentEditingData.content || '';
+                    } else {
+                        newTransaction[fieldName] = '';
+                    }
+                });
+                
+                // 添加標準化欄位
+                newTransaction.date = newTransaction[allFieldNames.find(f => f === '日期' || f === 'Transaction Date')];
+                newTransaction.category = mostCommonCategory || '';
+                newTransaction.type = currentEditingData.type;
+                newTransaction.amount = 0;
+                
+            } else {
+                // 原來的類別編輯模式
+                allFieldNames.forEach(fieldName => {
+                    if (fieldName === '日期' || fieldName === 'Transaction Date') {
+                        newTransaction[fieldName] = currentEditingData.date;
+                    } else if (fieldName === '類別') {
+                        newTransaction[fieldName] = currentEditingData.category;
+                    } else if (fieldName === '收支') {
+                        newTransaction[fieldName] = currentEditingData.type;
+                    } else if (fieldName === '金額' || fieldName === '金顛') {
+                        newTransaction[fieldName] = 0;
+                    } else {
+                        newTransaction[fieldName] = '';
+                    }
+                });
+                
+                // 添加標準化欄位
+                newTransaction.date = currentEditingData.date;
+                newTransaction.category = currentEditingData.category;
+                newTransaction.type = currentEditingData.type;
+                newTransaction.amount = 0;
+            }
+            
+            currentEditingData.transactions.push(newTransaction);
+            renderEditForm(currentEditingData.transactions);
+        }
+
+        // 輔助函數：獲取最常見的值
+        function getMostCommonValue(transactions, field) {
+            const values = {};
+            transactions.forEach(t => {
+                const value = t[field];
+                if (value) {
+                    values[value] = (values[value] || 0) + 1;
+                }
+            });
+            
+            let mostCommon = '';
+            let maxCount = 0;
+            Object.entries(values).forEach(([value, count]) => {
+                if (count > maxCount) {
+                    maxCount = count;
+                    mostCommon = value;
+                }
+            });
+            
+            return mostCommon;
+        }
+
+        // 輔助函數：獲取最新的日期
+        function getLatestDate(transactions, dateFieldName) {
+            if (transactions.length === 0) return null;
+            
+            // 簡單返回第一個交易的日期
+            return transactions[0][dateFieldName] || null;
+        }
+
+        // 輔助函數：獲取當前日期字串
+        function getCurrentDateString() {
+            const now = new Date();
+            const options = { 
+                month: 'numeric', 
+                day: 'numeric',
+                weekday: 'short'
+            };
+            return now.toLocaleDateString('zh-TW', options);
+        }
+
+        function saveEdits() {
+            // 收集編輯後的資料
+            const inputs = editModalContent.querySelectorAll('input, select');
+            const editedTransactions = [];
+            
+            // 按索引分組輸入
+            const transactionInputs = {};
+            inputs.forEach(input => {
+                const index = parseInt(input.dataset.index);
+                const field = input.dataset.field;
+                
+                if (!transactionInputs[index]) {
+                    transactionInputs[index] = {};
+                }
+                
+                let value = input.value;
+                if (field === '金額' || field === '金顛') {
+                    value = parseFloat(value) || 0;
+                }
+                
+                transactionInputs[index][field] = value;
+            });
+
+            // 重建交易記錄
+            Object.keys(transactionInputs).forEach(index => {
+                const transactionData = transactionInputs[index];
+                
+                // 更新標準化欄位
+                const dateField = allFieldNames.find(f => f === '日期' || f === 'Transaction Date');
+                const categoryField = allFieldNames.find(f => f === '類別');
+                const amountField = allFieldNames.find(f => f === '金額' || f === '金顛');
+                const typeField = allFieldNames.find(f => f === '收支');
+                
+                transactionData.date = transactionData[dateField];
+                transactionData.category = transactionData[categoryField];
+                transactionData.amount = transactionData[amountField];
+                transactionData.type = transactionData[typeField];
+                
+                editedTransactions.push(transactionData);
+            });
+
+            // 更新 allTransactions
+            if (currentEditingData.editMode === 'content') {
+                // 內容編輯模式：移除具有相同內容的記錄
+                allTransactions = allTransactions.filter(t => {
+                    const transactionContent = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                                             t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                                             '未分類';
+                    return !(transactionContent === currentEditingData.content && t.type === currentEditingData.type);
+                });
+            } else {
+                // 原來的類別編輯模式：移除相同日期、類別、類型的記錄
+                allTransactions = allTransactions.filter(t => 
+                    !(t.date === currentEditingData.date && 
+                      t.category === currentEditingData.category && 
+                      t.type === currentEditingData.type)
+                );
+            }
+            
+            // 加入編輯後的記錄
+            editedTransactions.forEach(transaction => {
+                if (transaction.date && transaction.category && transaction.amount !== undefined) {
+                    allTransactions.push(transaction);
+                }
+            });
+
+            // 重新渲染表格
+            const { expenses, income } = categorizeTransactions(allTransactions);
+            renderPivotTable(expenses, expenseTable, '支出');
+            renderPivotTable(income, incomeTable, '收入');
+            renderContentRanking(expenses, expenseRanking, '支出');
+            renderContentRanking(income, incomeRanking, '收入');
+            
+            closeEditModal();
+        }
+
+        function closeEditModal() {
+            editModal.classList.add('hidden');
+            currentEditingData = null;
+        }
+
+        // CSV 下載功能
+        function downloadCSV() {
+            if (allFieldNames.length === 0 || allTransactions.length === 0) {
+                alert('沒有資料可下載');
+                return;
+            }
+            
+            // 找到日期欄位
+            const dateFieldName = allFieldNames.find(name => name === 'Transaction Date' || name === '日期');
+            
+            // 建立新的標題行，第一欄是日期，第二欄是星期，其餘保持原樣
+            let headers = [];
+            allFieldNames.forEach((name, index) => {
+                if (index === 0) {
+                    // 第一欄改為日期
+                    headers.push('日期 (YYYY-MM-DD)');
+                } else if (index === 1) {
+                    // 第二欄改為星期
+                    headers.push('星期');
+                } else {
+                    // 其他欄位保持原樣
+                    headers.push(name);
+                }
+            });
+            
+            let csvContent = headers.map(name => `"${name}"`).join(',') + '\n';
+            
+            allTransactions.forEach(transaction => {
+                const row = [];
+                
+                allFieldNames.forEach((fieldName, index) => {
+                    const value = transaction[fieldName] || '';
+                    
+                    if (index === 0) {
+                        // 第一欄：格式化日期為 YYYY-MM-DD
+                        const dateValue = transaction[dateFieldName] || value;
+                        const { formattedDate } = formatDateForCSV(dateValue);
+                        row.push(`"${formattedDate}"`);
+                    } else if (index === 1) {
+                        // 第二欄：顯示星期
+                        const dateValue = transaction[dateFieldName] || transaction[allFieldNames[0]];
+                        const { weekday } = formatDateForCSV(dateValue);
+                        row.push(`"${weekday}"`);
+                    } else {
+                        // 其他欄位的處理
+                        if (typeof value === 'number' && (fieldName === '金額' || fieldName === '金顛')) {
+                            row.push(value);
+                        } else {
+                            row.push(`"${value}"`);
+                        }
+                    }
+                });
+                
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', '交易記錄_完整版.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 格式化日期為CSV匯出
+        function formatDateForCSV(dateString) {
+            try {
+                // 如果輸入是 "M/D 週X" 格式
+                if (typeof dateString === 'string' && dateString.includes('/')) {
+                    const parts = dateString.split(' ');
+                    const datePart = parts[0]; // "M/D"
+                    const weekdayPart = parts[1] ? parts[1].replace('週', '') : '';
+                    
+                    // 解析月份和日期
+                    const [month, day] = datePart.split('/').map(num => parseInt(num));
+                    
+                    // 假設是當前年份，或者您可以根據實際需求調整
+                    const currentYear = new Date().getFullYear();
+                    const date = new Date(currentYear, month - 1, day);
+                    
+                    // 格式化為 YYYY-MM-DD
+                    const formattedDate = date.getFullYear() + '-' + 
+                                        String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                                        String(date.getDate()).padStart(2, '0');
+                    
+                    // 週期映射 - 改為"週X"格式
+                    const weekdayMap = {
+                        '一': '週一',
+                        '二': '週二', 
+                        '三': '週三',
+                        '四': '週四',
+                        '五': '週五',
+                        '六': '週六',
+                        '日': '週日'
+                    };
+                    
+                    const weekday = weekdayMap[weekdayPart] || (weekdayPart ? '週' + weekdayPart : '');
+                    
+                    return { formattedDate, weekday };
+                }
+                
+                // 如果是其他格式，嘗試解析為Date對象
+                const date = new Date(dateString);
+                if (!isNaN(date.getTime())) {
+                    const formattedDate = date.getFullYear() + '-' + 
+                                        String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                                        String(date.getDate()).padStart(2, '0');
+                    
+                    const weekdays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+                    const weekday = weekdays[date.getDay()];
+                    
+                    return { formattedDate, weekday };
+                }
+                
+                // 如果無法解析，返回原值
+                return { formattedDate: dateString, weekday: '' };
+                
+            } catch (error) {
+                console.warn('日期格式化失敗:', dateString, error);
+                return { formattedDate: dateString, weekday: '' };
+            }
+        }
+
+        // 事件監聽器
+        closeModal.addEventListener('click', closeEditModal);
+        cancelEdit.addEventListener('click', closeEditModal);
+        saveEdit.addEventListener('click', saveEdits);
+        downloadBtn.addEventListener('click', downloadCSV);
+
+        // 點擊模態框外部關閉
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                closeEditModal();
+            }
+        });
+
+        // 過濾器功能
+        function generateFilterOptions() {
+            // 收集所有類別
+            const expenseCategories = new Set();
+            const incomeCategories = new Set();
+            
+            allTransactions.forEach(t => {
+                if (t.type === '支出') {
+                    expenseCategories.add(t.category);
+                } else if (t.type === '收入') {
+                    incomeCategories.add(t.category);
+                }
+            });
+            
+            // 生成支出過濾器選項
+            expenseFilters.innerHTML = '';
+            Array.from(expenseCategories).sort().forEach(category => {
+                const isHidden = filterSettings.hiddenExpenseCategories.includes(category);
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                div.innerHTML = `
+                    <input type="checkbox" id="expense-${category}" ${isHidden ? 'checked' : ''} 
+                           class="mr-2 text-primary focus:ring-primary" 
+                           onchange="updateFilterSettings()">
+                    <label for="expense-${category}" class="text-sm">${category}</label>
+                `;
+                expenseFilters.appendChild(div);
+            });
+            
+            // 生成收入過濾器選項
+            incomeFilters.innerHTML = '';
+            Array.from(incomeCategories).sort().forEach(category => {
+                const isHidden = filterSettings.hiddenIncomeCategories.includes(category);
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                div.innerHTML = `
+                    <input type="checkbox" id="income-${category}" ${isHidden ? 'checked' : ''} 
+                           class="mr-2 text-primary focus:ring-primary" 
+                           onchange="updateFilterSettings()">
+                    <label for="income-${category}" class="text-sm">${category}</label>
+                `;
+                incomeFilters.appendChild(div);
+            });
+        }
+
+        function updateFilterSettings() {
+            // 更新支出過濾設定
+            filterSettings.hiddenExpenseCategories = [];
+            expenseFilters.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                if (checkbox.checked) {
+                    const category = checkbox.id.replace('expense-', '');
+                    filterSettings.hiddenExpenseCategories.push(category);
+                }
+            });
+            
+            // 更新收入過濾設定
+            filterSettings.hiddenIncomeCategories = [];
+            incomeFilters.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                if (checkbox.checked) {
+                    const category = checkbox.id.replace('income-', '');
+                    filterSettings.hiddenIncomeCategories.push(category);
+                }
+            });
+        }
+
+        function applyFilterSettings() {
+            if (allTransactions.length === 0) return;
+            
+            const { expenses, income } = categorizeTransactions(allTransactions);
+            renderPivotTable(expenses, expenseTable, '支出');
+            renderPivotTable(income, incomeTable, '收入');
+            renderContentRanking(expenses, expenseRanking, '支出');
+            renderContentRanking(income, incomeRanking, '收入');
+        }
+
+        function renderContentRanking(transactions, container, title) {
+            if (transactions.length === 0) {
+                container.innerHTML = `<p class="p-4 text-gray-500 dark:text-gray-400">無${title}記錄</p>`;
+                return;
+            }
+
+            // 根據交易內容/描述分組並計算總額
+            const contentGroups = {};
+            
+            transactions.forEach(t => {
+                // 嘗試使用不同的欄位作為內容描述
+                const content = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                               t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                               '未分類';
+                
+                if (!contentGroups[content]) {
+                    contentGroups[content] = {
+                        totalAmount: 0,
+                        count: 0,
+                        transactions: []
+                    };
+                }
+                
+                contentGroups[content].totalAmount += Math.abs(t.amount);
+                contentGroups[content].count += 1;
+                contentGroups[content].transactions.push(t);
+            });
+
+            // 按總額排序（由大到小）
+            const sortedContents = Object.entries(contentGroups).sort((a, b) => {
+                return b[1].totalAmount - a[1].totalAmount;
+            });
+
+            // 建立排名表格HTML
+            let html = '<table class="min-w-full">';
+            
+            // 表頭
+            html += '<thead class="bg-gray-100 dark:bg-gray-700">';
+            html += '<tr>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">排名</th>';
+            html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">內容</th>';
+            html += '<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">筆數</th>';
+            html += '<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">總金額</th>';
+            html += '<th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">平均金額</th>';
+            html += '</tr>';
+            html += '</thead>';
+
+            // 表格內容
+            html += '<tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">';
+            
+            const maxAmount = sortedContents.length > 0 ? sortedContents[0][1].totalAmount : 0;
+            
+            sortedContents.forEach(([content, data], index) => {
+                const rank = index + 1;
+                const averageAmount = data.totalAmount / data.count;
+                
+                // 計算相對強度用於顏色漸變
+                const intensity = maxAmount > 0 ? data.totalAmount / maxAmount : 0;
+                let bgColorStyle = '';
+                
+                if (title === '支出') {
+                    // 支出使用紅色系漸變
+                    const alpha = Math.max(0.1, intensity * 0.6);
+                    bgColorStyle = `style="background-color: rgba(239, 68, 68, ${alpha});"`;
+                } else {
+                    // 收入使用綠色系漸變
+                    const alpha = Math.max(0.1, intensity * 0.6);
+                    bgColorStyle = `style="background-color: rgba(34, 197, 94, ${alpha});"`;
+                }
+                
+                // 排名徽章樣式
+                let rankBadge = '';
+                if (rank === 1) {
+                    rankBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400">🥇 1</span>';
+                } else if (rank === 2) {
+                    rankBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300">🥈 2</span>';
+                } else if (rank === 3) {
+                    rankBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400">🥉 3</span>';
+                } else {
+                    rankBadge = `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">${rank}</span>`;
+                }
+                
+                // 內容顯示（限制長度）
+                const displayContent = content.length > 30 ? content.substring(0, 30) + '...' : content;
+                const contentTooltip = content.length > 30 ? `title="${content}"` : '';
+                
+                html += `<tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200 cursor-pointer" ${bgColorStyle} onmouseenter="showContentTooltip(event, '${content.replace(/'/g, "\\'")}', '${title}')" onmouseleave="hideTooltip()" onclick="showContentDetails('${content.replace(/'/g, "\\'")}', '${title}')">`;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm">${rankBadge}</td>`;
+                html += `<td class="px-4 py-3 text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400" ${contentTooltip}>${displayContent}</td>`;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-right">${data.count}</td>`;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-right">${formatAmount(data.totalAmount)}</td>`;
+                html += `<td class="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-600 dark:text-gray-400">${formatAmount(averageAmount)}</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody>';
+            html += '</table>';
+
+            container.innerHTML = html;
+        }
+
+        function showContentDetails(content, type) {
+            // 篩選特定內容的交易記錄
+            const filteredTransactions = allTransactions.filter(t => {
+                const transactionContent = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                                         t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                                         '未分類';
+                return transactionContent === content && t.type === type;
+            });
+            
+            if (filteredTransactions.length === 0) return;
+            
+            // 暫存特定內容的交易記錄
+            currentEditingData = {
+                date: '多個日期',
+                content: content,  // 儲存交易內容而非類別
+                type: type,
+                editMode: 'content', // 標記這是內容編輯模式
+                transactions: JSON.parse(JSON.stringify(filteredTransactions)) // 深拷貝
+            };
+            
+            editModalTitle.textContent = `編輯 ${content} (${type}) - 共 ${filteredTransactions.length} 筆記錄`;
+            renderEditForm(currentEditingData.transactions);
+            editModal.classList.remove('hidden');
+        }
+
+        function exportFilterSettings() {
+            const settingsData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                settings: filterSettings
+            };
+            
+            const blob = new Blob([JSON.stringify(settingsData, null, 2)], { 
+                type: 'application/json;charset=utf-8;' 
+            });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', '過濾器設定.json');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function importFilterSettings() {
+            const file = importSettingsInput.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings) {
+                        filterSettings = data.settings;
+                        generateFilterOptions(); // 重新生成選項以反映新設定
+                        applyFilterSettings(); // 套用新設定
+                        console.log('設定匯入成功');
+                    } else {
+                        throw new Error('設定檔案格式不正確');
+                    }
+                } catch (err) {
+                    showError('匯入設定失敗：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            importSettingsInput.value = ''; // 清空檔案輸入
+        }
+
+        function resetFilterSettings() {
+            filterSettings = {
+                hiddenExpenseCategories: ['內部轉帳'],
+                hiddenIncomeCategories: ['內部轉帳', '交際', '飲食']
+            };
+            generateFilterOptions();
+            applyFilterSettings();
+        }
+
+        // 工具提示功能
+        let tooltip = null;
+
+        function createTooltip() {
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.className = 'tooltip';
+                tooltip.innerHTML = '<div class="tooltip-arrow"></div><div class="tooltip-content"></div>';
+                document.body.appendChild(tooltip);
+            }
+            return tooltip;
+        }
+
+        function showTooltip(event, cell) {
+            const date = cell.dataset.date;
+            const category = cell.dataset.category;
+            const type = cell.dataset.type;
+            
+            // 篩選該日期和類別的交易記錄
+            const filteredTransactions = allTransactions.filter(t => 
+                t.date === date && 
+                t.category === category && 
+                t.type === type
+            );
+            
+            if (filteredTransactions.length === 0) return;
+            
+            const tooltip = createTooltip();
+            const content = tooltip.querySelector('.tooltip-content');
+            
+            // 生成工具提示內容
+            let html = `<div class="font-semibold mb-2 pb-2 border-b border-gray-200 dark:border-gray-600">${date} - ${category}</div>`;
+            
+            // 計算總金額
+            const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            html += `<div class="text-sm text-gray-600 dark:text-gray-400 mb-2">共 ${filteredTransactions.length} 筆記錄 | 總計: ${formatAmount(totalAmount)}</div>`;
+            
+            // 顯示前5筆記錄詳情
+            const maxDisplay = 5;
+            const displayTransactions = filteredTransactions.slice(0, maxDisplay);
+            
+            html += '<div class="space-y-2">';
+            displayTransactions.forEach((transaction, index) => {
+                // 找出所有重要欄位來顯示
+                const amount = formatAmount(Math.abs(transaction.amount));
+                const description = transaction['交易描述'] || transaction['描述'] || '';
+                const content = transaction['交易內容'] || transaction['內容'] || '';
+                const memo = transaction['備註'] || transaction['備注'] || '';
+                const account = transaction['帳戶'] || transaction['賬戶'] || '';
+                const merchant = transaction['商家'] || transaction['商戶'] || transaction['收款方'] || '';
+                const reference = transaction['參考號碼'] || transaction['交易編號'] || transaction['參考'] || '';
+                
+                html += '<div class="text-sm border-b border-gray-100 dark:border-gray-700 pb-2 mb-2 last:border-b-0 last:pb-0 last:mb-0">';
+                html += `<div class="font-medium text-base mb-1">${amount}</div>`;
+                
+                // 顯示交易內容/描述
+                if (content) {
+                    html += `<div class="text-gray-700 dark:text-gray-300 mb-1 leading-tight">${content}</div>`;
+                } else if (description) {
+                    html += `<div class="text-gray-700 dark:text-gray-300 mb-1 leading-tight">${description}</div>`;
+                }
+                
+                // 顯示商家信息
+                if (merchant) {
+                    html += `<div class="text-gray-600 dark:text-gray-400 text-xs mb-1">🏪 ${merchant}</div>`;
+                }
+                
+                // 顯示帳戶信息
+                if (account) {
+                    html += `<div class="text-gray-600 dark:text-gray-400 text-xs mb-1">💳 ${account}</div>`;
+                }
+                
+                // 顯示備註
+                if (memo) {
+                    html += `<div class="text-gray-500 dark:text-gray-500 text-xs mb-1">📝 ${memo}</div>`;
+                }
+                
+                // 顯示參考號碼
+                if (reference) {
+                    html += `<div class="text-gray-500 dark:text-gray-500 text-xs font-mono">#${reference}</div>`;
+                }
+                
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            // 如果有更多記錄
+            if (filteredTransactions.length > maxDisplay) {
+                html += `<div class="text-xs text-gray-500 dark:text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">還有 ${filteredTransactions.length - maxDisplay} 筆記錄...</div>`;
+            }
+            
+            html += '<div class="text-xs text-blue-600 dark:text-blue-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">點擊格子查看/編輯詳細資料</div>';
+            
+            content.innerHTML = html;
+            
+            // 定位工具提示
+            const rect = cell.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            // 計算位置，優先顯示在上方
+            let top = rect.top - tooltipRect.height - 10;
+            let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+            
+            // 如果上方空間不夠，顯示在下方
+            if (top < 10) {
+                top = rect.bottom + 10;
+                // 調整箭頭位置
+                const arrow = tooltip.querySelector('.tooltip-arrow');
+                arrow.style.top = '-6px';
+                arrow.style.borderTop = '6px solid white';
+                arrow.style.borderBottom = 'none';
+                if (document.documentElement.classList.contains('dark')) {
+                    arrow.style.borderTopColor = '#374151';
+                }
+            } else {
+                // 重置箭頭位置
+                const arrow = tooltip.querySelector('.tooltip-arrow');
+                arrow.style.top = '-6px';
+                arrow.style.borderTop = 'none';
+                arrow.style.borderBottom = '6px solid white';
+                if (document.documentElement.classList.contains('dark')) {
+                    arrow.style.borderBottomColor = '#374151';
+                }
+            }
+            
+            // 確保工具提示不會超出螢幕邊界
+            const windowWidth = window.innerWidth;
+            if (left < 10) {
+                left = 10;
+            } else if (left + tooltipRect.width > windowWidth - 10) {
+                left = windowWidth - tooltipRect.width - 10;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('show');
+        }
+
+        function showContentTooltip(event, content, type) {
+            // 篩選特定內容的交易記錄
+            const filteredTransactions = allTransactions.filter(t => {
+                const transactionContent = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                                         t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                                         '未分類';
+                return transactionContent === content && t.type === type;
+            });
+            
+            if (filteredTransactions.length === 0) return;
+            
+            const tooltip = createTooltip();
+            const tooltipContent = tooltip.querySelector('.tooltip-content');
+            
+            // 生成工具提示內容
+            let html = `<div class="font-semibold mb-2 pb-2 border-b border-gray-200 dark:border-gray-600">${content} (${type})</div>`;
+            
+            // 計算總金額和統計信息
+            const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+            const avgAmount = totalAmount / filteredTransactions.length;
+            
+            // 按日期分組
+            const dateGroups = {};
+            filteredTransactions.forEach(t => {
+                if (!dateGroups[t.date]) {
+                    dateGroups[t.date] = [];
+                }
+                dateGroups[t.date].push(t);
+            });
+            
+            const uniqueDates = Object.keys(dateGroups).length;
+            
+            html += `<div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                共 ${filteredTransactions.length} 筆記錄 | ${uniqueDates} 個交易日<br>
+                總計: ${formatAmount(totalAmount)} | 平均: ${formatAmount(avgAmount)}
+            </div>`;
+            
+            // 顯示前5筆記錄詳情
+            const maxDisplay = 5;
+            const displayTransactions = filteredTransactions
+                .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)) // 按金額大小排序
+                .slice(0, maxDisplay);
+            
+            html += '<div class="space-y-2">';
+            displayTransactions.forEach((transaction, index) => {
+                const amount = formatAmount(Math.abs(transaction.amount));
+                const date = transaction.date;
+                const category = transaction.category;
+                const description = transaction['交易描述'] || transaction['描述'] || '';
+                const memo = transaction['備註'] || transaction['備注'] || '';
+                const account = transaction['帳戶'] || transaction['賬戶'] || '';
+                const merchant = transaction['商家'] || transaction['商戶'] || transaction['收款方'] || '';
+                
+                html += '<div class="text-sm border-b border-gray-100 dark:border-gray-700 pb-2 mb-2 last:border-b-0 last:pb-0 last:mb-0">';
+                html += `<div class="font-medium text-base mb-1">${amount} <span class="text-xs text-gray-500 dark:text-gray-400">• ${date}</span></div>`;
+                
+                // 顯示類別
+                if (category !== content) {
+                    html += `<div class="text-gray-600 dark:text-gray-400 text-xs mb-1">📂 ${category}</div>`;
+                }
+                
+                // 顯示交易描述
+                if (description && description !== content) {
+                    html += `<div class="text-gray-700 dark:text-gray-300 mb-1 leading-tight">${description}</div>`;
+                }
+                
+                // 顯示商家信息
+                if (merchant && merchant !== content) {
+                    html += `<div class="text-gray-600 dark:text-gray-400 text-xs mb-1">🏪 ${merchant}</div>`;
+                }
+                
+                // 顯示帳戶信息
+                if (account) {
+                    html += `<div class="text-gray-600 dark:text-gray-400 text-xs mb-1">💳 ${account}</div>`;
+                }
+                
+                // 顯示備註
+                if (memo && memo !== content) {
+                    html += `<div class="text-gray-500 dark:text-gray-500 text-xs mb-1">📝 ${memo}</div>`;
+                }
+                
+                html += '</div>';
+            });
+            html += '</div>';
+            
+            // 如果有更多記錄
+            if (filteredTransactions.length > maxDisplay) {
+                html += `<div class="text-xs text-gray-500 dark:text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">還有 ${filteredTransactions.length - maxDisplay} 筆記錄...</div>`;
+            }
+            
+            // 顯示日期分佈（最多顯示前5個日期）
+            if (uniqueDates > 1) {
+                const sortedDates = Object.keys(dateGroups).sort();
+                const displayDates = sortedDates.slice(0, 5);
+                html += '<div class="text-xs text-gray-500 dark:text-gray-500 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">';
+                html += '<div class="mb-1">交易日期分佈:</div>';
+                displayDates.forEach(date => {
+                    const count = dateGroups[date].length;
+                    const dateTotal = dateGroups[date].reduce((sum, t) => sum + Math.abs(t.amount), 0);
+                    html += `<div>• ${date}: ${count}筆 (${formatAmount(dateTotal)})</div>`;
+                });
+                if (sortedDates.length > 5) {
+                    html += `<div>... 還有 ${sortedDates.length - 5} 個日期</div>`;
+                }
+                html += '</div>';
+            }
+            
+            html += '<div class="text-xs text-blue-600 dark:text-blue-400 mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">點擊行查看/編輯詳細資料</div>';
+            
+            tooltipContent.innerHTML = html;
+            
+            // 定位工具提示（使用滑鼠位置）
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+            
+            // 獲取工具提示尺寸
+            tooltip.style.visibility = 'hidden';
+            tooltip.style.display = 'block';
+            const tooltipRect = tooltip.getBoundingClientRect();
+            tooltip.style.visibility = 'visible';
+            tooltip.style.display = '';
+            
+            // 計算位置，優先顯示在滑鼠右側
+            let left = mouseX + 15;
+            let top = mouseY - tooltipRect.height / 2;
+            
+            // 檢查是否會超出右邊界，如果會則顯示在左側
+            if (left + tooltipRect.width > window.innerWidth - 10) {
+                left = mouseX - tooltipRect.width - 15;
+            }
+            
+            // 檢查上下邊界
+            if (top < 10) {
+                top = 10;
+            } else if (top + tooltipRect.height > window.innerHeight - 10) {
+                top = window.innerHeight - tooltipRect.height - 10;
+            }
+            
+            // 調整箭頭位置
+            const arrow = tooltip.querySelector('.tooltip-arrow');
+            if (left < mouseX) {
+                // 工具提示在滑鼠左側，箭頭在右邊
+                arrow.style.left = 'auto';
+                arrow.style.right = '20px';
+            } else {
+                // 工具提示在滑鼠右側，箭頭在左邊
+                arrow.style.left = '20px';
+                arrow.style.right = 'auto';
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.classList.add('show');
+        }
+
+        function hideTooltip() {
+            if (tooltip) {
+                tooltip.classList.remove('show');
+            }
+        }
+
+        // AI智能分組相關元素和功能
+        const aiGroupBtn = document.getElementById('aiGroupBtn');
+        const aiGroupModal = document.getElementById('aiGroupModal');
+        const closeAiGroupModal = document.getElementById('closeAiGroupModal');
+        const cancelAiGroup = document.getElementById('cancelAiGroup');
+        const applyAiGroup = document.getElementById('applyAiGroup');
+        const retryAiGroup = document.getElementById('retryAiGroup');
+        const selectAllMappingsBtn = document.getElementById('selectAllMappings');
+        const deselectAllMappingsBtn = document.getElementById('deselectAllMappings');
+        
+        const aiAnalysisProgress = document.getElementById('aiAnalysisProgress');
+        const aiGroupResults = document.getElementById('aiGroupResults');
+        const aiGroupError = document.getElementById('aiGroupError');
+        const aiGroupSummary = document.getElementById('aiGroupSummary');
+        const aiGroupMappings = document.getElementById('aiGroupMappings');
+        const aiGroupErrorMessage = document.getElementById('aiGroupErrorMessage');
+
+        // AI分組功能變數
+        let currentAiMappings = [];
+
+        // AI智能分組功能
+        async function startAiGrouping() {
+            if (allTransactions.length === 0) {
+                showError('請先上傳和解析交易記錄檔案');
+                return;
+            }
+
+            // 收集所有商戶名稱和交易內容，優先考慮商戶相關字段
+            const allMerchants = new Set();
+            allTransactions.forEach(t => {
+                // 優先使用商戶相關字段
+                const merchant = t['商家'] || t['商戶'] || t['收款方'] || 
+                               t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                               t['備註'] || t['備注'] || '未分類';
+                
+                if (merchant && merchant.trim() && merchant !== '未分類') {
+                    allMerchants.add(merchant.trim());
+                }
+            });
+
+            const merchantList = Array.from(allMerchants);
+            
+            if (merchantList.length < 3) {
+                showError('商戶名稱數量太少，無法進行智能分組 (至少需要3個不同的商戶)');
+                return;
+            }
+
+            // 顯示模態框和進度指示器
+            aiGroupModal.classList.remove('hidden');
+            showAiProgress();
+
+            try {
+                // 準備AI分析的提示詞，專注於商戶名稱分組
+                const prompt = `${activeAiModelMention} 分析以下商戶名稱和交易內容，根據商戶名稱的相似性進行智能分組。請只返回JSON格式的結果，不要添加任何解釋文字或代碼塊標記。
+
+商戶名稱列表：
+${merchantList.map((merchant, index) => `${index + 1}. ${merchant}`).join('\n')}
+
+請分析這些商戶名稱，找出代表同一商戶或相關商戶的不同表達方式，並提供分組建議。返回格式如下：
+{
+  "summary": "分析摘要，說明找到了多少個商戶分組和主要的分組邏輯",
+  "groups": [
+    {
+      "groupName": "統一的商戶名稱",
+      "items": ["原始商戶名1", "原始商戶名2"],
+      "reason": "為什麼這些商戶名稱應該分在一組的原因"
+    }
+  ]
+}
+
+商戶分組規則：
+1. 重點關注商戶名稱的相似性，而非消費類別
+2. 合併同一商戶的不同名稱表達（如：麥當勞、McDonald's、麥當勞餐廳）
+3. 合併同一品牌的不同分店（如：7-ELEVEN 中環店、7-11 金鐘店）
+4. 合併名稱相近的同類商戶（如：百佳、PARKnSHOP）
+5. 每組至少要有2個項目
+6. 分組名稱應該使用最常見或最正式的商戶名稱
+7. 不要將不同商戶強行分組
+8. 最多建議15個分組`;
+
+                // 註冊AI響應處理器
+                window.Poe.registerHandler('ai-grouping-handler', (result, context) => {
+                    handleAiGroupingResponse(result);
+                });
+
+                // 發送消息給AI
+                await window.Poe.sendUserMessage(prompt, {
+                    handler: 'ai-grouping-handler',
+                    stream: false,
+                    openChat: false
+                });
+
+            } catch (error) {
+                console.error('AI分組請求失敗:', error);
+                showAiError('發送AI請求失敗: ' + error.message);
+            }
+        }
+
+        function handleAiGroupingResponse(result) {
+            try {
+                const message = result.responses[0];
+                
+                if (message.status === 'error') {
+                    showAiError('AI分析失敗: ' + (message.statusText || '未知錯誤'));
+                    return;
+                }
+                
+                if (message.status === 'incomplete') {
+                    // 仍在處理中，保持進度指示器
+                    return;
+                }
+                
+                if (message.status === 'complete') {
+                    try {
+                        // 解析AI返回的JSON
+                        let jsonContent = message.content.trim();
+                        
+                        // 移除可能的代碼塊標記
+                        if (jsonContent.startsWith('```json')) {
+                            jsonContent = jsonContent.substring(7);
+                        }
+                        if (jsonContent.startsWith('```')) {
+                            jsonContent = jsonContent.substring(3);
+                        }
+                        if (jsonContent.endsWith('```')) {
+                            jsonContent = jsonContent.substring(0, jsonContent.length - 3);
+                        }
+                        
+                        const aiResponse = JSON.parse(jsonContent);
+                        
+                        if (!aiResponse.groups || !Array.isArray(aiResponse.groups)) {
+                            throw new Error('AI返回的數據格式不正確');
+                        }
+                        
+                        // 處理AI分組結果
+                        processAiGroupingResults(aiResponse);
+                        
+                    } catch (parseError) {
+                        console.error('解析AI響應失敗:', parseError);
+                        console.log('AI原始響應:', message.content);
+                        showAiError('解析AI響應失敗: ' + parseError.message + '\n\n原始響應:\n' + message.content);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('處理AI響應時發生錯誤:', error);
+                showAiError('處理AI響應時發生錯誤: ' + error.message);
+            }
+        }
+
+        function processAiGroupingResults(aiResponse) {
+            // 驗證和準備分組映射
+            currentAiMappings = [];
+            
+            aiResponse.groups.forEach((group, index) => {
+                if (!group.items || !Array.isArray(group.items) || group.items.length < 2) {
+                    return; // 跳過無效的分組
+                }
+                
+                // 驗證所有項目都存在於原始數據中
+                const validItems = group.items.filter(item => {
+                    return allTransactions.some(t => {
+                        const content = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                                       t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                                       '未分類';
+                        return content.trim() === item.trim();
+                    });
+                });
+                
+                if (validItems.length >= 2) {
+                    currentAiMappings.push({
+                        id: `group-${index}`,
+                        groupName: group.groupName || `分組 ${index + 1}`,
+                        items: validItems,
+                        reason: group.reason || '無說明',
+                        selected: true // 預設選中
+                    });
+                }
+            });
+
+            // 顯示結果
+            if (currentAiMappings.length === 0) {
+                showAiError('AI未找到可以合併的類似內容');
+                return;
+            }
+
+            displayAiGroupingResults(aiResponse.summary || `找到 ${currentAiMappings.length} 個建議分組`);
+        }
+
+        function displayAiGroupingResults(summary) {
+            // 顯示摘要
+            aiGroupSummary.innerHTML = summary;
+            
+            // 顯示分組映射
+            let mappingsHtml = '';
+            
+            currentAiMappings.forEach((mapping, index) => {
+                const itemCount = mapping.items.length;
+                const affectedTransactions = countAffectedTransactions(mapping.items);
+                
+                mappingsHtml += `
+                    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 ${mapping.selected ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-gray-50 dark:bg-gray-800'}">
+                        <div class="flex items-start space-x-3">
+                            <input type="checkbox" 
+                                   id="mapping-${mapping.id}" 
+                                   ${mapping.selected ? 'checked' : ''} 
+                                   onchange="toggleMapping('${mapping.id}')"
+                                   class="mt-1 text-purple-600 focus:ring-purple-500">
+                            
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <label for="mapping-${mapping.id}" class="font-semibold cursor-pointer">
+                                            分組名稱: 
+                                        </label>
+                                        <input type="text" 
+                                               value="${mapping.groupName}" 
+                                               onchange="updateGroupName('${mapping.id}', this.value)"
+                                               class="ml-2 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700">
+                                    </div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">
+                                        ${itemCount} 個項目 • ${affectedTransactions} 筆交易
+                                    </div>
+                                </div>
+                                
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                                    <strong>分組理由:</strong> ${mapping.reason}
+                                </div>
+                                
+                                <div class="space-y-2">
+                                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300">將要合併的項目:</div>
+                                    <div class="grid grid-cols-1 gap-2">
+                                        ${mapping.items.map((item, itemIndex) => {
+                                            const transactionCount = countTransactionsForContent(item);
+                                            return `
+                                                <div class="flex justify-between items-center p-2 bg-white dark:bg-gray-700 rounded border group">
+                                                    <span class="text-sm flex-1">${item}</span>
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400">${transactionCount} 筆</span>
+                                                        <button onclick="removeItemFromMapping('${mapping.id}', '${item.replace(/'/g, "\\'")}')" 
+                                                                class="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                                title="從此分組中移除">
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3 text-xs text-gray-500 dark:text-gray-500">
+                                    → 合併後將全部顯示為: <span class="font-medium">"${mapping.groupName}"</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            aiGroupMappings.innerHTML = mappingsHtml;
+            
+            // 顯示結果區域，隱藏進度和錯誤
+            showAiResults();
+        }
+
+        function countAffectedTransactions(items) {
+            return allTransactions.filter(t => {
+                const content = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                               t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                               '未分類';
+                return items.includes(content.trim());
+            }).length;
+        }
+
+        function countTransactionsForContent(contentItem) {
+            return allTransactions.filter(t => {
+                const content = t['交易內容'] || t['內容'] || t['交易描述'] || t['描述'] || 
+                               t['商家'] || t['商戶'] || t['收款方'] || t['備註'] || t['備注'] || 
+                               '未分類';
+                return content.trim() === contentItem.trim();
+            }).length;
+        }
+
+        function toggleMapping(mappingId) {
+            const mapping = currentAiMappings.find(m => m.id === mappingId);
+            if (mapping) {
+                mapping.selected = !mapping.selected;
+                
+                // 更新視覺狀態
+                const container = document.querySelector(`#mapping-${mappingId}`).closest('.border');
+                if (mapping.selected) {
+                    container.classList.remove('bg-gray-50', 'dark:bg-gray-800');
+                    container.classList.add('bg-blue-50', 'dark:bg-blue-900/20');
+                } else {
+                    container.classList.remove('bg-blue-50', 'dark:bg-blue-900/20');
+                    container.classList.add('bg-gray-50', 'dark:bg-gray-800');
+                }
+            }
+        }
+
+        function updateGroupName(mappingId, newName) {
+            const mapping = currentAiMappings.find(m => m.id === mappingId);
+            if (mapping) {
+                mapping.groupName = newName.trim() || mapping.groupName;
+            }
+        }
+
+        function selectAllAiMappings() {
+            currentAiMappings.forEach(mapping => {
+                mapping.selected = true;
+                const checkbox = document.getElementById(`mapping-${mapping.id}`);
+                if (checkbox) {
+                    checkbox.checked = true;
+                    const container = checkbox.closest('.border');
+                    container.classList.remove('bg-gray-50', 'dark:bg-gray-800');
+                    container.classList.add('bg-blue-50', 'dark:bg-blue-900/20');
+                }
+            });
+        }
+
+        function deselectAllAiMappings() {
+            currentAiMappings.forEach(mapping => {
+                mapping.selected = false;
+                const checkbox = document.getElementById(`mapping-${mapping.id}`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                    const container = checkbox.closest('.border');
+                    container.classList.remove('bg-blue-50', 'dark:bg-blue-900/20');
+                    container.classList.add('bg-gray-50', 'dark:bg-gray-800');
+                }
+            });
+        }
+
+        function applyAiGroupings() {
+            const selectedMappings = currentAiMappings.filter(m => m.selected);
+            
+            if (selectedMappings.length === 0) {
+                showError('請選擇至少一個分組來應用');
+                return;
+            }
+
+            // 應用分組映射到所有交易記錄
+            let appliedCount = 0;
+            
+            selectedMappings.forEach(mapping => {
+                const contentFields = ['交易內容', '內容', '交易描述', '描述', '商家', '商戶', '收款方', '備註', '備注'];
+                
+                allTransactions.forEach(transaction => {
+                    contentFields.forEach(field => {
+                        if (transaction[field] && mapping.items.includes(transaction[field].trim())) {
+                            transaction[field] = mapping.groupName;
+                            appliedCount++;
+                        }
+                    });
+                });
+            });
+
+            // 重新渲染所有表格
+            const { expenses, income } = categorizeTransactions(allTransactions);
+            renderPivotTable(expenses, expenseTable, '支出');
+            renderPivotTable(income, incomeTable, '收入');
+            renderContentRanking(expenses, expenseRanking, '支出');
+            renderContentRanking(income, incomeRanking, '收入');
+
+            // 關閉模態框
+            closeAiGroupModalFunc();
+
+            // 顯示成功訊息
+            const message = `成功應用 ${selectedMappings.length} 個分組，影響 ${appliedCount} 筆交易記錄`;
+            showTemporaryMessage(message, 'success');
+        }
+
+        function showTemporaryMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white transition-all duration-300 transform translate-x-full ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 
+                'bg-blue-500'
+            }`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            // 滑入動畫
+            setTimeout(() => {
+                messageDiv.classList.remove('translate-x-full');
+            }, 100);
+            
+            // 自動消失
+            setTimeout(() => {
+                messageDiv.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.parentNode.removeChild(messageDiv);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function showAiProgress() {
+            aiAnalysisProgress.classList.remove('hidden');
+            aiGroupResults.classList.add('hidden');
+            aiGroupError.classList.add('hidden');
+        }
+
+        function showAiResults() {
+            aiAnalysisProgress.classList.add('hidden');
+            aiGroupResults.classList.remove('hidden');
+            aiGroupError.classList.add('hidden');
+        }
+
+        function showAiError(errorMessage) {
+            aiGroupErrorMessage.textContent = errorMessage;
+            aiAnalysisProgress.classList.add('hidden');
+            aiGroupResults.classList.add('hidden');
+            aiGroupError.classList.remove('hidden');
+        }
+
+        function removeItemFromMapping(mappingId, itemToRemove) {
+            const mapping = currentAiMappings.find(m => m.id === mappingId);
+            if (!mapping) return;
+            
+            // 移除項目
+            mapping.items = mapping.items.filter(item => item !== itemToRemove);
+            
+            // 如果分組項目少於2個，則取消選中並禁用
+            if (mapping.items.length < 2) {
+                mapping.selected = false;
+                showTemporaryMessage(`分組 "${mapping.groupName}" 項目太少已被取消選中`, 'info');
+            }
+            
+            // 重新渲染該分組的顯示
+            displayAiGroupingResults(aiGroupSummary.textContent);
+        }
+
+        function closeAiGroupModalFunc() {
+            aiGroupModal.classList.add('hidden');
+            currentAiMappings = [];
+        }
+
+        // AI分組事件監聽器
+        aiGroupBtn.addEventListener('click', startAiGrouping);
+        closeAiGroupModal.addEventListener('click', closeAiGroupModalFunc);
+        cancelAiGroup.addEventListener('click', closeAiGroupModalFunc);
+        applyAiGroup.addEventListener('click', applyAiGroupings);
+        retryAiGroup.addEventListener('click', startAiGrouping);
+        selectAllMappingsBtn.addEventListener('click', selectAllAiMappings);
+        deselectAllMappingsBtn.addEventListener('click', deselectAllAiMappings);
+
+        // 點擊模態框外部關閉
+        aiGroupModal.addEventListener('click', (e) => {
+            if (e.target === aiGroupModal) {
+                closeAiGroupModalFunc();
+            }
+        });
+
+        // 過濾器事件監聽器
+        applyFilters.addEventListener('click', applyFilterSettings);
+        exportSettingsBtn.addEventListener('click', exportFilterSettings);
+        importSettingsInput.addEventListener('change', importFilterSettings);
+        resetSettingsBtn.addEventListener('click', resetFilterSettings);
+
+        // ===== App 啟動時自動載入 LLM configure（新增）=====
+        loadLlmConfigOnStartup();
+    </script>
+</body>
+</html>

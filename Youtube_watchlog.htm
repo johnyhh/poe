@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 觀看記錄分析器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #faf9f7;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f5f4f2;
+            --text-primary: #1a1a1a;
+            --text-secondary: #5c5c5c;
+            --text-muted: #8c8c8c;
+            --accent: #e63946;
+            --accent-hover: #c1121f;
+            --border: #e5e5e5;
+            --success: #2a9d8f;
+            --warning: #e9c46a;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.1);
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+
+        .dark {
+            --bg-primary: #0d0d0d;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #252525;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a3a3a3;
+            --text-muted: #6b6b6b;
+            --accent: #ff6b6b;
+            --accent-hover: #ff8787;
+            --border: #333;
+            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 12px 48px rgba(0, 0, 0, 0.6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.6s ease;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .logo i {
+            font-size: 42px;
+            color: var(--accent);
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 4vw, 2rem);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 28px;
+            margin-bottom: 24px;
+            animation: slideUp 0.5s ease;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--accent);
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 48px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-tertiary);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(230, 57, 70, 0.05);
+        }
+
+        .dark .upload-zone:hover,
+        .dark .upload-zone.dragover {
+            background: rgba(255, 107, 107, 0.1);
+        }
+
+        .upload-zone i {
+            font-size: 48px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .upload-zone p {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .upload-zone .hint {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        select, input[type="date"] {
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-family: inherit;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        select:focus, input[type="date"]:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 24px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--accent);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* LLM Select */
+        .llm-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        #llmSelect {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        /* Stats */
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            padding: 16px 0;
+            border-top: 1px solid var(--border);
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Data Table */
+        .table-container {
+            overflow-x: auto;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .video-title {
+            max-width: 400px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .category-badge.歌曲 { background: #fce4ec; color: #c2185b; }
+        .category-badge.講道 { background: #e8f5e9; color: #388e3c; }
+        .category-badge.資訊 { background: #e3f2fd; color: #1976d2; }
+        .category-badge.新聞 { background: #fff3e0; color: #e65100; }
+        .category-badge.兒童 { background: #f3e5f5; color: #7b1fa2; }
+        .category-badge.娛樂 { background: #fff8e1; color: #f9a825; }
+
+        .dark .category-badge.歌曲 { background: rgba(194, 24, 91, 0.2); color: #f48fb1; }
+        .dark .category-badge.講道 { background: rgba(56, 142, 60, 0.2); color: #81c784; }
+        .dark .category-badge.資訊 { background: rgba(25, 118, 210, 0.2); color: #64b5f6; }
+        .dark .category-badge.新聞 { background: rgba(230, 81, 0, 0.2); color: #ffb74d; }
+        .dark .category-badge.兒童 { background: rgba(123, 31, 162, 0.2); color: #ce93d8; }
+        .dark .category-badge.娛樂 { background: rgba(249, 168, 37, 0.2); color: #fff176; }
+
+        /* Progress */
+        .progress-section {
+            display: none;
+            text-align: center;
+            padding: 32px;
+        }
+
+        .progress-section.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-text {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            padding: 28px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal h3 {
+            margin-bottom: 16px;
+        }
+
+        .modal p {
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .container {
+                padding: 16px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .filter-section {
+                grid-template-columns: 1fr;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .stats-bar {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .video-title {
+                max-width: 200px;
+            }
+        }
+
+        /* Hide elements */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fab fa-youtube"></i>
+                <h1>YouTube 觀看記錄分析器</h1>
+            </div>
+            <p class="subtitle">上傳觀看記錄，AI 智能分類影片類型</p>
+        </header>
+
+        <!-- Upload Section -->
+        <div class="card" id="uploadCard">
+            <div class="card-title">
+                <i class="fas fa-cloud-upload-alt"></i>
+                上傳觀看記錄
+            </div>
+            <div class="upload-zone" id="uploadZone">
+                <i class="fas fa-file-code"></i>
+                <p>點擊或拖放 watch-history.html 檔案到此處</p>
+                <span class="hint">從 Google Takeout 匯出的 YouTube 觀看記錄</span>
+            </div>
+            <input type="file" id="fileInput" accept=".html">
+        </div>
+
+        <!-- Filter Section -->
+        <div class="card hidden" id="filterCard">
+            <div class="card-title">
+                <i class="fas fa-filter"></i>
+                篩選與匯出
+            </div>
+
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label>快速選擇</label>
+                    <select id="quickFilter">
+                        <option value="all">全部記錄</option>
+                        <option value="thisMonth">本月</option>
+                        <option value="lastMonth">上個月</option>
+                        <option value="thisQuarter">本季度</option>
+                        <option value="lastQuarter">上季度</option>
+                        <option value="thisYear">今年</option>
+                        <option value="lastYear">去年</option>
+                        <option value="custom">自訂範圍</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>開始日期</label>
+                    <input type="date" id="startDate" disabled>
+                </div>
+                <div class="filter-group">
+                    <label>結束日期</label>
+                    <input type="date" id="endDate" disabled>
+                </div>
+            </div>
+
+            <div class="llm-section">
+                <div class="filter-group" style="flex: 1;">
+                    <label>選擇 AI 模型</label>
+                    <select id="llmSelect">
+                        <option value="">載入中...</option>
+                    </select>
+                </div>
+                <div class="btn-group" style="align-self: flex-end;">
+                    <button class="btn btn-primary" id="analyzeBtn" disabled>
+                        <i class="fas fa-brain"></i>
+                        AI 分類
+                    </button>
+                    <button class="btn btn-secondary" id="exportBtn" disabled>
+                        <i class="fas fa-download"></i>
+                        匯出 CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-bar" id="statsBar">
+                <div class="stat-item">
+                    <span class="stat-value" id="totalCount">0</span>
+                    <span class="stat-label">總記錄</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="filteredCount">0</span>
+                    <span class="stat-label">已篩選</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="categorizedCount">0</span>
+                    <span class="stat-label">已分類</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Section -->
+        <div class="card hidden" id="progressCard">
+            <div class="progress-section active">
+                <div class="spinner"></div>
+                <p class="progress-text" id="progressText">正在分析影片類型...</p>
+                <p id="progressDetail" style="font-size: 0.85rem; color: var(--text-muted);"></p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card hidden" id="dataCard">
+            <div class="card-title">
+                <i class="fas fa-table"></i>
+                觀看記錄
+            </div>
+            <div class="table-container">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>影片名稱</th>
+                            <th>觀看日期時間</th>
+                            <th>影片類型</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+            <div class="empty-state hidden" id="emptyState">
+                <i class="fas fa-inbox"></i>
+                <p>沒有符合條件的記錄</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div class="modal-overlay" id="alertModal">
+        <div class="modal">
+            <h3 id="alertTitle">提示</h3>
+            <p id="alertMessage"></p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="alertOkBtn">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // State
+        let allRecords = [];
+        let filteredRecords = [];
+        let llmList = [];
+
+        // DOM Elements
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadCard = document.getElementById('uploadCard');
+        const filterCard = document.getElementById('filterCard');
+        const progressCard = document.getElementById('progressCard');
+        const dataCard = document.getElementById('dataCard');
+        const quickFilter = document.getElementById('quickFilter');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
+        const llmSelect = document.getElementById('llmSelect');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const tableBody = document.getElementById('tableBody');
+        const emptyState = document.getElementById('emptyState');
+        const totalCount = document.getElementById('totalCount');
+        const filteredCount = document.getElementById('filteredCount');
+        const categorizedCount = document.getElementById('categorizedCount');
+        const progressText = document.getElementById('progressText');
+        const progressDetail = document.getElementById('progressDetail');
+        const progressFill = document.getElementById('progressFill');
+        const alertModal = document.getElementById('alertModal');
+        const alertTitle = document.getElementById('alertTitle');
+        const alertMessage = document.getElementById('alertMessage');
+        const alertOkBtn = document.getElementById('alertOkBtn');
+
+        // Load LLM list
+        async function loadLlmList() {
+            try {
+                const url = `https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json?t=${Date.now()}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch LLM list');
+                llmList = await response.json();
+
+                llmSelect.innerHTML = llmList.map(llm =>
+                    `<option value="${llm.handle}">${llm.name || llm.handle}</option>`
+                ).join('');
+
+                // Default to first option
+                if (llmList.length > 0) {
+                    llmSelect.value = llmList[0].handle;
+                }
+            } catch (error) {
+                console.error('Failed to load LLM list:', error);
+                llmSelect.innerHTML = '<option value="GPT-5.1">GPT-5.1</option><option value="Claude-Sonnet-4.5">Claude-Sonnet-4.5</option>';
+            }
+        }
+
+        // Show alert
+        function showAlert(title, message) {
+            alertTitle.textContent = title;
+            alertMessage.textContent = message;
+            alertModal.classList.add('active');
+        }
+
+        alertOkBtn.addEventListener('click', () => {
+            alertModal.classList.remove('active');
+        });
+
+        alertModal.addEventListener('click', (e) => {
+            if (e.target === alertModal) {
+                alertModal.classList.remove('active');
+            }
+        });
+
+        // File upload handling
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) processFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) processFile(file);
+        });
+
+        // Process uploaded file
+        function processFile(file) {
+            if (!file.name.endsWith('.html')) {
+                showAlert('錯誤', '請上傳 HTML 格式的觀看記錄檔案');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const html = e.target.result;
+                parseWatchHistory(html);
+            };
+            reader.onerror = () => {
+                showAlert('錯誤', '讀取檔案失敗');
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse watch history HTML
+        function parseWatchHistory(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+
+            // Find all content cells with video links
+            const contentCells = doc.querySelectorAll('.content-cell.mdl-typography--body-1');
+            allRecords = [];
+
+            contentCells.forEach(cell => {
+                const videoLink = cell.querySelector('a[href*="youtube.com/watch"]');
+                if (!videoLink) return;
+
+                const videoTitle = videoLink.textContent.trim();
+
+                // Get the date text - it's in a <br> separated content
+                const cellText = cell.innerHTML;
+                const dateMatch = cellText.match(/(\d{4}年\d{1,2}月\d{1,2}日[^<]+HKT)/);
+
+                if (dateMatch && videoTitle) {
+                    const dateStr = dateMatch[1];
+                    const parsedDate = parseChineseDate(dateStr);
+
+                    if (parsedDate) {
+                        allRecords.push({
+                            title: videoTitle,
+                            dateStr: dateStr,
+                            date: parsedDate,
+                            category: ''
+                        });
+                    }
+                }
+            });
+
+            if (allRecords.length === 0) {
+                showAlert('錯誤', '無法從檔案中解析任何觀看記錄');
+                return;
+            }
+
+            // Sort by date descending
+            allRecords.sort((a, b) => b.date - a.date);
+
+            // Show filter card and data card
+            filterCard.classList.remove('hidden');
+            dataCard.classList.remove('hidden');
+
+            // Update stats
+            totalCount.textContent = allRecords.length;
+
+            // Set date range
+            const dates = allRecords.map(r => r.date);
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+
+            startDate.min = formatDateForInput(minDate);
+            startDate.max = formatDateForInput(maxDate);
+            endDate.min = formatDateForInput(minDate);
+            endDate.max = formatDateForInput(maxDate);
+
+            // Apply filter
+            applyFilter();
+            analyzeBtn.disabled = false;
+        }
+
+        // Parse Chinese date string
+        function parseChineseDate(dateStr) {
+            // Example: 2026年1月27日下午6:13:34 HKT
+            const regex = /(\d{4})年(\d{1,2})月(\d{1,2})日\s*(上午|下午|凌晨|清晨|中午|晚上)(\d{1,2}):(\d{2}):(\d{2})/;
+            const match = dateStr.match(regex);
+
+            if (!match) return null;
+
+            let [, year, month, day, period, hour, minute, second] = match;
+            year = parseInt(year);
+            month = parseInt(month) - 1;
+            day = parseInt(day);
+            hour = parseInt(hour);
+            minute = parseInt(minute);
+            second = parseInt(second);
+
+            // Convert to 24-hour format
+            if (period === '下午' || period === '晚上') {
+                if (hour !== 12) hour += 12;
+            } else if (period === '上午' || period === '凌晨' || period === '清晨') {
+                if (hour === 12) hour = 0;
+            } else if (period === '中午') {
+                hour = 12;
+            }
+
+            return new Date(year, month, day, hour, minute, second);
+        }
+
+        // Format date for input
+        function formatDateForInput(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Quick filter change
+        quickFilter.addEventListener('change', () => {
+            const value = quickFilter.value;
+            const now = new Date();
+            let start, end;
+
+            if (value === 'custom') {
+                startDate.disabled = false;
+                endDate.disabled = false;
+                return;
+            }
+
+            startDate.disabled = true;
+            endDate.disabled = true;
+
+            switch (value) {
+                case 'thisMonth':
+                    start = new Date(now.getFullYear(), now.getMonth(), 1);
+                    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    break;
+                case 'lastMonth':
+                    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    end = new Date(now.getFullYear(), now.getMonth(), 0);
+                    break;
+                case 'thisQuarter':
+                    const thisQ = Math.floor(now.getMonth() / 3);
+                    start = new Date(now.getFullYear(), thisQ * 3, 1);
+                    end = new Date(now.getFullYear(), (thisQ + 1) * 3, 0);
+                    break;
+                case 'lastQuarter':
+                    const lastQ = Math.floor(now.getMonth() / 3) - 1;
+                    const year = lastQ < 0 ? now.getFullYear() - 1 : now.getFullYear();
+                    const quarter = lastQ < 0 ? 3 : lastQ;
+                    start = new Date(year, quarter * 3, 1);
+                    end = new Date(year, (quarter + 1) * 3, 0);
+                    break;
+                case 'thisYear':
+                    start = new Date(now.getFullYear(), 0, 1);
+                    end = new Date(now.getFullYear(), 11, 31);
+                    break;
+                case 'lastYear':
+                    start = new Date(now.getFullYear() - 1, 0, 1);
+                    end = new Date(now.getFullYear() - 1, 11, 31);
+                    break;
+                default: // all
+                    start = null;
+                    end = null;
+            }
+
+            if (start && end) {
+                startDate.value = formatDateForInput(start);
+                endDate.value = formatDateForInput(end);
+            } else {
+                startDate.value = '';
+                endDate.value = '';
+            }
+
+            applyFilter();
+        });
+
+        startDate.addEventListener('change', applyFilter);
+        endDate.addEventListener('change', applyFilter);
+
+        // Apply filter
+        function applyFilter() {
+            const start = startDate.value ? new Date(startDate.value + 'T00:00:00') : null;
+            const end = endDate.value ? new Date(endDate.value + 'T23:59:59') : null;
+
+            filteredRecords = allRecords.filter(record => {
+                if (start && record.date < start) return false;
+                if (end && record.date > end) return false;
+                return true;
+            });
+
+            filteredCount.textContent = filteredRecords.length;
+            updateCategorizedCount();
+            renderTable();
+            updateExportButton();
+        }
+
+        // Update categorized count
+        function updateCategorizedCount() {
+            const count = filteredRecords.filter(r => r.category).length;
+            categorizedCount.textContent = count;
+        }
+
+        // Render table
+        function renderTable() {
+            if (filteredRecords.length === 0) {
+                tableBody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                document.querySelector('.table-container').classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            document.querySelector('.table-container').classList.remove('hidden');
+
+            tableBody.innerHTML = filteredRecords.map((record, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="video-title" title="${escapeHtml(record.title)}">${escapeHtml(record.title)}</td>
+                    <td>${escapeHtml(record.dateStr)}</td>
+                    <td>
+                        ${record.category
+                            ? `<span class="category-badge ${record.category}">${record.category}</span>`
+                            : '<span style="color: var(--text-muted);">-</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Update export button
+        function updateExportButton() {
+            exportBtn.disabled = filteredRecords.length === 0;
+        }
+
+        // Analyze with LLM
+        analyzeBtn.addEventListener('click', async () => {
+            if (filteredRecords.length === 0) {
+                showAlert('提示', '沒有可分析的記錄');
+                return;
+            }
+
+            const selectedLlm = llmSelect.value;
+            if (!selectedLlm) {
+                showAlert('提示', '請選擇 AI 模型');
+                return;
+            }
+
+            // Show progress
+            progressCard.classList.remove('hidden');
+            analyzeBtn.disabled = true;
+
+            const batchSize = 20;
+            const batches = [];
+
+            for (let i = 0; i < filteredRecords.length; i += batchSize) {
+                batches.push(filteredRecords.slice(i, i + batchSize));
+            }
+
+            let processedCount = 0;
+
+            for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                const batch = batches[batchIndex];
+                progressText.textContent = `正在分析 (${batchIndex + 1}/${batches.length})...`;
+                progressDetail.textContent = `已處理 ${processedCount}/${filteredRecords.length} 個影片`;
+                progressFill.style.width = `${(processedCount / filteredRecords.length) * 100}%`;
+
+                try {
+                    await analyzeBatch(batch, selectedLlm);
+                    processedCount += batch.length;
+                } catch (error) {
+                    console.error('Batch analysis error:', error);
+                    progressDetail.textContent = `處理出錯，繼續下一批...`;
+                    processedCount += batch.length;
+                }
+            }
+
+            progressFill.style.width = '100%';
+            progressText.textContent = '分析完成！';
+            progressDetail.textContent = '';
+
+            setTimeout(() => {
+                progressCard.classList.add('hidden');
+                analyzeBtn.disabled = false;
+                updateCategorizedCount();
+                renderTable();
+            }, 1000);
+        });
+
+        // Analyze batch with LLM
+        function analyzeBatch(batch, llm) {
+            return new Promise((resolve, reject) => {
+                const titles = batch.map((r, i) => `${i + 1}. ${r.title}`).join('\n');
+                const categories = ['歌曲', '講道', '資訊', '新聞', '兒童', '娛樂'];
+
+                const prompt = `分析以下 YouTube 影片標題，判斷每個影片的類型。
+
+類型選項：
+- 歌曲：音樂、歌曲、MV、演唱會
+- 講道：宗教講道、聖經教導、牧師講道
+- 資訊：教學、知識、科技、生活資訊
+- 新聞：新聞報導、時事評論
+- 兒童：兒童節目、卡通、兒童教育
+- 娛樂：綜藝、遊戲、Vlog、搞笑
+- 如不在以上類別，請自行判斷一個合適的中文類別名稱
+
+影片列表：
+${titles}
+
+請以 JSON 格式回覆，格式如下（只輸出JSON，不要其他文字）：
+[{"index": 1, "category": "類別"}, ...]`;
+
+                const handlerName = `analyze-handler-${Date.now()}`;
+
+                window.Poe.registerHandler(handlerName, (result) => {
+                    if (result.status === 'error') {
+                        reject(new Error(result.responses[0]?.statusText || 'Analysis failed'));
+                        return;
+                    }
+
+                    if (result.status === 'complete') {
+                        try {
+                            const response = result.responses[0].content;
+                            // Extract JSON from response
+                            const jsonMatch = response.match(/\[[\s\S]*\]/);
+                            if (jsonMatch) {
+                                const categories = JSON.parse(jsonMatch[0]);
+                                categories.forEach(item => {
+                                    const index = item.index - 1;
+                                    if (index >= 0 && index < batch.length) {
+                                        batch[index].category = item.category;
+                                    }
+                                });
+                            }
+                            resolve();
+                        } catch (e) {
+                            console.error('Parse error:', e);
+                            resolve(); // Continue even if parsing fails
+                        }
+                    }
+                });
+
+                window.Poe.sendUserMessage(`@${llm} ${prompt}`, {
+                    handler: handlerName,
+                    stream: false,
+                    openChat: false
+                }).catch(reject);
+            });
+        }
+
+        // Export to CSV
+        exportBtn.addEventListener('click', () => {
+            if (filteredRecords.length === 0) return;
+
+            const headers = ['影片名稱', '觀看日期時間', '影片類型'];
+            const rows = filteredRecords.map(record => [
+                `"${record.title.replace(/"/g, '""')}"`,
+                `"${record.dateStr}"`,
+                `"${record.category || ''}"`
+            ]);
+
+            const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `youtube-history-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // Initialize
+        loadLlmList();
+    </script>
+</body>
+</html>
+
+

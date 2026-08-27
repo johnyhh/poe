@@ -1,0 +1,3954 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專案任務管理器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        amber: {
+                            50: '#FFFBEB',
+                            100: '#FEF3C7',
+                            200: '#FDE68A',
+                            300: '#FCD34D',
+                            400: '#FBBF24',
+                            500: '#F59E0B',
+                            600: '#D97706',
+                            700: '#B45309',
+                            800: '#92400E',
+                            900: '#78350F',
+                        },
+                        stone: {
+                            850: '#1C1917',
+                            950: '#0C0A09',
+                        }
+                    },
+                    fontFamily: {
+                        'display': ['Crimson Pro', 'Noto Sans TC', 'serif'],
+                        'body': ['Noto Sans TC', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-primary: #FFFBEB;
+            --bg-secondary: #FEF3C7;
+            --bg-card: #FFFFFF;
+            --text-primary: #1C1917;
+            --text-secondary: #57534E;
+            --border-color: #E7E5E4;
+            --accent: #D97706;
+            --success: #059669;
+            --warning: #DC2626;
+        }
+
+        .dark {
+            --bg-primary: #1C1917;
+            --bg-secondary: #292524;
+            --bg-card: #292524;
+            --text-primary: #FAFAF9;
+            --text-secondary: #A8A29E;
+            --border-color: #44403C;
+            --accent: #FBBF24;
+            --success: #34D399;
+            --warning: #F87171;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+        }
+
+        .task-item {
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .task-item:hover {
+            border-left-color: var(--accent);
+            background-color: var(--bg-secondary);
+        }
+
+        .task-actions {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .task-item:hover > div .task-actions {
+            opacity: 1;
+        }
+
+        .task-item:hover .subtask-container .task-actions {
+            opacity: 0;
+        }
+
+        .task-item:hover .subtask-container .task-item:hover > div .task-actions {
+            opacity: 1;
+        }
+
+        .task-item.completed {
+            opacity: 0.7;
+        }
+
+        .task-item.completed .task-name {
+            text-decoration: line-through;
+        }
+
+        .task-item.locked {
+            opacity: 0.5;
+        }
+
+
+        .subtask-container {
+            border-left: 2px solid var(--border-color);
+            margin-left: 1rem;
+            padding-left: 1rem;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, var(--success) 0%, var(--accent) 100%);
+        }
+
+        .tab-btn.active {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .editable:hover {
+            background-color: var(--bg-secondary);
+            cursor: text;
+        }
+
+        .editable:focus {
+            outline: 2px solid var(--accent);
+            background-color: var(--bg-card);
+        }
+
+        textarea, input, select {
+            font-size: 16px !important;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .collapse-btn {
+            transition: transform 0.2s ease;
+        }
+
+        .collapse-btn.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        /* Gantt Chart Styles */
+        .gantt-container {
+            overflow-x: auto;
+            padding: 1rem 0;
+        }
+
+        .gantt-container svg {
+            display: block;
+            min-width: 100%;
+        }
+
+        /* Link editing styles */
+        .link-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            margin-bottom: 4px;
+        }
+
+        .link-item input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 14px !important;
+        }
+
+        .link-item input:focus {
+            background: var(--bg-card);
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        /* Toggle switch */
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background: var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: var(--accent);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(20px);
+        }
+
+        /* Priority colors */
+        .priority-high {
+            border-left-color: #EF4444 !important;
+        }
+        .priority-medium {
+            border-left-color: #F59E0B !important;
+        }
+        .priority-low {
+            border-left-color: #22C55E !important;
+        }
+        .priority-badge-high {
+            background: linear-gradient(135deg, #FEE2E2, #FECACA);
+            color: #DC2626;
+        }
+        .priority-badge-medium {
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+            color: #D97706;
+        }
+        .priority-badge-low {
+            background: linear-gradient(135deg, #DCFCE7, #BBF7D0);
+            color: #16A34A;
+        }
+        .dark .priority-badge-high {
+            background: linear-gradient(135deg, #7F1D1D, #991B1B);
+            color: #FCA5A5;
+        }
+        .dark .priority-badge-medium {
+            background: linear-gradient(135deg, #78350F, #92400E);
+            color: #FCD34D;
+        }
+        .dark .priority-badge-low {
+            background: linear-gradient(135deg, #14532D, #166534);
+            color: #86EFAC;
+        }
+
+        /* Task progress bar */
+        .task-progress-container {
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .task-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981, #34D399);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Timer styles */
+        .timer-display {
+            font-family: 'Crimson Pro', monospace;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+        }
+        .timer-running {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.6); }
+        }
+        .timer-btn {
+            transition: all 0.2s ease;
+        }
+        .timer-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* Markdown content styles */
+        .markdown-content {
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        .markdown-content p {
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content p:last-child {
+            margin-bottom: 0;
+        }
+        .markdown-content ul, .markdown-content ol {
+            margin-left: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content li {
+            margin-bottom: 0.25rem;
+        }
+        .markdown-content code {
+            background: var(--bg-secondary);
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+        }
+        .markdown-content pre {
+            background: var(--bg-secondary);
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content pre code {
+            background: transparent;
+            padding: 0;
+        }
+        .markdown-content strong {
+            font-weight: 600;
+        }
+        .markdown-content a {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+        .markdown-content blockquote {
+            border-left: 3px solid var(--accent);
+            padding-left: 0.75rem;
+            margin-left: 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* Gantt clickable bars */
+        .gantt-bar-clickable {
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+        .gantt-bar-clickable:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="app" class="max-w-6xl mx-auto p-4 md:p-6">
+        <!-- Header -->
+        <header class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="font-display text-3xl md:text-4xl font-bold text-amber-600 dark:text-amber-400">
+                    <i class="fas fa-tasks mr-2"></i>專案任務管理器
+                </h1>
+                <p class="text-stone-500 dark:text-stone-400 mt-1 text-sm">AI 驅動的智能任務規劃工具</p>
+            </div>
+
+            <!-- Timer Widget -->
+            <div id="timerWidget" class="card rounded-xl p-4 min-w-[300px] hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium flex items-center gap-2">
+                        <i class="fas fa-stopwatch text-amber-500"></i>
+                        <span id="timerTaskName" class="truncate max-w-[150px]">未選擇任務</span>
+                    </span>
+                    <button onclick="closeTimer()" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="timerDisplayContainer" class="text-center py-2">
+                    <span id="timerDisplay" class="timer-display text-amber-600 dark:text-amber-400">00:00:00</span>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button id="timerStartBtn" onclick="toggleTimer()" class="timer-btn flex-1 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium">
+                        <i class="fas fa-play mr-1"></i>開始
+                    </button>
+                    <button onclick="resetTimer()" class="timer-btn px-4 py-2 bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 rounded-lg text-sm">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button onclick="saveTimerToTask()" class="timer-btn px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm">
+                        <i class="fas fa-save"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Overview -->
+            <div id="progressOverview" class="card rounded-xl p-4 min-w-[280px] hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium">整體進度</span>
+                    <span id="progressPercent" class="text-lg font-bold text-amber-600 dark:text-amber-400">0%</span>
+                </div>
+                <div class="w-full h-2 bg-stone-200 dark:bg-stone-700 rounded-full overflow-hidden">
+                    <div id="progressBar" class="progress-bar h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-xs text-stone-500 dark:text-stone-400">
+                    <span><i class="fas fa-check-circle text-emerald-500 mr-1"></i>已完成: <span id="completedTime">0</span></span>
+                    <span><i class="fas fa-clock text-amber-500 mr-1"></i>剩餘: <span id="remainingTime">0</span></span>
+                </div>
+                <!-- Time Display Mode Toggle -->
+                <div class="flex items-center justify-center gap-1 mt-3 pt-3 border-t border-stone-200 dark:border-stone-700">
+                    <span class="text-xs text-stone-400 mr-2">顯示:</span>
+                    <button id="timeModeMinutes" onclick="setTimeDisplayMode('minutes')" class="time-mode-btn px-2 py-1 text-xs rounded transition-all bg-amber-500 text-white">
+                        分鐘
+                    </button>
+                    <button id="timeModeHours" onclick="setTimeDisplayMode('hours')" class="time-mode-btn px-2 py-1 text-xs rounded transition-all bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600">
+                        小時
+                    </button>
+                    <button id="timeModeWorkdays" onclick="setTimeDisplayMode('workdays')" class="time-mode-btn px-2 py-1 text-xs rounded transition-all bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600">
+                        工作天
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-6 flex-wrap">
+            <button id="tab1Btn" class="tab-btn active px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 bg-stone-200 dark:bg-stone-700" onclick="switchTab(1)">
+                <i class="fas fa-edit"></i>
+                <span class="hidden sm:inline">步驟 1:</span> 輸入與匯入
+            </button>
+            <button id="tab2Btn" class="tab-btn px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 bg-stone-200 dark:bg-stone-700" onclick="switchTab(2)">
+                <i class="fas fa-list-check"></i>
+                <span class="hidden sm:inline">步驟 2:</span> 任務管理
+            </button>
+            <button id="tab3Btn" class="tab-btn px-6 py-3 rounded-xl font-medium transition-all flex items-center gap-2 bg-stone-200 dark:bg-stone-700" onclick="switchTab(3)">
+                <i class="fas fa-chart-gantt"></i>
+                <span class="hidden sm:inline">步驟 3:</span> 甘特圖
+            </button>
+        </div>
+
+        <!-- Tab 1: Input & Import -->
+        <div id="tab1" class="tab-content">
+            <div class="card rounded-2xl p-6 mb-4">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <h2 class="text-xl font-semibold flex items-center gap-2">
+                        <i class="fas fa-pencil-alt text-amber-500"></i>
+                        輸入任務計劃
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <label class="text-sm text-stone-500 dark:text-stone-400">AI 模型:</label>
+                        <select id="modelSelect" class="bg-stone-100 dark:bg-stone-700 border border-stone-300 dark:border-stone-600 rounded-lg px-3 py-2 text-sm">
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <textarea id="taskInput"
+                    class="w-full h-64 md:h-80 p-4 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    placeholder="在此貼上你的任務計劃...
+
+範例格式：
+- [ ] 預備本月 data source 資料夾
+- [ ] 匯出日記
+- [ ] Ticktick 匯出習慣 https://ticktick.com/export
+    - 選擇過去一月
+    - 匯出結果
+- [ ] 時間運用分析
+..."></textarea>
+
+                <div class="flex flex-wrap gap-3 mt-4">
+                    <button id="analyzeBtn" onclick="analyzeWithAI()"
+                        class="flex-1 md:flex-none px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-robot"></i>
+                        AI 分析任務
+                    </button>
+                    <button id="modifyBtn" onclick="modifyWithAI()"
+                        class="hidden flex-1 md:flex-none px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        AI 修改現有任務
+                    </button>
+                    <button onclick="clearInput()"
+                        class="px-4 py-3 bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 rounded-xl transition-all">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                </div>
+
+                <!-- Modification Mode Hint -->
+                <div id="modifyHint" class="hidden mt-4 p-4 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-lightbulb text-emerald-500 mt-0.5"></i>
+                        <div>
+                            <p class="font-medium text-emerald-700 dark:text-emerald-300">已有 <span id="existingTaskCount">0</span> 個任務</p>
+                            <p class="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
+                                您可以輸入修改指令讓 AI 調整現有任務，例如：
+                            </p>
+                            <ul class="text-sm text-emerald-600 dark:text-emerald-400 mt-2 space-y-1 list-disc list-inside">
+                                <li>「將任務3的時間改為30分鐘」</li>
+                                <li>「刪除關於匯出的任務」</li>
+                                <li>「在第一個任務下新增子任務：檢查資料格式」</li>
+                                <li>「把所有時間估計加倍」</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Import Section -->
+            <div class="card rounded-2xl p-6">
+                <h2 class="text-xl font-semibold flex items-center gap-2 mb-4">
+                    <i class="fas fa-file-import text-amber-500"></i>
+                    匯入進度
+                </h2>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-stone-50 dark:bg-stone-800 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600">
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-file-code mr-1"></i>匯入 JSON 檔案
+                        </label>
+                        <input type="file" id="importFile" accept=".json" onchange="importFromFile(event)"
+                            class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-amber-500 file:text-white hover:file:bg-amber-600 file:cursor-pointer">
+                    </div>
+
+                    <div class="p-4 bg-stone-50 dark:bg-stone-800 rounded-xl border-2 border-dashed border-stone-300 dark:border-stone-600">
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-link mr-1"></i>匯入 Base64 字串
+                        </label>
+                        <div class="flex gap-2">
+                            <input type="text" id="base64Input" placeholder="貼上 Base64 字串..."
+                                class="flex-1 px-3 py-2 bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 rounded-lg text-sm">
+                            <button onclick="importFromBase64()"
+                                class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-all">
+                                <i class="fas fa-upload"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Task List & Export -->
+        <div id="tab2" class="tab-content hidden">
+            <!-- Task Actions Bar -->
+            <div class="card rounded-2xl p-4 mb-4">
+                <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+                    <!-- Primary Actions -->
+                    <div class="flex items-center gap-2">
+                        <button onclick="addNewTask()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-sm font-medium transition-all shadow-sm">
+                            <i class="fas fa-plus mr-1.5"></i>新增任務
+                        </button>
+                        <button onclick="showTimerPicker()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-all shadow-sm">
+                            <i class="fas fa-stopwatch mr-1.5"></i>計時器
+                        </button>
+                    </div>
+
+                    <!-- Separator -->
+                    <div class="hidden sm:block h-6 w-px bg-stone-300 dark:bg-stone-600"></div>
+
+                    <!-- View Controls -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-xs text-stone-400 dark:text-stone-500 mr-1 hidden sm:inline">檢視:</span>
+                        <button onclick="expandAll()" class="px-3 py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-md text-xs transition-all" title="全部展開">
+                            <i class="fas fa-expand-alt"></i>
+                            <span class="ml-1 hidden sm:inline">展開</span>
+                        </button>
+                        <button onclick="collapseAll()" class="px-3 py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-md text-xs transition-all" title="全部摺疊">
+                            <i class="fas fa-compress-alt"></i>
+                            <span class="ml-1 hidden sm:inline">摺疊</span>
+                        </button>
+                        <div class="flex items-center gap-1.5 ml-2 px-3 py-1.5 bg-stone-100 dark:bg-stone-700 rounded-md">
+                            <span class="text-xs text-stone-500 dark:text-stone-400">已完成</span>
+                            <div id="showCompletedToggle" class="toggle-switch scale-75 origin-left" onclick="toggleShowCompleted()"></div>
+                        </div>
+                    </div>
+
+                    <!-- Spacer -->
+                    <div class="flex-1"></div>
+
+                    <!-- Task Count & More Actions -->
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm text-stone-500 dark:text-stone-400 font-medium">
+                            <i class="fas fa-tasks mr-1 text-amber-500"></i>
+                            <span id="taskCount">0</span> 個任務
+                        </span>
+                        <!-- More Actions Dropdown -->
+                        <div class="relative">
+                            <button onclick="toggleMoreActions()" class="px-2.5 py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-md text-xs transition-all" title="更多操作">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <div id="moreActionsMenu" class="hidden absolute right-0 top-full mt-1 bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg shadow-lg py-1 z-20 min-w-[160px]">
+                                <button onclick="confirmUncheckAll(); toggleMoreActions();" class="w-full px-4 py-2 text-left text-sm text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-700 flex items-center gap-2">
+                                    <i class="fas fa-square text-stone-400"></i>全部取消勾選
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hint -->
+            <div class="text-xs text-stone-400 dark:text-stone-500 mb-2 flex items-center gap-2">
+                <i class="fas fa-info-circle"></i>
+                提示：使用 ▲▼ 按鈕調整順序，點擊編輯按鈕可調整任務層級
+            </div>
+
+            <!-- Task List -->
+            <div id="taskList" class="card rounded-2xl p-4 min-h-[300px]">
+                <div id="emptyState" class="flex flex-col items-center justify-center py-16 text-stone-400">
+                    <i class="fas fa-inbox text-5xl mb-4"></i>
+                    <p class="text-lg">尚無任務</p>
+                    <p class="text-sm mt-1">請至步驟 1 輸入任務計劃或匯入進度</p>
+                </div>
+                <div id="taskContainer"></div>
+            </div>
+
+            <!-- Export Section -->
+            <div class="card rounded-2xl p-6 mt-4">
+                <h2 class="text-xl font-semibold flex items-center gap-2 mb-4">
+                    <i class="fas fa-file-export text-amber-500"></i>
+                    匯出進度
+                </h2>
+
+                <div class="grid md:grid-cols-3 gap-4">
+                    <button onclick="exportToFile()"
+                        class="p-4 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-xl border border-stone-300 dark:border-stone-600 transition-all text-left">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-download text-amber-600 dark:text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium">下載 JSON 檔案</div>
+                                <div class="text-sm text-stone-500 dark:text-stone-400">儲存完整專案配置</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button onclick="exportToBase64()"
+                        class="p-4 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-xl border border-stone-300 dark:border-stone-600 transition-all text-left">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-copy text-amber-600 dark:text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium">複製 Base64 字串</div>
+                                <div class="text-sm text-stone-500 dark:text-stone-400">壓縮後方便貼上保存</div>
+                            </div>
+                        </div>
+                    </button>
+
+                    <button onclick="exportToMarkdown()"
+                        class="p-4 bg-stone-50 dark:bg-stone-800 hover:bg-stone-100 dark:hover:bg-stone-700 rounded-xl border border-stone-300 dark:border-stone-600 transition-all text-left">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center">
+                                <i class="fab fa-markdown text-amber-600 dark:text-amber-400"></i>
+                            </div>
+                            <div>
+                                <div class="font-medium">下載 Markdown 檔案</div>
+                                <div class="text-sm text-stone-500 dark:text-stone-400">可讀格式方便檢視分享</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Gantt Chart -->
+        <div id="tab3" class="tab-content hidden">
+            <!-- Schedule Settings Card -->
+            <div class="card rounded-2xl p-6 mb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold flex items-center gap-2">
+                        <i class="fas fa-calendar-alt text-amber-500"></i>
+                        時程設定
+                    </h2>
+                    <button onclick="calculateEstimatedDate()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm transition-all flex items-center gap-2">
+                        <i class="fas fa-calculator"></i>
+                        計算完成日期
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-play-circle mr-1 text-emerald-500"></i>開始日期
+                        </label>
+                        <input type="date" id="startDate"
+                            class="w-full px-4 py-3 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            onchange="updateScheduleSettings()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-calendar-week mr-1 text-blue-500"></i>每週工作天數
+                        </label>
+                        <select id="workDaysPerWeek"
+                            class="w-full px-4 py-3 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            onchange="updateScheduleSettings()">
+                            <option value="1">1 天</option>
+                            <option value="2">2 天</option>
+                            <option value="3">3 天</option>
+                            <option value="4">4 天</option>
+                            <option value="5" selected>5 天</option>
+                            <option value="6">6 天</option>
+                            <option value="7">7 天</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-clock mr-1 text-purple-500"></i>每天投入時間
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="minutesPerDay" min="1" max="1440" value="480"
+                                class="flex-1 px-4 py-3 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                onchange="updateScheduleSettings()" oninput="updateMinutesHint()">
+                            <span class="text-sm text-stone-500 dark:text-stone-400 whitespace-nowrap">分鐘</span>
+                        </div>
+                        <p class="text-xs text-stone-400 mt-1" id="minutesHint">= 8 小時</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">
+                            <i class="fas fa-flag-checkered mr-1 text-red-500"></i>估計完成日期
+                        </label>
+                        <div id="estimatedEndDate" class="w-full px-4 py-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-xl text-amber-700 dark:text-amber-300 font-medium flex items-center justify-between">
+                            <span id="endDateText">未計算</span>
+                            <span id="endDateDays" class="text-sm opacity-75"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Note about export -->
+                <div class="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700">
+                    <p class="text-xs text-stone-400 flex items-center gap-1">
+                        <i class="fas fa-info-circle"></i>
+                        時程設定會自動包含在專案匯出中（步驟 2 的 JSON/Base64 匯出）
+                    </p>
+                </div>
+            </div>
+
+            <div class="card rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <h2 class="text-xl font-semibold flex items-center gap-2">
+                        <i class="fas fa-chart-gantt text-amber-500"></i>
+                        任務依賴甘特圖
+                    </h2>
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <button onclick="ganttExpandAll()" class="px-3 py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-lg text-sm transition-all">
+                            <i class="fas fa-expand-alt mr-1"></i>全部展開
+                        </button>
+                        <button onclick="ganttCollapseAll()" class="px-3 py-1.5 bg-stone-100 dark:bg-stone-700 hover:bg-stone-200 dark:hover:bg-stone-600 rounded-lg text-sm transition-all">
+                            <i class="fas fa-compress-alt mr-1"></i>全部摺疊
+                        </button>
+                        <div class="h-4 w-px bg-stone-300 dark:bg-stone-600 hidden sm:block"></div>
+                        <div class="flex items-center gap-4 text-sm">
+                            <span class="flex items-center gap-2">
+                                <span class="w-4 h-4 rounded bg-gradient-to-r from-emerald-600 to-emerald-400"></span>
+                                已完成
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="w-4 h-4 rounded bg-gradient-to-r from-amber-600 to-amber-400"></span>
+                                待處理
+                            </span>
+                            <span class="flex items-center gap-2">
+                                <span class="w-4 h-4 rounded bg-gradient-to-r from-stone-600 to-stone-400"></span>
+                                被鎖定
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ganttEmptyState" class="flex flex-col items-center justify-center py-16 text-stone-400">
+                    <i class="fas fa-project-diagram text-5xl mb-4"></i>
+                    <p class="text-lg">尚無任務可顯示</p>
+                    <p class="text-sm mt-1">請先建立任務及其依賴關係</p>
+                </div>
+
+                <div id="ganttChart" class="gantt-container hidden">
+                    <svg id="ganttSvg" class="w-full" style="min-height: 100px;"></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden p-4">
+        <div class="card rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold">編輯任務</h3>
+                <button onclick="closeEditModal()" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">任務名稱</label>
+                    <input type="text" id="editName"
+                        class="w-full px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        描述 <span class="text-xs text-stone-400 font-normal">（支援 Markdown 格式）</span>
+                    </label>
+                    <textarea id="editDescription" rows="4"
+                        class="w-full px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg resize-y font-mono text-sm"
+                        placeholder="支援 Markdown：**粗體**、*斜體*、`程式碼`、- 清單..."></textarea>
+                    <div class="text-xs text-stone-400 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        <span>**粗體** | *斜體* | `程式碼` | [連結](URL) | - 清單</span>
+                    </div>
+                </div>
+
+                <!-- Editable Links Section -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">
+                        <i class="fas fa-link mr-1"></i>連結
+                    </label>
+                    <div id="linksContainer" class="space-y-2 mb-2"></div>
+                    <button onclick="addNewLink()" class="text-sm text-amber-600 dark:text-amber-400 hover:underline">
+                        <i class="fas fa-plus mr-1"></i>新增連結
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">預估時間 (分鐘)</label>
+                        <input type="number" id="editEstimatedTime" min="1"
+                            class="w-full px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg">
+                        <p id="subtaskTimeNote" class="text-xs text-stone-500 mt-1 hidden">
+                            <i class="fas fa-info-circle mr-1"></i>自動計算自子任務
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">實際使用時間（分鐘）</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="editActualTime" min="0"
+                                class="flex-1 px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg">
+                            <span class="text-sm text-stone-400 self-center">分鐘</span>
+                        </div>
+                        <button onclick="startTimerForCurrentTask()" class="w-full mt-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all" title="啟動計時器追蹤此任務的時間">
+                            <i class="fas fa-stopwatch"></i>
+                            <span>啟動計時器</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        <i class="fas fa-flag mr-1"></i>優先級
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setPriority('high')" id="priorityHighBtn"
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-transparent bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:border-red-500 transition-all text-sm font-medium">
+                            <i class="fas fa-arrow-up mr-1"></i>高
+                        </button>
+                        <button type="button" onclick="setPriority('medium')" id="priorityMediumBtn"
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-transparent bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:border-amber-500 transition-all text-sm font-medium">
+                            <i class="fas fa-minus mr-1"></i>中
+                        </button>
+                        <button type="button" onclick="setPriority('low')" id="priorityLowBtn"
+                            class="flex-1 py-2 px-3 rounded-lg border-2 border-transparent bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:border-green-500 transition-all text-sm font-medium">
+                            <i class="fas fa-arrow-down mr-1"></i>低
+                        </button>
+                        <button type="button" onclick="setPriority(null)" id="priorityNoneBtn"
+                            class="py-2 px-3 rounded-lg border-2 border-transparent bg-stone-100 dark:bg-stone-700 text-stone-600 dark:text-stone-400 hover:border-stone-500 transition-all text-sm">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">依賴任務</label>
+                    <select id="editDependencies" multiple
+                        class="w-full px-4 py-2 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg h-24">
+                    </select>
+                    <p class="text-xs text-stone-500 mt-1">按住 Ctrl/Cmd 可多選</p>
+                </div>
+            </div>
+
+            <!-- Task hierarchy controls -->
+            <div class="mt-4 p-3 bg-stone-50 dark:bg-stone-800 rounded-xl">
+                <p class="text-sm text-stone-500 dark:text-stone-400 mb-2">
+                    <i class="fas fa-sitemap mr-1"></i>調整任務層級
+                </p>
+
+                <!-- Promote buttons (only for subtasks) -->
+                <div id="promoteSection" class="hidden mb-2">
+                    <div class="flex gap-2">
+                        <button onclick="promoteOneLevel()" id="promoteOneLevelBtn"
+                            class="flex-1 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-all">
+                            <i class="fas fa-arrow-up mr-1"></i>升級一層
+                        </button>
+                        <button onclick="promoteToTopLevelFromModal()"
+                            class="flex-1 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm transition-all">
+                            <i class="fas fa-arrow-circle-up mr-1"></i>升為頂層任務
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Make subtask of another task -->
+                <div id="demoteSection">
+                    <label class="block text-xs text-stone-500 dark:text-stone-400 mb-1">設為其他任務的子任務：</label>
+                    <div class="flex gap-2">
+                        <select id="demoteTargetSelect" class="flex-1 px-3 py-2 bg-white dark:bg-stone-700 border border-stone-300 dark:border-stone-600 rounded-lg text-sm">
+                            <option value="">-- 選擇目標任務 --</option>
+                        </select>
+                        <button onclick="demoteToSubtask()" class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition-all">
+                            <i class="fas fa-arrow-down mr-1"></i>設為子任務
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="saveTaskEdit()"
+                    class="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-all">
+                    <i class="fas fa-save mr-1"></i>儲存
+                </button>
+                <button onclick="deleteCurrentTask()"
+                    class="py-3 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-stone-800 dark:bg-stone-200 text-white dark:text-stone-800 px-6 py-3 rounded-xl shadow-lg transform translate-y-20 opacity-0 transition-all z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="card rounded-2xl p-8 text-center fade-in">
+            <div class="w-16 h-16 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-lg font-medium">AI 分析中<span class="loading-dots"></span></p>
+            <p id="loadingStatus" class="text-sm text-stone-500 dark:text-stone-400 mt-2">正在解析任務結構</p>
+        </div>
+    </div>
+
+    <script>
+        // ==================== State Management ====================
+        let projectData = {
+            projectName: '我的專案',
+            createdAt: new Date().toISOString(),
+            tasks: [],
+            scheduleSettings: {
+                startDate: new Date().toISOString().slice(0, 10),
+                workDaysPerWeek: 5,
+                minutesPerDay: 480
+            }
+        };
+
+        let currentEditingTaskId = null;
+        let showCompleted = false; // Hide completed by default
+        let currentEditingPriority = null; // For priority selection in modal
+        let timeDisplayMode = 'minutes'; // 'minutes', 'hours', 'workdays'
+
+        // Timer state
+        let timerState = {
+            isRunning: false,
+            taskPath: null,
+            taskName: '',
+            startTime: null,
+            elapsedSeconds: 0,
+            intervalId: null
+        };
+
+        // Task path mapping for Gantt chart click
+        let taskIdToPathMap = {};
+
+        // ==================== Dark Mode Detection ====================
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // ==================== Tab Switching ====================
+        function switchTab(tabNum) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`tab${tabNum}`).classList.remove('hidden');
+            document.getElementById(`tab${tabNum}Btn`).classList.add('active');
+
+            if (tabNum === 2) {
+                renderTaskList();
+                updateProgress();
+            } else if (tabNum === 3) {
+                renderGanttChart();
+            }
+        }
+
+        // ==================== Toggle Show Completed ====================
+        function toggleShowCompleted() {
+            showCompleted = !showCompleted;
+            const toggle = document.getElementById('showCompletedToggle');
+            toggle.classList.toggle('active', showCompleted);
+            renderTaskList();
+        }
+
+        // ==================== More Actions Dropdown ====================
+        function toggleMoreActions() {
+            const menu = document.getElementById('moreActionsMenu');
+            menu.classList.toggle('hidden');
+
+            // Close when clicking outside
+            if (!menu.classList.contains('hidden')) {
+                setTimeout(() => {
+                    document.addEventListener('click', closeMoreActionsOnClickOutside);
+                }, 0);
+            }
+        }
+
+        function closeMoreActionsOnClickOutside(e) {
+            const menu = document.getElementById('moreActionsMenu');
+            const button = e.target.closest('[onclick*="toggleMoreActions"]');
+            if (!button && !menu.contains(e.target)) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closeMoreActionsOnClickOutside);
+            }
+        }
+
+        // ==================== Update Modify Button Visibility ====================
+        function updateModifyButtonVisibility() {
+            const modifyBtn = document.getElementById('modifyBtn');
+            const modifyHint = document.getElementById('modifyHint');
+            const existingTaskCount = document.getElementById('existingTaskCount');
+            const taskCount = countAllTasks(projectData.tasks);
+
+            if (taskCount > 0) {
+                modifyBtn.classList.remove('hidden');
+                modifyBtn.classList.add('flex');
+                modifyHint.classList.remove('hidden');
+                existingTaskCount.textContent = taskCount;
+            } else {
+                modifyBtn.classList.add('hidden');
+                modifyBtn.classList.remove('flex');
+                modifyHint.classList.add('hidden');
+            }
+        }
+
+        // ==================== AI Analysis ====================
+        async function analyzeWithAI() {
+            const input = document.getElementById('taskInput').value.trim();
+            if (!input) {
+                showToast('請先輸入任務計劃', 'error');
+                return;
+            }
+
+            const model = document.getElementById('modelSelect').value;
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+
+            analyzeBtn.disabled = true;
+            loadingOverlay.classList.remove('hidden');
+
+            const prompt = `你是一個專案管理專家。請分析以下任務計劃，將其轉換為結構化的 JSON 格式。
+
+要求：
+1. 識別所有任務和子任務（縮排項目為子任務）
+2. 為每個任務估計完成時間（分鐘），根據任務複雜度合理估計
+3. **重要：識別文字中的所有超連結（URL），將其存為 links 陣列，每個連結為 {text: "顯示文字", url: "實際網址"}**
+   - 如果只有 URL 沒有文字，使用網域名稱作為顯示文字
+   - 例如 "https://ticktick.com/export" 變成 {text: "ticktick.com", url: "https://ticktick.com/export"}
+4. description 欄位只放純文字描述（不含 URL）
+5. 保持原有的層級結構
+
+請只回傳 JSON，格式如下：
+{
+  "projectName": "專案名稱（從內容推斷）",
+  "tasks": [
+    {
+      "id": "唯一ID（使用 task_1, task_2 等格式）",
+      "name": "任務名稱",
+      "description": "純文字描述（不含 URL）",
+      "links": [
+        {"text": "顯示文字", "url": "https://..."}
+      ],
+      "estimatedTime": 數字（分鐘）,
+      "completed": false,
+      "dependencies": [],
+      "subtasks": [
+        {
+          "id": "子任務ID",
+          "name": "子任務名稱",
+          "description": "",
+          "links": [],
+          "estimatedTime": 數字,
+          "completed": false,
+          "dependencies": []
+        }
+      ]
+    }
+  ]
+}
+
+任務計劃內容：
+${input}`;
+
+            try {
+                await window.Poe.sendUserMessage(`@${model} ${prompt}`, {
+                    handler: 'aiAnalysisHandler',
+                    stream: true,
+                    openChat: false
+                });
+            } catch (err) {
+                loadingOverlay.classList.add('hidden');
+                analyzeBtn.disabled = false;
+                showToast('AI 分析失敗: ' + err.message, 'error');
+            }
+        }
+
+        window.Poe.registerHandler('aiAnalysisHandler', (result, context) => {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+
+            const msg = result.responses[0];
+
+            if (msg.status === 'error') {
+                loadingOverlay.classList.add('hidden');
+                analyzeBtn.disabled = false;
+                showToast('AI 分析錯誤: ' + (msg.statusText || '未知錯誤'), 'error');
+                return;
+            }
+
+            if (msg.status === 'incomplete') {
+                loadingStatus.textContent = '正在生成任務結構...';
+                return;
+            }
+
+            if (msg.status === 'complete') {
+                loadingOverlay.classList.add('hidden');
+                analyzeBtn.disabled = false;
+
+                try {
+                    // Extract JSON from response
+                    let content = msg.content;
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) {
+                        throw new Error('無法解析 JSON 回應');
+                    }
+
+                    const parsed = JSON.parse(jsonMatch[0]);
+
+                    // Initialize additional fields
+                    const initializeTask = (task) => {
+                        task.actualTime = task.actualTime || 0;
+                        task.collapsed = false;
+                        task.links = task.links || [];
+                        task.priority = task.priority || null; // high, medium, low, or null
+                        // Convert old description URLs to links array
+                        if (task.description) {
+                            const urlRegex = /(https?:\/\/[^\s]+)/g;
+                            let match;
+                            while ((match = urlRegex.exec(task.description)) !== null) {
+                                const url = match[1];
+                                const domain = new URL(url).hostname.replace('www.', '');
+                                if (!task.links.some(l => l.url === url)) {
+                                    task.links.push({ text: domain, url: url });
+                                }
+                            }
+                            task.description = task.description.replace(urlRegex, '').trim();
+                        }
+                        if (task.subtasks) {
+                            task.subtasks.forEach(initializeTask);
+                        }
+                        return task;
+                    };
+
+                    projectData = {
+                        projectName: parsed.projectName || '我的專案',
+                        createdAt: new Date().toISOString(),
+                        tasks: (parsed.tasks || []).map(initializeTask),
+                        scheduleSettings: projectData.scheduleSettings || {
+                            startDate: new Date().toISOString().slice(0, 10),
+                            workDaysPerWeek: 5,
+                            minutesPerDay: 480
+                        }
+                    };
+
+                    // Recalculate parent times
+                    recalculateParentTimes(projectData.tasks);
+
+                    showToast(`成功解析 ${countAllTasks(projectData.tasks)} 個任務！`, 'success');
+                    updateModifyButtonVisibility();
+                    loadScheduleSettings();
+                    switchTab(2);
+
+                } catch (e) {
+                    showToast('解析 AI 回應失敗: ' + e.message, 'error');
+                    console.log('AI Response:', msg.content);
+                }
+            }
+        });
+
+        // ==================== AI Modify Existing Tasks ====================
+        async function modifyWithAI() {
+            const input = document.getElementById('taskInput').value.trim();
+            if (!input) {
+                showToast('請輸入修改指令', 'error');
+                return;
+            }
+
+            if (projectData.tasks.length === 0) {
+                showToast('沒有現有任務可修改，請先建立任務', 'warning');
+                return;
+            }
+
+            const model = document.getElementById('modelSelect').value;
+            const modifyBtn = document.getElementById('modifyBtn');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+
+            modifyBtn.disabled = true;
+            loadingOverlay.classList.remove('hidden');
+            document.getElementById('loadingStatus').textContent = '正在理解修改指令...';
+
+            // Convert current tasks to JSON for AI to understand
+            const currentTasksJson = JSON.stringify(projectData, null, 2);
+
+            const prompt = `你是一個專案管理專家。用戶有一組現有的任務，希望根據指令進行修改。
+
+現有任務結構（JSON 格式）：
+\`\`\`json
+${currentTasksJson}
+\`\`\`
+
+用戶的修改指令：
+${input}
+
+請根據用戶的指令修改任務，並返回完整的更新後 JSON。
+
+修改規則：
+1. 保持現有任務的 id 不變（除非刪除該任務）
+2. 新增任務時使用 task_[時間戳] 格式的 id
+3. 保留未被修改的任務的所有屬性（completed, actualTime 等）
+4. 如果指令不清楚，請合理推斷用戶意圖
+5. links 陣列格式為 [{text: "顯示文字", url: "網址"}]
+
+請只返回更新後的完整 JSON（與格式相同），不要添加解釋文字。`;
+
+            try {
+                await window.Poe.sendUserMessage(`@${model} ${prompt}`, {
+                    handler: 'aiModifyHandler',
+                    stream: true,
+                    openChat: false
+                });
+            } catch (err) {
+                loadingOverlay.classList.add('hidden');
+                modifyBtn.disabled = false;
+                showToast('AI 修改失敗: ' + err.message, 'error');
+            }
+        }
+
+        window.Poe.registerHandler('aiModifyHandler', (result, context) => {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingStatus = document.getElementById('loadingStatus');
+            const modifyBtn = document.getElementById('modifyBtn');
+
+            const msg = result.responses[0];
+
+            if (msg.status === 'error') {
+                loadingOverlay.classList.add('hidden');
+                modifyBtn.disabled = false;
+                showToast('AI 修改錯誤: ' + (msg.statusText || '未知錯誤'), 'error');
+                return;
+            }
+
+            if (msg.status === 'incomplete') {
+                loadingStatus.textContent = '正在應用修改...';
+                return;
+            }
+
+            if (msg.status === 'complete') {
+                loadingOverlay.classList.add('hidden');
+                modifyBtn.disabled = false;
+
+                try {
+                    // Extract JSON from response
+                    let content = msg.content;
+                    const jsonMatch = content.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) {
+                        throw new Error('無法解析 JSON 回應');
+                    }
+
+                    const parsed = JSON.parse(jsonMatch[0]);
+
+                    // Initialize additional fields
+                    const initializeTask = (task) => {
+                        task.actualTime = task.actualTime || 0;
+                        task.collapsed = task.collapsed !== undefined ? task.collapsed : false;
+                        task.links = task.links || [];
+                        task.priority = task.priority || null;
+                        if (task.subtasks) {
+                            task.subtasks.forEach(initializeTask);
+                        }
+                        return task;
+                    };
+
+                    const oldTaskCount = countAllTasks(projectData.tasks);
+
+                    projectData = {
+                        projectName: parsed.projectName || projectData.projectName,
+                        createdAt: parsed.createdAt || projectData.createdAt,
+                        tasks: (parsed.tasks || []).map(initializeTask),
+                        scheduleSettings: parsed.scheduleSettings || projectData.scheduleSettings || {
+                            startDate: new Date().toISOString().slice(0, 10),
+                            workDaysPerWeek: 5,
+                            minutesPerDay: 480
+                        }
+                    };
+
+                    // Recalculate parent times
+                    recalculateParentTimes(projectData.tasks);
+                    loadScheduleSettings();
+
+                    const newTaskCount = countAllTasks(projectData.tasks);
+                    const diff = newTaskCount - oldTaskCount;
+                    let message = '任務已更新！';
+                    if (diff > 0) {
+                        message = `已新增 ${diff} 個任務`;
+                    } else if (diff < 0) {
+                        message = `已刪除 ${Math.abs(diff)} 個任務`;
+                    }
+
+                    showToast(message, 'success');
+                    updateModifyButtonVisibility();
+                    document.getElementById('taskInput').value = '';
+                    switchTab(2);
+
+                } catch (e) {
+                    showToast('解析 AI 回應失敗: ' + e.message, 'error');
+                    console.log('AI Response:', msg.content);
+                }
+            }
+        });
+
+        // ==================== Parent Time Calculation ====================
+        function calculateSubtaskTime(task) {
+            if (!task.subtasks || task.subtasks.length === 0) {
+                return task.estimatedTime || 0;
+            }
+            let total = 0;
+            task.subtasks.forEach(st => {
+                total += calculateSubtaskTime(st);
+            });
+            return total;
+        }
+
+        function recalculateParentTimes(tasks) {
+            tasks.forEach(task => {
+                if (task.subtasks && task.subtasks.length > 0) {
+                    recalculateParentTimes(task.subtasks);
+                    task.estimatedTime = calculateSubtaskTime(task);
+                }
+            });
+        }
+
+        // ==================== Task Rendering ====================
+        function renderTaskList() {
+            const container = document.getElementById('taskContainer');
+            const emptyState = document.getElementById('emptyState');
+            const progressOverview = document.getElementById('progressOverview');
+
+            // Recalculate parent times before rendering
+            recalculateParentTimes(projectData.tasks);
+
+            const visibleTasks = filterVisibleTasks(projectData.tasks);
+
+            if (projectData.tasks.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                progressOverview.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            progressOverview.classList.remove('hidden');
+
+            container.innerHTML = visibleTasks.map((task, visibleIdx) => renderTask(task, getOriginalIndex(projectData.tasks, task), [], [visibleIdx + 1])).join('');
+
+            document.getElementById('taskCount').textContent = countAllTasks(projectData.tasks);
+        }
+
+        function filterVisibleTasks(tasks) {
+            if (showCompleted) {
+                return tasks;
+            }
+            return tasks.filter(task => !isTaskFullyCompleted(task));
+        }
+
+        function isTaskFullyCompleted(task) {
+            if (!task.completed) return false;
+            if (task.subtasks && task.subtasks.length > 0) {
+                return task.subtasks.every(st => isTaskFullyCompleted(st));
+            }
+            return true;
+        }
+
+        function getOriginalIndex(tasks, targetTask) {
+            return tasks.findIndex(t => t.id === targetTask.id);
+        }
+
+        function renderTask(task, index, parentPath, displayIndex) {
+            const currentPath = [...parentPath, index];
+            const pathStr = currentPath.join('-');
+            const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+            const isLocked = isTaskLocked(task);
+            const statusClass = task.completed ? 'completed' : (isLocked ? 'locked' : '');
+            const priorityClass = task.priority ? `priority-${task.priority}` : '';
+
+            // Store path mapping for Gantt chart click
+            taskIdToPathMap[task.id] = pathStr;
+
+            // Generate task code based on displayIndex path
+            const taskCode = displayIndex.join('.');
+
+            // Calculate progress for tasks with subtasks
+            let progressPercent = 0;
+            if (hasSubtasks) {
+                const { completed, total } = calculateTaskProgress(task);
+                progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            } else {
+                progressPercent = task.completed ? 100 : 0;
+            }
+
+            // Priority badge
+            const priorityBadges = {
+                high: '<span class="text-xs px-2 py-0.5 priority-badge-high rounded-full font-medium"><i class="fas fa-arrow-up mr-1"></i>高</span>',
+                medium: '<span class="text-xs px-2 py-0.5 priority-badge-medium rounded-full font-medium"><i class="fas fa-minus mr-1"></i>中</span>',
+                low: '<span class="text-xs px-2 py-0.5 priority-badge-low rounded-full font-medium"><i class="fas fa-arrow-down mr-1"></i>低</span>'
+            };
+            const priorityBadge = task.priority ? priorityBadges[task.priority] : '';
+
+            // Filter subtasks based on showCompleted
+            const visibleSubtasks = hasSubtasks ? filterVisibleTasks(task.subtasks) : [];
+            const hasVisibleSubtasks = visibleSubtasks.length > 0;
+
+            // Check if timer is running for this task
+            const isTimerRunning = timerState.isRunning && timerState.taskPath === pathStr;
+
+            let html = `
+            <div class="task-item ${statusClass} ${priorityClass} p-3 rounded-lg mb-2 fade-in" data-path="${pathStr}" data-id="${task.id}">
+                <div class="flex items-start gap-3">
+                    ${hasSubtasks ? `
+                    <button onclick="toggleCollapse('${pathStr}')" class="collapse-btn mt-1 text-stone-400 hover:text-amber-500 ${task.collapsed ? 'collapsed' : ''}">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    ` : '<div class="w-4"></div>'}
+
+                    <button onclick="toggleComplete('${pathStr}')" class="mt-0.5 ${task.completed ? 'text-emerald-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-500'}">
+                        <i class="fas ${task.completed ? 'fa-check-square' : 'fa-square'}"></i>
+                    </button>
+
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs font-mono px-1.5 py-0.5 bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 rounded">${taskCode}</span>
+                            <span class="task-name font-medium ${task.completed ? 'text-stone-500' : ''}" ondblclick="quickEditName('${pathStr}', this)">
+                                ${escapeHtml(task.name)}
+                            </span>
+                            ${priorityBadge}
+                            ${isLocked ? '<i class="fas fa-lock text-stone-400 text-xs"></i>' : ''}
+                            ${hasSubtasks ? `<span class="text-xs text-stone-400">(${task.subtasks.length} 個子任務)</span>` : ''}
+                            ${isTimerRunning ? '<span class="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 rounded-full animate-pulse"><i class="fas fa-circle mr-1"></i>計時中</span>' : ''}
+                        </div>
+                        ${task.description ? `
+                        <div class="markdown-content text-stone-500 dark:text-stone-400 mt-1 break-words">
+                            ${renderMarkdown(task.description)}
+                        </div>
+                        ` : ''}
+                        ${task.links && task.links.length > 0 ? `
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            ${task.links.map(link => `
+                                <a href="${escapeHtml(link.url)}" target="_blank" class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full hover:underline">
+                                    <i class="fas fa-external-link-alt mr-1"></i>${escapeHtml(link.text)}
+                                </a>
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                        ${hasSubtasks ? `
+                        <div class="task-progress-container">
+                            <div class="task-progress-bar" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <div class="text-xs text-stone-400 mt-1">${progressPercent}% 完成</div>
+                        ` : ''}
+                    </div>
+
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <div class="task-actions flex items-center gap-1">
+                            <!-- Timer button for leaf tasks -->
+                            ${!hasSubtasks && !task.completed ? `
+                            <button onclick="event.stopPropagation(); startTimerFromList('${pathStr}')" class="text-stone-400 hover:text-amber-500 p-1 ${isTimerRunning ? 'text-red-500' : ''}" title="計時">
+                                <i class="fas fa-stopwatch text-xs"></i>
+                            </button>
+                            ` : ''}
+                            <!-- Move up/down and promote/demote buttons -->
+                            <button onclick="event.stopPropagation(); promoteTaskLevel('${pathStr}')" class="text-stone-400 hover:text-indigo-500 p-1" title="升級 (左移)">
+                                <i class="fas fa-chevron-left text-xs"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); moveTaskUp('${pathStr}')" class="text-stone-400 hover:text-blue-500 p-1" title="上移">
+                                <i class="fas fa-chevron-up text-xs"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); moveTaskDown('${pathStr}')" class="text-stone-400 hover:text-blue-500 p-1" title="下移">
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); demoteTaskLevel('${pathStr}')" class="text-stone-400 hover:text-orange-500 p-1" title="降級 (右移)">
+                                <i class="fas fa-chevron-right text-xs"></i>
+                            </button>
+                            <button onclick="event.stopPropagation(); addTaskBelow('${pathStr}')" class="text-stone-400 hover:text-green-500 p-1" title="在此任務下方新增任務">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                        <span class="text-xs px-2 py-1 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full whitespace-nowrap">
+                            <i class="fas fa-clock mr-1"></i>${formatTimeByMode(task.estimatedTime)}
+                        </span>
+                        <button onclick="openEditModal('${pathStr}')" class="text-stone-400 hover:text-amber-500 p-1">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+
+                ${hasVisibleSubtasks ? `
+                <div class="subtask-container mt-3 ${task.collapsed ? 'hidden' : ''}" id="subtasks-${pathStr}">
+                    ${visibleSubtasks.map((st, visibleIdx) => {
+                        const originalIndex = task.subtasks.findIndex(s => s.id === st.id);
+                        const childDisplayIndex = [...displayIndex, visibleIdx + 1];
+                        return renderTask(st, originalIndex, currentPath, childDisplayIndex);
+                    }).join('')}
+                </div>
+                ` : ''}
+            </div>
+            `;
+
+            return html;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Calculate task progress (for parent tasks)
+        function calculateTaskProgress(task) {
+            let completed = 0;
+            let total = 0;
+
+            const countTasks = (tasks) => {
+                tasks.forEach(t => {
+                    if (!t.subtasks || t.subtasks.length === 0) {
+                        total++;
+                        if (t.completed) completed++;
+                    } else {
+                        countTasks(t.subtasks);
+                    }
+                });
+            };
+
+            if (task.subtasks && task.subtasks.length > 0) {
+                countTasks(task.subtasks);
+            }
+
+            return { completed, total };
+        }
+
+        // Render Markdown content
+        function renderMarkdown(text) {
+            if (!text) return '';
+            try {
+                // Check if marked library is loaded
+                if (typeof marked !== 'undefined' && marked.parse) {
+                    // Configure marked for safe rendering
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                        headerIds: false,
+                        mangle: false
+                    });
+                    return marked.parse(text);
+                } else {
+                    // Fallback: basic markdown rendering
+                    return basicMarkdownRender(text);
+                }
+            } catch (e) {
+                console.log('Markdown parse error:', e);
+                return escapeHtml(text);
+            }
+        }
+
+        // Basic markdown fallback when marked.js is not available
+        function basicMarkdownRender(text) {
+            let html = escapeHtml(text);
+            // Bold: **text** or __text__
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            // Italic: *text* or _text_
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+            // Code: `code`
+            html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+            // Line breaks
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        // ==================== Task Hierarchy ====================
+        function promoteToTopLevel(sourcePath) {
+            const sourceTask = getTaskByPath(sourcePath);
+            if (!sourceTask) return;
+
+            // Remove from current parent
+            removeTaskByPath(sourcePath);
+
+            // Add to top-level tasks
+            projectData.tasks.push(sourceTask);
+
+            // Recalculate times and render
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('任務已升級為頂層任務', 'success');
+        }
+
+        // Promote subtask to top level from edit modal
+        function promoteToTopLevelFromModal() {
+            if (!currentEditingTaskId || !currentEditingTaskId.includes('-')) return;
+
+            const sourcePath = currentEditingTaskId;
+            closeEditModal();
+            promoteToTopLevel(sourcePath);
+        }
+
+        // Promote subtask one level up (to parent's level)
+        function promoteOneLevel() {
+            if (!currentEditingTaskId || !currentEditingTaskId.includes('-')) return;
+
+            const sourcePath = currentEditingTaskId;
+            const indices = sourcePath.split('-').map(Number);
+
+            // Need at least 2 levels deep to promote one level
+            if (indices.length < 2) return;
+
+            const sourceTask = getTaskByPath(sourcePath);
+            if (!sourceTask) return;
+
+            // Remove from current parent
+            removeTaskByPath(sourcePath);
+
+            if (indices.length === 2) {
+                // Direct child of top-level task, promote to top level
+                projectData.tasks.push(sourceTask);
+            } else {
+                // Grandchild or deeper, promote to grandparent's subtasks
+                const grandparentPath = indices.slice(0, -2).join('-');
+                const grandparent = getTaskByPath(grandparentPath);
+
+                if (grandparent) {
+                    if (!grandparent.subtasks) {
+                        grandparent.subtasks = [];
+                    }
+                    grandparent.subtasks.push(sourceTask);
+                } else {
+                    // Fallback to top level
+                    projectData.tasks.push(sourceTask);
+                }
+            }
+
+            closeEditModal();
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('任務已升級一層', 'success');
+        }
+
+        // Move task up in its current list
+        function moveTaskUp(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+            const currentIndex = indices[indices.length - 1];
+
+            // Can't move up if already first
+            if (currentIndex === 0) {
+                showToast('已經是第一個', 'info');
+                return;
+            }
+
+            // Get the array containing this task
+            let taskArray;
+            if (indices.length === 1) {
+                taskArray = projectData.tasks;
+            } else {
+                const parentPath = indices.slice(0, -1).join('-');
+                const parent = getTaskByPath(parentPath);
+                taskArray = parent.subtasks;
+            }
+
+            // Swap with previous
+            const temp = taskArray[currentIndex];
+            taskArray[currentIndex] = taskArray[currentIndex - 1];
+            taskArray[currentIndex - 1] = temp;
+
+            renderTaskList();
+            updateProgress();
+        }
+
+        // Move task down in its current list
+        function moveTaskDown(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+            const currentIndex = indices[indices.length - 1];
+
+            // Get the array containing this task
+            let taskArray;
+            if (indices.length === 1) {
+                taskArray = projectData.tasks;
+            } else {
+                const parentPath = indices.slice(0, -1).join('-');
+                const parent = getTaskByPath(parentPath);
+                taskArray = parent.subtasks;
+            }
+
+            // Can't move down if already last
+            if (currentIndex >= taskArray.length - 1) {
+                showToast('已經是最後一個', 'info');
+                return;
+            }
+
+            // Swap with next
+            const temp = taskArray[currentIndex];
+            taskArray[currentIndex] = taskArray[currentIndex + 1];
+            taskArray[currentIndex + 1] = temp;
+
+            renderTaskList();
+            updateProgress();
+        }
+
+        // Promote task one level (left arrow - make it same level as previous task's parent)
+        function promoteTaskLevel(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+
+            // Can't promote top-level tasks
+            if (indices.length === 1) {
+                showToast('已經是頂層任務', 'info');
+                return;
+            }
+
+            const sourceTask = getTaskByPath(pathStr);
+            if (!sourceTask) return;
+
+            // Remove from current parent
+            removeTaskByPath(pathStr);
+
+            if (indices.length === 2) {
+                // Direct child of top-level task, promote to top level
+                // Insert after the parent task
+                const parentIndex = indices[0];
+                projectData.tasks.splice(parentIndex + 1, 0, sourceTask);
+            } else {
+                // Grandchild or deeper, promote to grandparent's subtasks
+                const grandparentPath = indices.slice(0, -2).join('-');
+                const grandparent = getTaskByPath(grandparentPath);
+                const parentIndex = indices[indices.length - 2];
+
+                if (grandparent && grandparent.subtasks) {
+                    // Insert after the parent in grandparent's subtasks
+                    grandparent.subtasks.splice(parentIndex + 1, 0, sourceTask);
+                } else {
+                    // Fallback to top level
+                    projectData.tasks.push(sourceTask);
+                }
+            }
+
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('任務已升級', 'success');
+        }
+
+        // Demote task one level (right arrow - make it a child of the previous task)
+        function demoteTaskLevel(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+            const currentIndex = indices[indices.length - 1];
+
+            // Can't demote if it's the first task (no previous task to become child of)
+            if (currentIndex === 0) {
+                showToast('無法降級：沒有上一個任務可作為父任務', 'info');
+                return;
+            }
+
+            // Get the array containing this task
+            let taskArray;
+            if (indices.length === 1) {
+                taskArray = projectData.tasks;
+            } else {
+                const parentPath = indices.slice(0, -1).join('-');
+                const parent = getTaskByPath(parentPath);
+                taskArray = parent.subtasks;
+            }
+
+            // Get the previous task (which will become the parent)
+            const prevTask = taskArray[currentIndex - 1];
+            if (!prevTask) {
+                showToast('無法降級：找不到上一個任務', 'error');
+                return;
+            }
+
+            const sourceTask = getTaskByPath(pathStr);
+            if (!sourceTask) return;
+
+            // Remove from current location
+            taskArray.splice(currentIndex, 1);
+
+            // Add as child of previous task
+            if (!prevTask.subtasks) {
+                prevTask.subtasks = [];
+            }
+            prevTask.subtasks.push(sourceTask);
+
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('任務已降級為子任務', 'success');
+        }
+
+        // Demote task to become a subtask of another task
+        function demoteToSubtask() {
+            if (!currentEditingTaskId) return;
+
+            const targetTaskId = document.getElementById('demoteTargetSelect').value;
+            if (!targetTaskId) {
+                showToast('請選擇目標任務', 'warning');
+                return;
+            }
+
+            const sourceTask = getTaskByPath(currentEditingTaskId);
+            if (!sourceTask) return;
+
+            // Find target task
+            const targetTask = findTaskById(projectData.tasks, targetTaskId);
+            if (!targetTask) {
+                showToast('找不到目標任務', 'error');
+                return;
+            }
+
+            // Check if target is a descendant of source (would create circular reference)
+            if (isTaskDescendant(sourceTask, targetTaskId)) {
+                showToast('無法將任務設為其子任務的子任務', 'error');
+                return;
+            }
+
+            // Remove from current location
+            removeTaskByPath(currentEditingTaskId);
+
+            // Add to target as subtask
+            if (!targetTask.subtasks) {
+                targetTask.subtasks = [];
+            }
+            targetTask.subtasks.push(sourceTask);
+
+            closeEditModal();
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('已設為子任務', 'success');
+        }
+
+        // Find task by ID
+        function findTaskById(tasks, id) {
+            for (const t of tasks) {
+                if (t.id === id) return t;
+                if (t.subtasks) {
+                    const found = findTaskById(t.subtasks, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        // Check if targetId is a descendant of task
+        function isTaskDescendant(task, targetId) {
+            if (!task.subtasks) return false;
+            for (const st of task.subtasks) {
+                if (st.id === targetId) return true;
+                if (isTaskDescendant(st, targetId)) return true;
+            }
+            return false;
+        }
+
+        function removeTaskByPath(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+
+            if (indices.length === 1) {
+                projectData.tasks.splice(indices[0], 1);
+            } else {
+                let parent = projectData.tasks[indices[0]];
+                for (let i = 1; i < indices.length - 1; i++) {
+                    parent = parent.subtasks[indices[i]];
+                }
+                parent.subtasks.splice(indices[indices.length - 1], 1);
+            }
+        }
+
+        // ==================== Task Operations ====================
+        function getTaskByPath(path) {
+            const indices = path.split('-').map(Number);
+            let task = projectData.tasks[indices[0]];
+            for (let i = 1; i < indices.length; i++) {
+                if (!task || !task.subtasks) return null;
+                task = task.subtasks[indices[i]];
+            }
+            return task;
+        }
+
+        function toggleComplete(pathStr) {
+            const task = getTaskByPath(pathStr);
+            if (isTaskLocked(task)) {
+                showToast('請先完成依賴任務', 'warning');
+                return;
+            }
+            task.completed = !task.completed;
+            if (task.completed) {
+                // Record actual completion date
+                task.completedAt = new Date().toISOString();
+                if (task.actualTime === 0) {
+                    task.actualTime = task.estimatedTime;
+                }
+            } else {
+                // Remove completion date when uncompleting
+                delete task.completedAt;
+            }
+
+            // If completing/uncompleting, propagate to subtasks
+            if (task.subtasks && task.subtasks.length > 0) {
+                setSubtasksCompleted(task.subtasks, task.completed);
+            }
+
+            // Check if parent should be auto-completed/uncompleted
+            updateParentCompletionStatus(pathStr);
+
+            renderTaskList();
+            updateProgress();
+            // Recalculate Gantt chart and estimated date when completion status changes
+            calculateEstimatedDate();
+        }
+
+        // Set all subtasks to the same completed status (recursively)
+        function setSubtasksCompleted(subtasks, completed) {
+            subtasks.forEach(st => {
+                st.completed = completed;
+                if (completed) {
+                    st.completedAt = new Date().toISOString();
+                    if (st.actualTime === 0) {
+                        st.actualTime = st.estimatedTime;
+                    }
+                } else {
+                    delete st.completedAt;
+                }
+                if (st.subtasks && st.subtasks.length > 0) {
+                    setSubtasksCompleted(st.subtasks, completed);
+                }
+            });
+        }
+
+        // Check and update parent completion status based on children
+        function updateParentCompletionStatus(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+
+            // If this is a top-level task, no parent to update
+            if (indices.length <= 1) return;
+
+            // Get parent path
+            const parentPath = indices.slice(0, -1).join('-');
+            const parentTask = getTaskByPath(parentPath);
+
+            if (!parentTask || !parentTask.subtasks || parentTask.subtasks.length === 0) return;
+
+            // Check if all subtasks are completed
+            const allSubtasksCompleted = parentTask.subtasks.every(st => isTaskFullyCompleted(st));
+
+            // If all subtasks are completed and parent is not, complete parent
+            if (allSubtasksCompleted && !parentTask.completed) {
+                parentTask.completed = true;
+                // Set completedAt to the latest subtask completion date
+                const latestSubtaskCompletion = parentTask.subtasks
+                    .filter(st => st.completedAt)
+                    .map(st => new Date(st.completedAt))
+                    .sort((a, b) => b - a)[0];
+                parentTask.completedAt = latestSubtaskCompletion ? latestSubtaskCompletion.toISOString() : new Date().toISOString();
+                if (parentTask.actualTime === 0) {
+                    parentTask.actualTime = parentTask.estimatedTime;
+                }
+                // Recursively check grandparent
+                updateParentCompletionStatus(parentPath);
+            }
+            // If any subtask is not completed and parent is completed, uncomplete parent
+            else if (!allSubtasksCompleted && parentTask.completed) {
+                parentTask.completed = false;
+                delete parentTask.completedAt;
+                // Recursively check grandparent
+                updateParentCompletionStatus(parentPath);
+            }
+        }
+
+        function toggleCollapse(pathStr) {
+            const task = getTaskByPath(pathStr);
+            task.collapsed = !task.collapsed;
+
+            const subtasksEl = document.getElementById(`subtasks-${pathStr}`);
+            const btnEl = document.querySelector(`[data-path="${pathStr}"] .collapse-btn`);
+
+            if (subtasksEl) {
+                subtasksEl.classList.toggle('hidden', task.collapsed);
+            }
+            if (btnEl) {
+                btnEl.classList.toggle('collapsed', task.collapsed);
+            }
+        }
+
+        function expandAll() {
+            const expandTasks = (tasks) => {
+                tasks.forEach(task => {
+                    task.collapsed = false;
+                    if (task.subtasks) expandTasks(task.subtasks);
+                });
+            };
+            expandTasks(projectData.tasks);
+            renderTaskList();
+        }
+
+        function collapseAll() {
+            const collapseTasks = (tasks) => {
+                tasks.forEach(task => {
+                    task.collapsed = true;
+                    if (task.subtasks) collapseTasks(task.subtasks);
+                });
+            };
+            collapseTasks(projectData.tasks);
+            renderTaskList();
+        }
+
+        // Uncheck all tasks with confirmation
+        function confirmUncheckAll() {
+            // Count completed tasks
+            let completedCount = 0;
+            const countCompleted = (tasks) => {
+                tasks.forEach(task => {
+                    if (task.completed) completedCount++;
+                    if (task.subtasks) countCompleted(task.subtasks);
+                });
+            };
+            countCompleted(projectData.tasks);
+
+            if (completedCount === 0) {
+                showToast('沒有已完成的任務需要取消勾選', 'info');
+                return;
+            }
+
+            // Show confirmation modal
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.id = 'uncheckConfirmModal';
+            modal.innerHTML = `
+                <div class="card rounded-2xl p-6 w-full max-w-md fade-in">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold">確認取消所有勾選</h3>
+                            <p class="text-sm text-stone-500 dark:text-stone-400">此操作無法復原</p>
+                        </div>
+                    </div>
+                    <p class="text-stone-600 dark:text-stone-300 mb-6">
+                        您確定要取消勾選所有 <strong class="text-red-500">${completedCount}</strong> 個已完成的任務嗎？
+                        這將清除所有任務的完成狀態和完成時間記錄。
+                    </p>
+                    <div class="flex gap-3">
+                        <button onclick="document.getElementById('uncheckConfirmModal').remove()"
+                            class="flex-1 py-3 bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 rounded-xl font-medium transition-all">
+                            取消
+                        </button>
+                        <button onclick="uncheckAllTasks(); document.getElementById('uncheckConfirmModal').remove()"
+                            class="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-all">
+                            <i class="fas fa-square mr-1"></i>確認取消全部
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function uncheckAllTasks() {
+            const uncheckTasks = (tasks) => {
+                tasks.forEach(task => {
+                    task.completed = false;
+                    task.completedAt = null;
+                    if (task.subtasks) uncheckTasks(task.subtasks);
+                });
+            };
+            uncheckTasks(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            renderGanttChart();
+            showToast('已取消所有任務的完成狀態', 'success');
+        }
+
+        // Gantt chart expand/collapse
+        function ganttExpandAll() {
+            const expandGanttTasks = (tasks) => {
+                tasks.forEach(task => {
+                    task.ganttCollapsed = false;
+                    if (task.subtasks) expandGanttTasks(task.subtasks);
+                });
+            };
+            expandGanttTasks(projectData.tasks);
+            renderGanttChart();
+            showToast('甘特圖已全部展開', 'success');
+        }
+
+        function ganttCollapseAll() {
+            const collapseGanttTasks = (tasks) => {
+                tasks.forEach(task => {
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        task.ganttCollapsed = true;
+                    }
+                    if (task.subtasks) collapseGanttTasks(task.subtasks);
+                });
+            };
+            collapseGanttTasks(projectData.tasks);
+            renderGanttChart();
+            showToast('甘特圖已全部摺疊', 'success');
+        }
+
+        function toggleGanttCollapse(taskId) {
+            const findAndToggle = (tasks) => {
+                for (const task of tasks) {
+                    if (task.id === taskId) {
+                        task.ganttCollapsed = !task.ganttCollapsed;
+                        return true;
+                    }
+                    if (task.subtasks && findAndToggle(task.subtasks)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            findAndToggle(projectData.tasks);
+            renderGanttChart();
+        }
+
+        function isTaskLocked(task) {
+            if (!task.dependencies || task.dependencies.length === 0) return false;
+
+            const findTaskById = (tasks, id) => {
+                for (const t of tasks) {
+                    if (t.id === id) return t;
+                    if (t.subtasks) {
+                        const found = findTaskById(t.subtasks, id);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            };
+
+            return task.dependencies.some(depId => {
+                const depTask = findTaskById(projectData.tasks, depId);
+                return depTask && !depTask.completed;
+            });
+        }
+
+        function quickEditName(pathStr, element) {
+            const task = getTaskByPath(pathStr);
+            const originalName = task.name;
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = originalName;
+            input.className = 'px-2 py-1 bg-white dark:bg-stone-700 border border-amber-500 rounded text-base w-full';
+
+            input.onblur = () => {
+                task.name = input.value.trim() || originalName;
+                renderTaskList();
+            };
+
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                } else if (e.key === 'Escape') {
+                    task.name = originalName;
+                    renderTaskList();
+                }
+            };
+
+            element.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+
+        // ==================== Edit Modal ====================
+        let currentEditingLinks = [];
+
+        function openEditModal(pathStr) {
+            currentEditingTaskId = pathStr;
+            const task = getTaskByPath(pathStr);
+
+            document.getElementById('editName').value = task.name;
+            document.getElementById('editDescription').value = task.description || '';
+            document.getElementById('editEstimatedTime').value = task.estimatedTime;
+            document.getElementById('editActualTime').value = task.actualTime || 0;
+
+            // Set priority
+            currentEditingPriority = task.priority || null;
+            updatePriorityButtons();
+
+            // Handle subtask time note
+            const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+            const timeInput = document.getElementById('editEstimatedTime');
+            const timeNote = document.getElementById('subtaskTimeNote');
+            timeInput.disabled = hasSubtasks;
+            timeNote.classList.toggle('hidden', !hasSubtasks);
+
+            // Populate links
+            currentEditingLinks = task.links ? [...task.links.map(l => ({...l}))] : [];
+            renderLinksEditor();
+
+            // Populate dependencies dropdown
+            const depSelect = document.getElementById('editDependencies');
+            depSelect.innerHTML = '';
+
+            const addOptions = (tasks, prefix = '') => {
+                tasks.forEach(t => {
+                    if (t.id !== task.id) {
+                        const option = document.createElement('option');
+                        option.value = t.id;
+                        option.textContent = prefix + t.name;
+                        option.selected = task.dependencies && task.dependencies.includes(t.id);
+                        depSelect.appendChild(option);
+                    }
+                    if (t.subtasks) {
+                        addOptions(t.subtasks, prefix + '  ');
+                    }
+                });
+            };
+            addOptions(projectData.tasks);
+
+            // Show promote section only for subtasks (path contains '-')
+            const promoteSection = document.getElementById('promoteSection');
+            const isSubtask = pathStr.includes('-');
+            promoteSection.classList.toggle('hidden', !isSubtask);
+
+            // Show "promote one level" only if not directly under top level
+            const promoteOneLevelBtn = document.getElementById('promoteOneLevelBtn');
+            const indices = pathStr.split('-').map(Number);
+            // If depth > 2, can promote one level (grandchild or deeper)
+            promoteOneLevelBtn.classList.toggle('hidden', indices.length <= 2);
+
+            // Populate demote target dropdown (all tasks except self and descendants)
+            const demoteSelect = document.getElementById('demoteTargetSelect');
+            demoteSelect.innerHTML = '<option value="">-- 選擇目標任務 --</option>';
+
+            const addDemoteOptions = (tasks, prefix = '') => {
+                tasks.forEach(t => {
+                    // Skip self and descendants
+                    if (t.id !== task.id && !isTaskDescendant(task, t.id)) {
+                        const option = document.createElement('option');
+                        option.value = t.id;
+                        option.textContent = prefix + t.name;
+                        demoteSelect.appendChild(option);
+                    }
+                    if (t.subtasks && t.id !== task.id) {
+                        addDemoteOptions(t.subtasks, prefix + '  ');
+                    }
+                });
+            };
+            addDemoteOptions(projectData.tasks);
+
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+
+        function renderLinksEditor() {
+            const container = document.getElementById('linksContainer');
+            container.innerHTML = currentEditingLinks.map((link, index) => `
+                <div class="link-item">
+                    <i class="fas fa-link text-stone-400"></i>
+                    <input type="text" value="${escapeHtml(link.text)}" placeholder="顯示文字"
+                        onchange="updateLinkText(${index}, this.value)" class="flex-1">
+                    <input type="text" value="${escapeHtml(link.url)}" placeholder="網址"
+                        onchange="updateLinkUrl(${index}, this.value)" class="flex-1">
+                    <button onclick="removeLink(${index})" class="text-red-500 hover:text-red-600 p-1">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function updateLinkText(index, value) {
+            currentEditingLinks[index].text = value;
+        }
+
+        function updateLinkUrl(index, value) {
+            currentEditingLinks[index].url = value;
+        }
+
+        function removeLink(index) {
+            currentEditingLinks.splice(index, 1);
+            renderLinksEditor();
+        }
+
+        function addNewLink() {
+            currentEditingLinks.push({ text: '', url: '' });
+            renderLinksEditor();
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            currentEditingTaskId = null;
+            currentEditingLinks = [];
+        }
+
+        function saveTaskEdit() {
+            if (!currentEditingTaskId) return;
+
+            const task = getTaskByPath(currentEditingTaskId);
+            task.name = document.getElementById('editName').value.trim() || task.name;
+            task.description = document.getElementById('editDescription').value.trim();
+
+            // Only update estimated time if no subtasks
+            if (!task.subtasks || task.subtasks.length === 0) {
+                task.estimatedTime = parseInt(document.getElementById('editEstimatedTime').value) || 5;
+            }
+            task.actualTime = parseInt(document.getElementById('editActualTime').value) || 0;
+
+            // Save priority
+            task.priority = currentEditingPriority;
+
+            // Save links (filter out empty ones)
+            task.links = currentEditingLinks.filter(l => l.url && l.url.trim());
+
+            const depSelect = document.getElementById('editDependencies');
+            task.dependencies = Array.from(depSelect.selectedOptions).map(opt => opt.value);
+
+            closeEditModal();
+            recalculateParentTimes(projectData.tasks);
+            renderTaskList();
+            updateProgress();
+            showToast('任務已更新', 'success');
+        }
+
+        // Priority functions
+        function setPriority(priority) {
+            currentEditingPriority = priority;
+            updatePriorityButtons();
+        }
+
+        function updatePriorityButtons() {
+            const buttons = {
+                high: document.getElementById('priorityHighBtn'),
+                medium: document.getElementById('priorityMediumBtn'),
+                low: document.getElementById('priorityLowBtn'),
+                none: document.getElementById('priorityNoneBtn')
+            };
+
+            // Reset all buttons
+            Object.values(buttons).forEach(btn => {
+                btn.classList.remove('border-red-500', 'border-amber-500', 'border-green-500', 'border-stone-500', 'ring-2', 'ring-offset-1');
+            });
+
+            // Highlight selected
+            if (currentEditingPriority === 'high') {
+                buttons.high.classList.add('border-red-500', 'ring-2', 'ring-red-300', 'ring-offset-1');
+            } else if (currentEditingPriority === 'medium') {
+                buttons.medium.classList.add('border-amber-500', 'ring-2', 'ring-amber-300', 'ring-offset-1');
+            } else if (currentEditingPriority === 'low') {
+                buttons.low.classList.add('border-green-500', 'ring-2', 'ring-green-300', 'ring-offset-1');
+            } else {
+                buttons.none.classList.add('border-stone-500', 'ring-2', 'ring-stone-300', 'ring-offset-1');
+            }
+        }
+
+        function deleteCurrentTask() {
+            if (!currentEditingTaskId) return;
+
+            showConfirmDialog('確定要刪除此任務嗎？', () => {
+                removeTaskByPath(currentEditingTaskId);
+                closeEditModal();
+                recalculateParentTimes(projectData.tasks);
+                renderTaskList();
+                updateProgress();
+                updateModifyButtonVisibility();
+                showToast('任務已刪除', 'success');
+            });
+        }
+
+        function addNewTask() {
+            const newTask = {
+                id: 'task_' + Date.now(),
+                name: '新任務',
+                description: '',
+                links: [],
+                estimatedTime: 15,
+                actualTime: 0,
+                completed: false,
+                dependencies: [],
+                collapsed: false,
+                subtasks: [],
+                priority: null
+            };
+
+            projectData.tasks.push(newTask);
+            renderTaskList();
+            updateProgress();
+            updateModifyButtonVisibility();
+
+            // Open edit modal for the new task
+            const newPath = (projectData.tasks.length - 1).toString();
+            openEditModal(newPath);
+        }
+
+        function addTaskBelow(pathStr) {
+            const path = pathStr.split('-').map(Number);
+            const newTask = {
+                id: 'task_' + Date.now(),
+                name: '新任務',
+                description: '',
+                links: [],
+                estimatedTime: 15,
+                actualTime: 0,
+                completed: false,
+                dependencies: [],
+                collapsed: false,
+                subtasks: [],
+                priority: null
+            };
+
+            let newPath;
+            if (path.length === 1) {
+                // Top-level task: insert after this task in projectData.tasks
+                const insertIndex = path[0] + 1;
+                projectData.tasks.splice(insertIndex, 0, newTask);
+                newPath = insertIndex.toString();
+            } else {
+                // Subtask: insert after this task in parent's subtasks
+                const parentPath = path.slice(0, -1);
+                const parent = getTaskByPath(parentPath.join('-'));
+                if (parent && parent.subtasks) {
+                    const insertIndex = path[path.length - 1] + 1;
+                    parent.subtasks.splice(insertIndex, 0, newTask);
+                    newPath = [...parentPath, insertIndex].join('-');
+                } else {
+                    return;
+                }
+            }
+
+            renderTaskList();
+            updateProgress();
+            updateModifyButtonVisibility();
+
+            // Open edit modal for the new task
+            openEditModal(newPath);
+        }
+
+        // ==================== Timer Functions ====================
+        function startTimerFromList(pathStr) {
+            const task = getTaskByPath(pathStr);
+            if (!task) return;
+
+            // If timer is already running for this task, just show the widget
+            if (timerState.isRunning && timerState.taskPath === pathStr) {
+                document.getElementById('timerWidget').classList.remove('hidden');
+                return;
+            }
+
+            // If timer is running for another task, ask to save first
+            if (timerState.isRunning && timerState.taskPath !== pathStr) {
+                showConfirmDialog('計時器正在運行中。是否保存當前計時並開始新任務？', () => {
+                    saveTimerToTask();
+                    initializeTimer(pathStr, task.name);
+                    startTimer();
+                });
+                return;
+            }
+
+            initializeTimer(pathStr, task.name);
+            startTimer();
+        }
+
+        function startTimerForCurrentTask() {
+            if (!currentEditingTaskId) return;
+            const task = getTaskByPath(currentEditingTaskId);
+            if (!task) return;
+
+            const pathStr = currentEditingTaskId;
+            const taskName = task.name;
+            closeEditModal();
+            initializeTimer(pathStr, taskName);
+            // Immediately start the timer
+            startTimer();
+        }
+
+        function initializeTimer(pathStr, taskName) {
+            timerState.taskPath = pathStr;
+            timerState.taskName = taskName;
+            timerState.elapsedSeconds = 0;
+            timerState.isRunning = false;
+
+            document.getElementById('timerTaskName').textContent = taskName;
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+            document.getElementById('timerWidget').classList.remove('hidden');
+            document.getElementById('timerDisplayContainer').classList.remove('timer-running');
+
+            updateTimerButton();
+            renderTaskList();
+        }
+
+        function toggleTimer() {
+            if (timerState.isRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            if (!timerState.taskPath) {
+                showToast('請先選擇一個任務', 'warning');
+                return;
+            }
+
+            timerState.isRunning = true;
+            timerState.startTime = Date.now() - (timerState.elapsedSeconds * 1000);
+
+            timerState.intervalId = setInterval(() => {
+                timerState.elapsedSeconds = Math.floor((Date.now() - timerState.startTime) / 1000);
+                updateTimerDisplay();
+            }, 1000);
+
+            document.getElementById('timerDisplayContainer').classList.add('timer-running');
+            updateTimerButton();
+            renderTaskList();
+        }
+
+        function pauseTimer() {
+            timerState.isRunning = false;
+            if (timerState.intervalId) {
+                clearInterval(timerState.intervalId);
+                timerState.intervalId = null;
+            }
+
+            document.getElementById('timerDisplayContainer').classList.remove('timer-running');
+            updateTimerButton();
+            renderTaskList();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timerState.elapsedSeconds = 0;
+            document.getElementById('timerDisplay').textContent = '00:00:00';
+        }
+
+        function closeTimer() {
+            if (timerState.isRunning || timerState.elapsedSeconds > 0) {
+                showConfirmDialog('計時器有未保存的時間，確定要關閉嗎？', () => {
+                    forceCloseTimer();
+                });
+            } else {
+                forceCloseTimer();
+            }
+        }
+
+        function forceCloseTimer() {
+            pauseTimer();
+            timerState.taskPath = null;
+            timerState.taskName = '';
+            timerState.elapsedSeconds = 0;
+            document.getElementById('timerWidget').classList.add('hidden');
+            renderTaskList();
+        }
+
+        function saveTimerToTask() {
+            if (!timerState.taskPath) {
+                showToast('沒有選擇任務', 'warning');
+                return;
+            }
+
+            const task = getTaskByPath(timerState.taskPath);
+            if (!task) {
+                showToast('找不到任務', 'error');
+                forceCloseTimer();
+                return;
+            }
+
+            const minutes = Math.ceil(timerState.elapsedSeconds / 60);
+
+            if (minutes === 0) {
+                showToast('計時時間不足 1 分鐘，未保存', 'warning');
+                return;
+            }
+
+            task.actualTime = (task.actualTime || 0) + minutes;
+
+            const taskName = timerState.taskName;
+
+            // Close timer widget after saving
+            forceCloseTimer();
+
+            showToast(`已將 ${minutes} 分鐘加入「${taskName}」`, 'success');
+
+            renderTaskList();
+            updateProgress();
+        }
+
+        function updateTimerDisplay() {
+            const hours = Math.floor(timerState.elapsedSeconds / 3600);
+            const minutes = Math.floor((timerState.elapsedSeconds % 3600) / 60);
+            const seconds = timerState.elapsedSeconds % 60;
+
+            const display = [
+                hours.toString().padStart(2, '0'),
+                minutes.toString().padStart(2, '0'),
+                seconds.toString().padStart(2, '0')
+            ].join(':');
+
+            document.getElementById('timerDisplay').textContent = display;
+        }
+
+        function updateTimerButton() {
+            const btn = document.getElementById('timerStartBtn');
+            if (timerState.isRunning) {
+                btn.innerHTML = '<i class="fas fa-pause mr-1"></i>暫停';
+                btn.classList.remove('bg-emerald-500', 'hover:bg-emerald-600');
+                btn.classList.add('bg-orange-500', 'hover:bg-orange-600');
+            } else {
+                btn.innerHTML = '<i class="fas fa-play mr-1"></i>開始';
+                btn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
+                btn.classList.add('bg-emerald-500', 'hover:bg-emerald-600');
+            }
+        }
+
+        // Show timer picker modal to select a task
+        function showTimerPicker() {
+            // If timer is already running, just show the widget
+            if (timerState.taskPath) {
+                document.getElementById('timerWidget').classList.remove('hidden');
+                return;
+            }
+
+            // Get all leaf tasks (tasks without subtasks) that are not completed
+            const leafTasks = [];
+            const collectLeafTasks = (tasks, path = []) => {
+                tasks.forEach((task, index) => {
+                    const currentPath = [...path, index];
+                    if (!task.subtasks || task.subtasks.length === 0) {
+                        if (!task.completed) {
+                            leafTasks.push({
+                                id: task.id,
+                                name: task.name,
+                                path: currentPath.join('-'),
+                                priority: task.priority
+                            });
+                        }
+                    } else {
+                        collectLeafTasks(task.subtasks, currentPath);
+                    }
+                });
+            };
+            collectLeafTasks(projectData.tasks);
+
+            if (leafTasks.length === 0) {
+                showToast('沒有可計時的任務（需要未完成的葉任務）', 'warning');
+                return;
+            }
+
+            // Build task options HTML
+            const priorityOrder = { high: 0, medium: 1, low: 2, null: 3 };
+            leafTasks.sort((a, b) => (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3));
+
+            const taskOptionsHtml = leafTasks.map(t => {
+                const priorityIcon = t.priority === 'high' ? '<i class="fas fa-arrow-up text-red-500 mr-2"></i>' :
+                                     t.priority === 'medium' ? '<i class="fas fa-minus text-amber-500 mr-2"></i>' :
+                                     t.priority === 'low' ? '<i class="fas fa-arrow-down text-green-500 mr-2"></i>' : '';
+                return `<button onclick="selectTaskForTimer('${t.path}', '${escapeHtml(t.name).replace(/'/g, "\\'")}'); this.closest('.fixed').remove();"
+                    class="w-full text-left px-4 py-3 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all flex items-center">
+                    ${priorityIcon}
+                    <span class="truncate">${escapeHtml(t.name)}</span>
+                </button>`;
+            }).join('');
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="card rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-hidden fade-in">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-semibold flex items-center gap-2">
+                            <i class="fas fa-stopwatch text-amber-500"></i>
+                            選擇要計時的任務
+                        </h3>
+                        <button onclick="this.closest('.fixed').remove()" class="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="overflow-y-auto max-h-[60vh] -mx-2 px-2">
+                        ${taskOptionsHtml}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function selectTaskForTimer(pathStr, taskName) {
+            initializeTimer(pathStr, taskName);
+        }
+
+        // ==================== Gantt Chart ====================
+        function renderGanttChart() {
+            const ganttEmptyState = document.getElementById('ganttEmptyState');
+            const ganttChart = document.getElementById('ganttChart');
+            const ganttSvg = document.getElementById('ganttSvg');
+
+            if (projectData.tasks.length === 0) {
+                ganttEmptyState.classList.remove('hidden');
+                ganttChart.classList.add('hidden');
+                return;
+            }
+
+            ganttEmptyState.classList.add('hidden');
+            ganttChart.classList.remove('hidden');
+
+            // Get schedule settings
+            const settings = projectData.scheduleSettings || {
+                startDate: new Date().toISOString().slice(0, 10),
+                workDaysPerWeek: 5,
+                minutesPerDay: 480
+            };
+            const minutesPerDay = settings.minutesPerDay || (settings.hoursPerDay ? settings.hoursPerDay * 60 : 480);
+            const workDaysPerWeek = settings.workDaysPerWeek;
+
+            // Check if dark mode
+            const isDark = document.documentElement.classList.contains('dark');
+
+            // Color palette
+            const colors = {
+                bg: isDark ? '#292524' : '#FFFFFF',
+                bgAlt: isDark ? '#1C1917' : '#F5F5F4',
+                text: isDark ? '#FAFAF9' : '#1C1917',
+                textMuted: isDark ? '#A8A29E' : '#78716C',
+                border: isDark ? '#44403C' : '#E7E5E4',
+                pending: { start: '#06B6D4', end: '#0891B2' },      // Cyan gradient
+                completed: { start: '#10B981', end: '#059669' },    // Green gradient
+                locked: { start: '#9CA3AF', end: '#6B7280' },       // Gray gradient
+                arrow: '#F59E0B'                                      // Amber
+            };
+
+            // Flatten ALL tasks for position calculations
+            const allTasks = [];
+            const visibleTasks = [];
+            const taskPositions = {};
+
+            const flattenAllTasks = (tasks, level = 0, parentCollapsed = false) => {
+                tasks.forEach(task => {
+                    const hasSubtasks = task.subtasks && task.subtasks.length > 0;
+                    const isGanttCollapsed = task.ganttCollapsed === true;
+                    const taskData = { ...task, level, hasSubtasks, isGanttCollapsed };
+
+                    // Add to allTasks for position calculation
+                    allTasks.push(taskData);
+
+                    // Only add to visibleTasks if parent is not collapsed
+                    if (!parentCollapsed) {
+                        visibleTasks.push(taskData);
+                    }
+
+                    if (hasSubtasks) {
+                        // If this task is collapsed, its children are hidden (parentCollapsed = true)
+                        flattenAllTasks(task.subtasks, level + 1, parentCollapsed || isGanttCollapsed);
+                    }
+                });
+            };
+            flattenAllTasks(projectData.tasks);
+
+            // Use visibleTasks for rendering (flatTasks reference for compatibility)
+            const flatTasks = visibleTasks;
+
+            // Helper: Calculate work minutes between two dates
+            function getMinutesBetweenDates(startDate, endDate) {
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                let totalMinutes = 0;
+                let currentTime = start.getTime();
+                const endTime = end.getTime();
+                const oneDay = 24 * 60 * 60 * 1000;
+
+                while (currentTime < endTime) {
+                    const currentDate = new Date(currentTime);
+                    const dayOfWeek = currentDate.getDay();
+                    let isWorkDay = false;
+                    if (workDaysPerWeek === 7) {
+                        isWorkDay = true;
+                    } else if (workDaysPerWeek === 6) {
+                        isWorkDay = dayOfWeek !== 0;
+                    } else if (workDaysPerWeek === 5) {
+                        isWorkDay = dayOfWeek !== 0 && dayOfWeek !== 6;
+                    } else {
+                        isWorkDay = dayOfWeek >= 1 && dayOfWeek <= workDaysPerWeek;
+                    }
+
+                    if (isWorkDay) {
+                        totalMinutes += minutesPerDay;
+                    }
+                    currentTime += oneDay;
+                }
+                return totalMinutes;
+            }
+
+            // Find the latest completion date among all completed tasks
+            let latestCompletionDate = null;
+            const findLatestCompletion = (tasks) => {
+                tasks.forEach(task => {
+                    if (task.completed && task.completedAt && (!task.subtasks || task.subtasks.length === 0)) {
+                        const completedDate = new Date(task.completedAt);
+                        if (!latestCompletionDate || completedDate > latestCompletionDate) {
+                            latestCompletionDate = completedDate;
+                        }
+                    }
+                    if (task.subtasks) {
+                        findLatestCompletion(task.subtasks);
+                    }
+                });
+            };
+            findLatestCompletion(projectData.tasks);
+
+            // Calculate positions considering actual completion dates
+            // For completed tasks: position based on actual completion date
+            // For pending tasks: position starts from after the latest completed task or from project start
+            const projectStartDate = new Date(settings.startDate);
+
+            // Reference date for pending tasks: latest completion or today (whichever is later), but not before project start
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let referenceDate = latestCompletionDate ? new Date(Math.max(latestCompletionDate.getTime(), today.getTime())) : new Date(Math.max(projectStartDate.getTime(), today.getTime()));
+
+            // First pass: calculate positions for ALL tasks (including hidden ones for dependency calculations)
+            let currentPendingTime = getMinutesBetweenDates(projectStartDate, referenceDate);
+            let maxTime = 0;
+
+            allTasks.forEach((task, index) => {
+                if (task.hasSubtasks) {
+                    taskPositions[task.id] = { index, start: 0, duration: 0, task, isParent: true, actualDate: null };
+                    return;
+                }
+
+                const duration = task.actualTime || task.estimatedTime || 0;
+
+                if (task.completed && task.completedAt) {
+                    // Completed task: calculate position based on actual completion date
+                    const completedDate = new Date(task.completedAt);
+                    // End position is at completion date, start is duration before that
+                    const endMinutes = getMinutesBetweenDates(projectStartDate, completedDate);
+                    const startMinutes = Math.max(0, endMinutes - duration);
+
+                    taskPositions[task.id] = {
+                        index,
+                        start: startMinutes,
+                        duration: duration,
+                        task,
+                        isParent: false,
+                        actualDate: completedDate,
+                        isActualDate: true
+                    };
+                    maxTime = Math.max(maxTime, endMinutes);
+                } else {
+                    // Pending task: calculate position from reference date (after completed tasks)
+                    let startTime = currentPendingTime;
+
+                    // Check dependencies
+                    if (task.dependencies && task.dependencies.length > 0) {
+                        task.dependencies.forEach(depId => {
+                            if (taskPositions[depId] && !taskPositions[depId].isParent) {
+                                const depEnd = taskPositions[depId].start + taskPositions[depId].duration;
+                                startTime = Math.max(startTime, depEnd);
+                            }
+                        });
+                    }
+
+                    taskPositions[task.id] = {
+                        index,
+                        start: startTime,
+                        duration: task.estimatedTime || 0,
+                        task,
+                        isParent: false,
+                        actualDate: null,
+                        isActualDate: false
+                    };
+
+                    currentPendingTime = Math.max(currentPendingTime, startTime + (task.estimatedTime || 0));
+                    maxTime = Math.max(maxTime, startTime + (task.estimatedTime || 0));
+                }
+            });
+
+            // Second pass: calculate parent task spans based on their children
+            const calculateParentSpan = (tasks) => {
+                tasks.forEach(task => {
+                    if (task.subtasks && task.subtasks.length > 0) {
+                        calculateParentSpan(task.subtasks);
+
+                        let minStart = Infinity;
+                        let maxEnd = 0;
+                        let latestActualDate = null;
+
+                        task.subtasks.forEach(subtask => {
+                            const pos = taskPositions[subtask.id];
+                            if (pos) {
+                                minStart = Math.min(minStart, pos.start);
+                                maxEnd = Math.max(maxEnd, pos.start + pos.duration);
+                                if (pos.actualDate && (!latestActualDate || pos.actualDate > latestActualDate)) {
+                                    latestActualDate = pos.actualDate;
+                                }
+                            }
+                        });
+
+                        if (minStart !== Infinity) {
+                            const pos = taskPositions[task.id];
+                            pos.start = minStart;
+                            pos.duration = maxEnd - minStart;
+                            pos.actualDate = task.completed ? latestActualDate : null;
+                        }
+                    }
+                });
+            };
+            calculateParentSpan(projectData.tasks);
+
+            const totalDuration = maxTime || 1;
+            const rowHeight = 36;
+            const headerHeight = 50;
+            const labelWidth = 180;
+            const chartWidth = 550;
+            const svgWidth = labelWidth + chartWidth + 70;
+            const svgHeight = flatTasks.length * rowHeight + headerHeight + 40;
+
+            // Helper function to calculate actual date from minutes offset
+            function getDateFromMinutes(minutesOffset) {
+                const startDate = new Date(settings.startDate);
+                let remainingMinutes = minutesOffset;
+                let currentDate = new Date(startDate);
+
+                while (remainingMinutes > 0) {
+                    const dayOfWeek = currentDate.getDay();
+                    let isWorkDay = false;
+                    if (workDaysPerWeek === 7) {
+                        isWorkDay = true;
+                    } else if (workDaysPerWeek === 6) {
+                        isWorkDay = dayOfWeek !== 0;
+                    } else if (workDaysPerWeek === 5) {
+                        isWorkDay = dayOfWeek !== 0 && dayOfWeek !== 6;
+                    } else {
+                        isWorkDay = dayOfWeek >= 1 && dayOfWeek <= workDaysPerWeek;
+                    }
+
+                    if (isWorkDay) {
+                        if (remainingMinutes <= minutesPerDay) {
+                            break;
+                        }
+                        remainingMinutes -= minutesPerDay;
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1);
+                }
+                return currentDate;
+            }
+
+            function formatDate(date) {
+                return `${date.getMonth() + 1}/${date.getDate()}`;
+            }
+
+            // Build SVG with proper styling
+            let svg = `
+                <defs>
+                    <linearGradient id="pendingGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:${colors.pending.start};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${colors.pending.end};stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="completedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:${colors.completed.start};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${colors.completed.end};stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="lockedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:${colors.locked.start};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${colors.locked.end};stop-opacity:1" />
+                    </linearGradient>
+                    <marker id="arrowhead2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                        <polygon points="0 0, 8 3, 0 6" fill="${colors.arrow}" />
+                    </marker>
+                    <filter id="barShadow" x="-10%" y="-10%" width="120%" height="130%">
+                        <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.15"/>
+                    </filter>
+                </defs>
+            `;
+
+            // Background
+            svg += `<rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="${colors.bg}" />`;
+
+            // Calculate time scale with dates
+            const totalWorkDays = Math.ceil(totalDuration / minutesPerDay);
+            const timeSteps = Math.min(6, Math.max(3, totalWorkDays));
+            const stepSize = totalDuration / timeSteps;
+
+            // Header background
+            svg += `<rect x="${labelWidth}" y="0" width="${chartWidth + 70}" height="${headerHeight}" fill="${colors.bgAlt}" />`;
+
+            // Date headers
+            for (let i = 0; i <= timeSteps; i++) {
+                const x = labelWidth + (i / timeSteps) * chartWidth;
+                const minutesAtStep = Math.round(i * stepSize);
+                const dateAtStep = getDateFromMinutes(minutesAtStep);
+                const dateStr = formatDate(dateAtStep);
+
+                svg += `<text x="${x}" y="30" text-anchor="middle" fill="${colors.text}" style="font-size: 13px; font-weight: 600;">${dateStr}</text>`;
+                svg += `<line x1="${x}" y1="${headerHeight}" x2="${x}" y2="${svgHeight}" stroke="${colors.border}" stroke-dasharray="3,3" opacity="0.6" />`;
+            }
+
+            // Separator line
+            svg += `<line x1="0" y1="${headerHeight}" x2="${svgWidth}" y2="${headerHeight}" stroke="${colors.border}" />`;
+
+            // Draw alternating row backgrounds
+            flatTasks.forEach((task, index) => {
+                const y = headerHeight + index * rowHeight;
+                if (index % 2 === 1) {
+                    svg += `<rect x="0" y="${y}" width="${svgWidth}" height="${rowHeight}" fill="${colors.bgAlt}" opacity="0.5" />`;
+                }
+            });
+
+            // Draw bars and labels
+            flatTasks.forEach((task, index) => {
+                const pos = taskPositions[task.id];
+                const textY = headerHeight + index * rowHeight + rowHeight / 2 + 4;
+                const barStart = labelWidth + (pos.start / totalDuration) * chartWidth;
+                const barWidth = Math.max((pos.duration / totalDuration) * chartWidth, 25);
+
+                const isLocked = isTaskLocked(task);
+                const indent = task.level * 16;
+
+                // Calculate end date - use actual completion date for completed tasks
+                let taskEndDate;
+                let dateLabel;
+                if (pos.isActualDate && pos.actualDate) {
+                    // Completed task: show actual completion date
+                    taskEndDate = pos.actualDate;
+                    dateLabel = formatDate(taskEndDate) + ' ✓';
+                } else if (pos.actualDate) {
+                    // Parent with actual date
+                    taskEndDate = pos.actualDate;
+                    dateLabel = formatDate(taskEndDate) + ' ✓';
+                } else {
+                    // Pending task: show estimated date
+                    taskEndDate = getDateFromMinutes(pos.start + pos.duration);
+                    dateLabel = formatDate(taskEndDate) + ' (預估)';
+                }
+
+                // Task label with indentation
+                const taskLabel = task.name.length > 16 ? task.name.substring(0, 16) + '...' : task.name;
+                const labelStyle = task.hasSubtasks ? 'font-size: 12px; font-weight: 600;' : 'font-size: 12px;';
+
+                if (task.hasSubtasks) {
+                    // Add collapse/expand toggle icon for parent tasks
+                    const toggleIcon = task.isGanttCollapsed ? '▶' : '▼';
+                    const toggleX = 12 + indent;
+                    svg += `<g style="cursor: pointer;" onclick="toggleGanttCollapse('${task.id}')">
+                        <text x="${toggleX}" y="${textY}" fill="${colors.accent || '#F59E0B'}" style="font-size: 10px;">${toggleIcon}</text>
+                        <text x="${toggleX + 14}" y="${textY}" fill="${colors.text}" style="${labelStyle}">${escapeHtml(taskLabel)}</text>
+                        <title>點擊${task.isGanttCollapsed ? '展開' : '摺疊'}子任務</title>
+                    </g>`;
+                } else {
+                    svg += `<text x="${12 + indent}" y="${textY}" fill="${colors.text}" style="${labelStyle}">${escapeHtml(taskLabel)}</text>`;
+                }
+
+                if (task.hasSubtasks) {
+                    // Parent task: draw summary bar (thinner with diamond endpoints)
+                    const summaryY = headerHeight + index * rowHeight + rowHeight / 2;
+                    const barHeight = 8;
+                    const diamondSize = 5;
+                    const parentColor = isDark ? '#78716C' : '#A8A29E';
+
+                    // Main bar (thin)
+                    svg += `<rect x="${barStart + diamondSize}" y="${summaryY - barHeight/2}" width="${Math.max(barWidth - diamondSize * 2, 1)}" height="${barHeight}" fill="${parentColor}" />`;
+
+                    // Left diamond
+                    svg += `<polygon points="${barStart},${summaryY} ${barStart + diamondSize},${summaryY - diamondSize} ${barStart + diamondSize * 2},${summaryY} ${barStart + diamondSize},${summaryY + diamondSize}" fill="${parentColor}" />`;
+
+                    // Right diamond
+                    const rightX = barStart + barWidth;
+                    svg += `<polygon points="${rightX},${summaryY} ${rightX - diamondSize},${summaryY - diamondSize} ${rightX - diamondSize * 2},${summaryY} ${rightX - diamondSize},${summaryY + diamondSize}" fill="${parentColor}" />`;
+
+                    // End date label on the right (show collapsed indicator if collapsed)
+                    const collapsedHint = task.isGanttCollapsed ? ' [已摺疊]' : '';
+                    svg += `<text x="${barStart + barWidth + 6}" y="${summaryY + 4}" fill="${colors.textMuted}" style="font-size: 11px;">${dateLabel}${collapsedHint}</text>`;
+                } else {
+                    // Leaf task: draw normal bar (clickable)
+                    const y = headerHeight + index * rowHeight + (rowHeight - 24) / 2;
+                    const gradientId = task.completed ? 'completedGrad' : (isLocked ? 'lockedGrad' : 'pendingGrad');
+
+                    // Clickable group for the bar
+                    svg += `<g class="gantt-bar-clickable" onclick="navigateToTask('${task.id}')" style="cursor: pointer;">`;
+
+                    // Bar with shadow
+                    svg += `<rect x="${barStart}" y="${y}" width="${barWidth}" height="24" rx="4" ry="4" fill="url(#${gradientId})" filter="url(#barShadow)" />`;
+
+                    // Duration text inside bar (if wide enough)
+                    if (barWidth > 50) {
+                        svg += `<text x="${barStart + barWidth / 2}" y="${y + 16}" text-anchor="middle" fill="white" style="font-size: 11px; font-weight: 500; pointer-events: none;">${pos.duration}分</text>`;
+                    }
+
+                    // Hover tooltip title
+                    svg += `<title>點擊跳轉至：${escapeHtml(task.name)}</title>`;
+
+                    svg += `</g>`;
+
+                    // End date label on the right - show actual or estimated
+                    svg += `<text x="${barStart + barWidth + 6}" y="${y + 16}" fill="${colors.textMuted}" style="font-size: 11px;">${dateLabel}</text>`;
+                }
+            });
+
+            // Create a map of visible task indices for arrow positioning
+            const visibleTaskIndices = {};
+            flatTasks.forEach((task, idx) => {
+                visibleTaskIndices[task.id] = idx;
+            });
+
+            // Draw dependency arrows (curved lines) - only for visible tasks
+            flatTasks.forEach((task, toVisibleIndex) => {
+                if (task.dependencies && task.dependencies.length > 0) {
+                    task.dependencies.forEach(depId => {
+                        const fromVisibleIndex = visibleTaskIndices[depId];
+                        // Only draw arrow if both source and target tasks are visible
+                        if (fromVisibleIndex !== undefined && taskPositions[depId] && taskPositions[task.id]) {
+                            const from = taskPositions[depId];
+                            const to = taskPositions[task.id];
+
+                            const fromX = labelWidth + ((from.start + from.duration) / totalDuration) * chartWidth;
+                            const fromY = headerHeight + fromVisibleIndex * rowHeight + rowHeight / 2;
+                            const toX = labelWidth + (to.start / totalDuration) * chartWidth;
+                            const toY = headerHeight + toVisibleIndex * rowHeight + rowHeight / 2;
+
+                            // Draw curved arrow
+                            const controlOffsetX = Math.min(40, Math.abs(toX - fromX) / 2);
+                            const controlOffsetY = (toY - fromY) / 2;
+
+                            svg += `<path d="M ${fromX} ${fromY} C ${fromX + controlOffsetX} ${fromY}, ${toX - controlOffsetX} ${toY}, ${toX - 3} ${toY}"
+                                          stroke="${colors.arrow}" stroke-width="2" fill="none"
+                                          marker-end="url(#arrowhead2)" opacity="0.85" />`;
+                        }
+                    });
+                }
+            });
+
+            // Footer summary
+            const footerY = svgHeight - 15;
+            const startDateObj = new Date(settings.startDate);
+            const endDateObj = getDateFromMinutes(totalDuration);
+            const totalHours = Math.ceil(totalDuration / 60);
+            const totalDays = Math.ceil(totalDuration / minutesPerDay);
+
+            svg += `<text x="12" y="${footerY}" fill="${colors.textMuted}" style="font-size: 11px;">
+                📅 ${formatDate(startDateObj)} → ${formatDate(endDateObj)} ｜ 共 ${totalHours} 小時 (${totalDays} 工作天)
+            </text>`;
+
+            ganttSvg.innerHTML = svg;
+            ganttSvg.setAttribute('width', svgWidth);
+            ganttSvg.setAttribute('height', svgHeight);
+            ganttSvg.style.background = colors.bg;
+            ganttSvg.style.borderRadius = '8px';
+        }
+
+        // Navigate to task from Gantt chart
+        function navigateToTask(taskId) {
+            // First, we need to find the path for this task
+            const path = taskIdToPathMap[taskId];
+            if (!path) {
+                showToast('找不到此任務', 'error');
+                return;
+            }
+
+            // Switch to task list tab
+            switchTab(2);
+
+            // Wait a moment for the DOM to render, then scroll to and highlight the task
+            setTimeout(() => {
+                const taskElement = document.querySelector(`[data-id="${taskId}"]`);
+                if (taskElement) {
+                    // Expand parents if collapsed
+                    expandParentsOfTask(path);
+
+                    // Scroll into view
+                    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // Add highlight effect
+                    taskElement.classList.add('ring-2', 'ring-amber-500', 'ring-offset-2');
+                    setTimeout(() => {
+                        taskElement.classList.remove('ring-2', 'ring-amber-500', 'ring-offset-2');
+                    }, 2000);
+                }
+            }, 100);
+        }
+
+        // Expand all parent tasks to reveal a nested task
+        function expandParentsOfTask(pathStr) {
+            const indices = pathStr.split('-').map(Number);
+            if (indices.length <= 1) return; // No parents to expand
+
+            // Expand each parent level
+            for (let i = 1; i < indices.length; i++) {
+                const parentPath = indices.slice(0, i).join('-');
+                const parentTask = getTaskByPath(parentPath);
+                if (parentTask && parentTask.collapsed) {
+                    parentTask.collapsed = false;
+                }
+            }
+
+            // Re-render to reflect expanded state
+            renderTaskList();
+        }
+
+        // ==================== Time Display Mode ====================
+        function formatTimeByMode(minutes) {
+            if (minutes === 0) return '0';
+
+            switch (timeDisplayMode) {
+                case 'hours':
+                    const hours = minutes / 60;
+                    if (hours >= 10) {
+                        return hours.toFixed(1) + ' 小時';
+                    } else {
+                        return hours.toFixed(2) + ' 小時';
+                    }
+                case 'workdays':
+                    const workdays = minutes / 480; // 8 hours = 480 minutes = 1 work day
+                    if (workdays >= 10) {
+                        return workdays.toFixed(1) + ' 工作天';
+                    } else {
+                        return workdays.toFixed(2) + ' 工作天';
+                    }
+                case 'minutes':
+                default:
+                    return minutes + ' 分鐘';
+            }
+        }
+
+        function setTimeDisplayMode(mode) {
+            timeDisplayMode = mode;
+
+            // Update button styles
+            const modes = ['minutes', 'hours', 'workdays'];
+            modes.forEach(m => {
+                const btn = document.getElementById('timeMode' + m.charAt(0).toUpperCase() + m.slice(1));
+                if (btn) {
+                    if (m === mode) {
+                        btn.className = 'time-mode-btn px-2 py-1 text-xs rounded transition-all bg-amber-500 text-white';
+                    } else {
+                        btn.className = 'time-mode-btn px-2 py-1 text-xs rounded transition-all bg-stone-200 dark:bg-stone-700 text-stone-600 dark:text-stone-300 hover:bg-stone-300 dark:hover:bg-stone-600';
+                    }
+                }
+            });
+
+            // Re-render affected displays
+            updateProgress();
+            renderTaskList();
+        }
+
+        // ==================== Progress Calculation ====================
+        function updateProgress() {
+            let totalEstimated = 0;
+            let completedEstimated = 0;
+            let completedActual = 0;
+            let remainingEstimated = 0;
+
+            const calculateTime = (tasks) => {
+                tasks.forEach(task => {
+                    // Only count leaf tasks to avoid double counting
+                    if (!task.subtasks || task.subtasks.length === 0) {
+                        totalEstimated += task.estimatedTime || 0;
+                        if (task.completed) {
+                            completedEstimated += task.estimatedTime || 0;
+                            completedActual += task.actualTime || task.estimatedTime || 0;
+                        } else {
+                            remainingEstimated += task.estimatedTime || 0;
+                        }
+                    }
+                    if (task.subtasks) {
+                        calculateTime(task.subtasks);
+                    }
+                });
+            };
+
+            calculateTime(projectData.tasks);
+
+            // Progress % based on estimatedTime for consistency
+            const percent = totalEstimated > 0 ? Math.round((completedEstimated / totalEstimated) * 100) : 0;
+
+            document.getElementById('progressPercent').textContent = percent + '%';
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('completedTime').textContent = formatTimeByMode(completedActual);
+            document.getElementById('remainingTime').textContent = formatTimeByMode(Math.max(0, remainingEstimated));
+        }
+
+        function countAllTasks(tasks) {
+            let count = 0;
+            tasks.forEach(task => {
+                if (task.subtasks && task.subtasks.length > 0) {
+                    // 有子任務時，只計算子任務，父任務本身不算
+                    count += countAllTasks(task.subtasks);
+                } else {
+                    // 沒有子任務時（葉子節點），計為 1
+                    count++;
+                }
+            });
+            return count;
+        }
+
+        // ==================== Import/Export ====================
+        function exportToFile() {
+            if (projectData.tasks.length === 0) {
+                showToast('沒有任務可匯出', 'warning');
+                return;
+            }
+
+            const dataStr = JSON.stringify(projectData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `project_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+
+            URL.revokeObjectURL(url);
+            showToast('已下載 JSON 檔案', 'success');
+        }
+
+        function exportToBase64() {
+            if (projectData.tasks.length === 0) {
+                showToast('沒有任務可匯出', 'warning');
+                return;
+            }
+
+            try {
+                const jsonStr = JSON.stringify(projectData);
+                const compressed = pako.deflate(jsonStr);
+                const base64 = btoa(String.fromCharCode.apply(null, compressed));
+
+                navigator.clipboard.writeText(base64).then(() => {
+                    showToast('Base64 字串已複製到剪貼簿', 'success');
+                }).catch(() => {
+                    showPromptDialog('Base64 字串（請手動複製）', base64);
+                });
+            } catch (e) {
+                showToast('匯出失敗: ' + e.message, 'error');
+            }
+        }
+
+        function exportToMarkdown() {
+            if (projectData.tasks.length === 0) {
+                showToast('沒有任務可匯出', 'warning');
+                return;
+            }
+
+            const priorityLabels = { high: '🔴 高', medium: '🟡 中', low: '🔵 低' };
+
+            function formatMinutesReadable(minutes) {
+                if (!minutes || minutes === 0) return null;
+                if (minutes >= 480) {
+                    const days = (minutes / 480).toFixed(1);
+                    return days + ' 工作天';
+                } else if (minutes >= 60) {
+                    const hours = (minutes / 60).toFixed(1);
+                    return hours + ' 小時';
+                }
+                return minutes + ' 分鐘';
+            }
+
+            function renderTaskMd(task, depth, indexPath) {
+                const indent = '  '.repeat(depth);
+                const checkbox = task.completed ? '[x]' : '[ ]';
+                const taskCode = indexPath.join('.');
+                let line = indent + '- ' + checkbox + ' **' + taskCode + '** ' + task.name;
+
+                const meta = [];
+                if (task.priority) meta.push(priorityLabels[task.priority]);
+                const timeStr = formatMinutesReadable(task.estimatedMinutes);
+                if (timeStr) meta.push('⏱ ' + timeStr);
+                if (meta.length > 0) line += '  `' + meta.join(' | ') + '`';
+                line += '\n';
+
+                if (task.notes) {
+                    line += indent + '  > ' + task.notes.replace(/\n/g, '\n' + indent + '  > ') + '\n';
+                }
+
+                if (task.links && task.links.length > 0) {
+                    task.links.forEach(function(link) {
+                        line += indent + '  - 🔗 [' + link.text + '](' + link.url + ')\n';
+                    });
+                }
+
+                if (task.subtasks && task.subtasks.length > 0) {
+                    task.subtasks.forEach(function(sub, i) {
+                        line += renderTaskMd(sub, depth + 1, indexPath.concat(i + 1));
+                    });
+                }
+
+                return line;
+            }
+
+            // Build stats
+            var totalTasks = countAllTasks(projectData.tasks);
+            var completedCount = 0;
+            var totalMinutes = 0;
+            function gatherStats(tasks) {
+                tasks.forEach(function(t) {
+                    if (!t.subtasks || t.subtasks.length === 0) {
+                        if (t.completed) completedCount++;
+                    } else {
+                        gatherStats(t.subtasks);
+                    }
+                    if (t.estimatedMinutes) totalMinutes += t.estimatedMinutes;
+                });
+            }
+            gatherStats(projectData.tasks);
+
+            var leafTotal = 0;
+            function countLeaves(tasks) {
+                tasks.forEach(function(t) {
+                    if (!t.subtasks || t.subtasks.length === 0) leafTotal++;
+                    else countLeaves(t.subtasks);
+                });
+            }
+            countLeaves(projectData.tasks);
+
+            var progressPct = leafTotal > 0 ? Math.round((completedCount / leafTotal) * 100) : 0;
+
+            var md = '# ' + projectData.projectName + '\n\n';
+            md += '> 匯出時間：' + new Date().toLocaleString('zh-TW') + '\n\n';
+            md += '## 📊 專案概覽\n\n';
+            md += '| 項目 | 數值 |\n';
+            md += '|------|------|\n';
+            md += '| 總任務數 | ' + totalTasks + ' |\n';
+            md += '| 已完成 | ' + completedCount + ' / ' + leafTotal + ' (' + progressPct + '%) |\n';
+            var totalTimeStr = formatMinutesReadable(totalMinutes);
+            if (totalTimeStr) {
+                md += '| 預估總時間 | ' + totalTimeStr + ' |\n';
+            }
+            md += '\n## 📋 任務清單\n\n';
+
+            projectData.tasks.forEach(function(task, i) {
+                md += renderTaskMd(task, 0, [i + 1]);
+            });
+
+            // Schedule settings
+            if (projectData.scheduleSettings) {
+                var ss = projectData.scheduleSettings;
+                md += '\n## ⚙️ 時程設定\n\n';
+                md += '| 項目 | 數值 |\n';
+                md += '|------|------|\n';
+                md += '| 開始日期 | ' + (ss.startDate || '-') + ' |\n';
+                md += '| 每週工作天數 | ' + (ss.workDaysPerWeek || '-') + ' |\n';
+                md += '| 每天工作分鐘 | ' + (ss.minutesPerDay || '-') + ' |\n';
+            }
+
+            md += '\n---\n*此檔案由任務管理工具自動產生*\n';
+
+            var blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = projectData.projectName + '_' + new Date().toISOString().slice(0, 10) + '.md';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('已下載 Markdown 檔案', 'success');
+        }
+
+        function importFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.tasks || !Array.isArray(data.tasks)) {
+                        throw new Error('無效的專案格式');
+                    }
+                    // Initialize fields for old format
+                    const initFields = (tasks) => {
+                        tasks.forEach(t => {
+                            t.links = t.links || [];
+                            t.priority = t.priority || null;
+                            // For legacy completed tasks without completedAt, set it to current time
+                            if (t.completed && !t.completedAt) {
+                                t.completedAt = new Date().toISOString();
+                            }
+                            if (t.subtasks) initFields(t.subtasks);
+                        });
+                    };
+                    initFields(data.tasks);
+
+                    // Ensure schedule settings exist
+                    if (!data.scheduleSettings) {
+                        data.scheduleSettings = {
+                            startDate: new Date().toISOString().slice(0, 10),
+                            workDaysPerWeek: 5,
+                            minutesPerDay: 480
+                        };
+                    }
+
+                    projectData = data;
+                    recalculateParentTimes(projectData.tasks);
+                    loadScheduleSettings();
+                    showToast(`成功匯入 ${countAllTasks(data.tasks)} 個任務`, 'success');
+                    updateModifyButtonVisibility();
+                    switchTab(2);
+                } catch (err) {
+                    showToast('匯入失敗: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function importFromBase64() {
+            const base64Input = document.getElementById('base64Input').value.trim();
+            if (!base64Input) {
+                showToast('請輸入 Base64 字串', 'warning');
+                return;
+            }
+
+            try {
+                const binary = atob(base64Input);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                const decompressed = pako.inflate(bytes, { to: 'string' });
+                const data = JSON.parse(decompressed);
+
+                if (!data.tasks || !Array.isArray(data.tasks)) {
+                    throw new Error('無效的專案格式');
+                }
+
+                // Initialize fields for old format
+                const initFields = (tasks) => {
+                    tasks.forEach(t => {
+                        t.links = t.links || [];
+                        t.priority = t.priority || null;
+                        // For legacy completed tasks without completedAt, set it to current time
+                        if (t.completed && !t.completedAt) {
+                            t.completedAt = new Date().toISOString();
+                        }
+                        if (t.subtasks) initFields(t.subtasks);
+                    });
+                };
+                initFields(data.tasks);
+
+                // Ensure schedule settings exist
+                if (!data.scheduleSettings) {
+                    data.scheduleSettings = {
+                        startDate: new Date().toISOString().slice(0, 10),
+                        workDaysPerWeek: 5,
+                        minutesPerDay: 480
+                    };
+                }
+
+                projectData = data;
+                recalculateParentTimes(projectData.tasks);
+                loadScheduleSettings();
+                document.getElementById('base64Input').value = '';
+                showToast(`成功匯入 ${countAllTasks(data.tasks)} 個任務`, 'success');
+                updateModifyButtonVisibility();
+                switchTab(2);
+            } catch (e) {
+                showToast('匯入失敗: 無效的 Base64 字串', 'error');
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('taskInput').value = '';
+        }
+
+        // ==================== Custom Dialogs ====================
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+
+            // Set color based on type
+            toast.className = 'fixed bottom-6 right-6 px-6 py-3 rounded-xl shadow-lg transform transition-all z-50';
+            if (type === 'success') {
+                toast.classList.add('bg-emerald-600', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-600', 'text-white');
+            } else if (type === 'warning') {
+                toast.classList.add('bg-amber-600', 'text-white');
+            } else {
+                toast.classList.add('bg-stone-800', 'dark:bg-stone-200', 'text-white', 'dark:text-stone-800');
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function showConfirmDialog(message, onConfirm) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="card rounded-2xl p-6 max-w-sm w-full fade-in">
+                    <p class="text-lg mb-4">${message}</p>
+                    <div class="flex gap-3">
+                        <button class="flex-1 py-2 bg-stone-200 dark:bg-stone-700 hover:bg-stone-300 dark:hover:bg-stone-600 rounded-xl" onclick="this.closest('.fixed').remove()">取消</button>
+                        <button class="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl" id="confirmBtn">確定</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            modal.querySelector('#confirmBtn').onclick = () => {
+                modal.remove();
+                onConfirm();
+            };
+        }
+
+        function showPromptDialog(title, value) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="card rounded-2xl p-6 max-w-lg w-full fade-in">
+                    <p class="font-medium mb-2">${title}</p>
+                    <textarea class="w-full h-32 p-3 bg-stone-50 dark:bg-stone-800 border border-stone-300 dark:border-stone-600 rounded-lg text-sm font-mono" readonly>${value}</textarea>
+                    <button class="w-full mt-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl" onclick="this.closest('.fixed').remove()">關閉</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // ==================== Schedule Settings ====================
+        function updateScheduleSettings() {
+            const startDate = document.getElementById('startDate').value;
+            const workDaysPerWeek = parseInt(document.getElementById('workDaysPerWeek').value);
+            const minutesPerDay = parseInt(document.getElementById('minutesPerDay').value);
+
+            projectData.scheduleSettings = {
+                startDate: startDate || new Date().toISOString().slice(0, 10),
+                workDaysPerWeek: workDaysPerWeek || 5,
+                minutesPerDay: minutesPerDay || 480
+            };
+
+            updateMinutesHint();
+            // Auto-calculate when settings change
+            calculateEstimatedDate();
+        }
+
+        function updateMinutesHint() {
+            const minutes = parseInt(document.getElementById('minutesPerDay').value) || 0;
+            const hours = Math.floor(minutes / 60);
+            const remainingMins = minutes % 60;
+            let hint = '';
+            if (hours > 0 && remainingMins > 0) {
+                hint = `= ${hours} 小時 ${remainingMins} 分鐘`;
+            } else if (hours > 0) {
+                hint = `= ${hours} 小時`;
+            } else {
+                hint = `= ${remainingMins} 分鐘`;
+            }
+            document.getElementById('minutesHint').textContent = hint;
+        }
+
+        function loadScheduleSettings() {
+            const settings = projectData.scheduleSettings || {
+                startDate: new Date().toISOString().slice(0, 10),
+                workDaysPerWeek: 5,
+                minutesPerDay: 480
+            };
+
+            // Handle legacy hoursPerDay format
+            const minutesPerDay = settings.minutesPerDay || (settings.hoursPerDay ? settings.hoursPerDay * 60 : 480);
+
+            document.getElementById('startDate').value = settings.startDate;
+            document.getElementById('workDaysPerWeek').value = settings.workDaysPerWeek;
+            document.getElementById('minutesPerDay').value = minutesPerDay;
+            updateMinutesHint();
+        }
+
+        function calculateEstimatedDate() {
+            const settings = projectData.scheduleSettings || {
+                startDate: new Date().toISOString().slice(0, 10),
+                workDaysPerWeek: 5,
+                minutesPerDay: 480
+            };
+
+            // Handle legacy hoursPerDay format
+            const minutesPerDay = settings.minutesPerDay || (settings.hoursPerDay ? settings.hoursPerDay * 60 : 480);
+            const workDaysPerWeek = settings.workDaysPerWeek || 5;
+
+            // Find the latest completion date among all completed tasks
+            let latestCompletionDate = null;
+            const findLatestCompletion = (tasks) => {
+                tasks.forEach(task => {
+                    if (task.completed && task.completedAt && (!task.subtasks || task.subtasks.length === 0)) {
+                        const completedDate = new Date(task.completedAt);
+                        if (!latestCompletionDate || completedDate > latestCompletionDate) {
+                            latestCompletionDate = completedDate;
+                        }
+                    }
+                    if (task.subtasks) {
+                        findLatestCompletion(task.subtasks);
+                    }
+                });
+            };
+            findLatestCompletion(projectData.tasks);
+
+            // Calculate total remaining time in minutes
+            let totalMinutes = 0;
+            const countTime = (tasks) => {
+                tasks.forEach(task => {
+                    if (!task.subtasks || task.subtasks.length === 0) {
+                        if (!task.completed) {
+                            totalMinutes += task.estimatedTime || 0;
+                        }
+                    }
+                    if (task.subtasks) {
+                        countTime(task.subtasks);
+                    }
+                });
+            };
+            countTime(projectData.tasks);
+
+            if (totalMinutes === 0) {
+                // All tasks completed - show the latest completion date
+                if (latestCompletionDate) {
+                    const endDateStr = latestCompletionDate.toLocaleDateString('zh-TW', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        weekday: 'short'
+                    });
+                    document.getElementById('endDateText').textContent = endDateStr;
+                    document.getElementById('endDateDays').textContent = '(已完成)';
+                } else {
+                    document.getElementById('endDateText').textContent = '已完成';
+                    document.getElementById('endDateDays').textContent = '';
+                }
+                renderGanttChart();
+                return;
+            }
+
+            // Calculate work days needed
+            const workDaysNeeded = Math.ceil(totalMinutes / minutesPerDay);
+
+            // Determine the reference start date for remaining work:
+            // Use the latest of: project start date, latest completion date, or today
+            const projectStartDate = new Date(settings.startDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let referenceDate;
+            if (latestCompletionDate) {
+                // Start from the day after the latest completion, or today, whichever is later
+                const dayAfterCompletion = new Date(latestCompletionDate);
+                dayAfterCompletion.setDate(dayAfterCompletion.getDate() + 1);
+                referenceDate = new Date(Math.max(dayAfterCompletion.getTime(), today.getTime()));
+            } else {
+                // No completed tasks, start from project start date or today
+                referenceDate = new Date(Math.max(projectStartDate.getTime(), today.getTime()));
+            }
+
+            let currentDate = new Date(referenceDate);
+            let workDaysRemaining = workDaysNeeded;
+
+            // Calculate calendar days needed (accounting for non-work days)
+            if (workDaysPerWeek === 7) {
+                // Every day is a work day
+                currentDate.setDate(currentDate.getDate() + workDaysRemaining - 1);
+            } else {
+                // Count work days and skip non-work days
+                while (workDaysRemaining > 0) {
+                    const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
+
+                    // Check if it's a work day based on work days per week
+                    let isWorkDay = false;
+                    if (workDaysPerWeek === 7) {
+                        isWorkDay = true;
+                    } else if (workDaysPerWeek === 6) {
+                        isWorkDay = dayOfWeek !== 0; // Sunday off
+                    } else if (workDaysPerWeek === 5) {
+                        isWorkDay = dayOfWeek !== 0 && dayOfWeek !== 6; // Weekend off
+                    } else {
+                        // For 1-4 days, assume Mon-Thu or similar
+                        isWorkDay = dayOfWeek >= 1 && dayOfWeek <= workDaysPerWeek;
+                    }
+
+                    if (isWorkDay) {
+                        workDaysRemaining--;
+                    }
+
+                    if (workDaysRemaining > 0) {
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                }
+            }
+
+            // Format the end date
+            const endDateStr = currentDate.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short'
+            });
+
+            // Calculate days from now (reuse today variable from above)
+            const diffTime = currentDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            document.getElementById('endDateText').textContent = endDateStr;
+
+            if (diffDays === 0) {
+                document.getElementById('endDateDays').textContent = '(今天)';
+            } else if (diffDays === 1) {
+                document.getElementById('endDateDays').textContent = '(明天)';
+            } else if (diffDays > 0) {
+                document.getElementById('endDateDays').textContent = `(${diffDays} 天後)`;
+            } else {
+                document.getElementById('endDateDays').textContent = `(${Math.abs(diffDays)} 天前)`;
+            }
+
+            // Store calculated end date for gantt chart
+            projectData.calculatedEndDate = currentDate.toISOString().slice(0, 10);
+            projectData.workDaysNeeded = workDaysNeeded;
+            projectData.totalRemainingMinutes = totalMinutes;
+
+            showToast(`預估需要 ${workDaysNeeded} 個工作天完成`, 'success');
+            renderGanttChart();
+        }
+
+        // ==================== LLM List Configuration ====================
+        const DEFAULT_LLM_LIST = [
+            { name: 'Claude-Sonnet-4.5', description: 'Anthropic 模型，200k context，適合程式開發', isPinned: true },
+            { name: 'GPT-5.1', description: 'OpenAI 旗艦模型，400k context', isPinned: true },
+            { name: 'Gemini-2.5-Flash', description: 'Google 快速模型，1M context，低成本', isPinned: false },
+            { name: 'Grok-4-Fast-Non-Reasoning', description: 'xAI 快速模型', isPinned: false }
+        ];
+
+        async function loadLlmList() {
+            const modelSelect = document.getElementById('modelSelect');
+
+            // Helper function to populate dropdown (only pinned/精選 models)
+            const populateDropdown = (list) => {
+                modelSelect.innerHTML = '';
+                list.forEach((item, index) => {
+                    const option = document.createElement('option');
+                    option.value = item.name;
+                    option.textContent = item.name;
+                    option.title = item.description || '';
+                    if (index === 0) option.selected = true;
+                    modelSelect.appendChild(option);
+                });
+            };
+
+            try {
+                // Use jsDelivr CDN with cache-busting parameter
+                const url = `https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json?t=${Date.now()}`;
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Support format: { "llms": [...] } with each item having { name, description, category, isPinned }
+                if (data.llms && Array.isArray(data.llms) && data.llms.length > 0) {
+                    // Only load pinned (精選) models
+                    const pinnedModels = data.llms.filter(item => item.isPinned === true);
+                    if (pinnedModels.length > 0) {
+                        populateDropdown(pinnedModels);
+                        console.log('LLM list loaded from remote config:', pinnedModels.length, 'pinned models');
+                    } else {
+                        throw new Error('No pinned models found in remote config');
+                    }
+                } else {
+                    throw new Error('Invalid data format - expected { llms: [...] }');
+                }
+            } catch (error) {
+                console.warn('Failed to load LLM list from remote, using defaults:', error.message);
+                populateDropdown(DEFAULT_LLM_LIST);
+            }
+        }
+
+        // ==================== Initialize ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLlmList(); // Load LLM list from remote config
+            renderTaskList();
+            updateModifyButtonVisibility();
+            loadScheduleSettings();
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+

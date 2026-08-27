@@ -1,0 +1,3321 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 運動計時器</title>
+<link href="https://cdn.tailwindcss.com" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://kit.fontawesome.com/a076d05399.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: {
+        heading: ['"Zen Maru Gothic"', 'sans-serif'],
+        body: ['"Noto Sans TC"', 'sans-serif'],
+      },
+      colors: {
+        bark: { 50:'#faf6f1', 100:'#f5f0e8', 200:'#e8ddd0', 300:'#d4c4a8', 400:'#bfa87e', 500:'#a08c64', 600:'#84714e', 700:'#6a5a3e', 800:'#574a34', 900:'#48402e' },
+        moss: { 50:'#f0f7f4', 100:'#d9ece3', 200:'#b6d9c9', 300:'#86bea6', 400:'#5a9e82', 500:'#3d8268', 600:'#2d6850', 700:'#255442', 800:'#204436', 900:'#1b382d' },
+        ember: { 50:'#fff7ed', 100:'#ffedd5', 200:'#fed7aa', 300:'#fdba74', 400:'#fb923c', 500:'#f97316', 600:'#ea580c', 700:'#c2410c', 800:'#9a3412', 900:'#7c2d12' },
+        night: { 50:'#eef2f7', 100:'#d5dee8', 200:'#a8b9cc', 300:'#7994b0', 400:'#546f94', 500:'#3b5478', 600:'#2a3f5c', 700:'#1e2f45', 800:'#141f30', 900:'#0f1923' },
+      }
+    }
+  }
+};
+</script>
+<style>
+  :root {
+    --bg-primary: #f5f0e8;
+    --bg-secondary: #ebe4d6;
+    --bg-card: #ffffff;
+    --bg-card-hover: #faf6f1;
+    --text-primary: #2a2318;
+    --text-secondary: #6a5a3e;
+    --text-muted: #a08c64;
+    --accent: #3d8268;
+    --accent-light: #5a9e82;
+    --accent-glow: rgba(61, 130, 104, 0.15);
+    --ember: #ea580c;
+    --ember-light: #fb923c;
+    --border: #e8ddd0;
+    --border-strong: #d4c4a8;
+    --shadow: rgba(42, 35, 24, 0.08);
+    --shadow-strong: rgba(42, 35, 24, 0.16);
+    --glass: rgba(255,255,255,0.7);
+  }
+  .dark {
+    --bg-primary: #0f1923;
+    --bg-secondary: #141f30;
+    --bg-card: #1e2f45;
+    --bg-card-hover: #2a3f5c;
+    --text-primary: #e8ddd0;
+    --text-secondary: #a8b9cc;
+    --text-muted: #7994b0;
+    --accent: #5a9e82;
+    --accent-light: #86bea6;
+    --accent-glow: rgba(90, 158, 130, 0.2);
+    --ember: #fb923c;
+    --ember-light: #fdba74;
+    --border: #2a3f5c;
+    --border-strong: #3b5478;
+    --shadow: rgba(0,0,0,0.3);
+    --shadow-strong: rgba(0,0,0,0.5);
+    --glass: rgba(30,47,69,0.7);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+  }
+  h1,h2,h3,h4,h5,h6 { font-family: 'Zen Maru Gothic', sans-serif; }
+
+  .app-shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .app-header {
+    flex-shrink: 0;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    z-index: 40;
+  }
+  .app-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  .screen { display: none; min-height: 100%; }
+  .screen.active { display: block; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 12px; border: none;
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 15px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+  .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+  .btn-danger { background: #dc2626; color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+  .btn-icon {
+    width: 40px; height: 40px; padding: 0; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+  }
+  .btn-icon:hover { background: var(--bg-card-hover); color: var(--accent); }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    transition: all 0.25s;
+    box-shadow: 0 2px 8px var(--shadow);
+  }
+  .card:hover { box-shadow: 0 6px 24px var(--shadow-strong); transform: translateY(-2px); }
+
+  .input, .textarea, .select {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-family: 'Noto Sans TC', sans-serif;
+    font-size: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  .input:focus, .textarea:focus, .select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .textarea { resize: vertical; min-height: 180px; line-height: 1.7; }
+  .select { appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236a5a3e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+  }
+  .dark .select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23a8b9cc' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  }
+
+  .label { display: block; font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .badge-accent { background: var(--accent-glow); color: var(--accent); }
+  .badge-ember { background: rgba(249,115,22,0.12); color: var(--ember); }
+
+  .step-chip {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 16px; border-radius: 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .step-chip:hover { border-color: var(--accent); background: var(--accent-glow); }
+  .step-num {
+    flex-shrink: 0; width: 36px; height: 36px;
+    border-radius: 10px; background: var(--accent);
+    color: #fff; font-weight: 700; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Zen Maru Gothic', sans-serif;
+  }
+
+  .toast-container { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    padding: 12px 20px; border-radius: 12px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    box-shadow: 0 8px 32px var(--shadow-strong);
+    font-size: 14px; color: var(--text-primary);
+    animation: toastIn 0.3s ease-out;
+    max-width: 320px;
+  }
+  .toast.success { border-left: 4px solid var(--accent); }
+  .toast.error { border-left: 4px solid #dc2626; }
+  .toast.info { border-left: 4px solid var(--ember); }
+
+  @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .fade-in { animation: fadeIn 0.4s ease-out both; }
+  .fade-in-d1 { animation-delay: 0.05s; }
+  .fade-in-d2 { animation-delay: 0.1s; }
+  .fade-in-d3 { animation-delay: 0.15s; }
+
+  .loading-dots::after {
+    content: ''; animation: dots 1.4s steps(4) infinite;
+  }
+  @keyframes dots {
+    0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; }
+  }
+
+  .spinner {
+    width: 24px; height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  .bg-pattern {
+    background-image:
+      radial-gradient(circle at 20% 80%, var(--accent-glow) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(249,115,22,0.06) 0%, transparent 50%);
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px); z-index: 80;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-box {
+    background: var(--bg-card); border-radius: 20px;
+    padding: 28px; max-width: 420px; width: 100%;
+    box-shadow: 0 24px 64px var(--shadow-strong);
+  }
+
+  .config-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-muted);
+  }
+  .config-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .config-dot.ok { background: var(--accent); }
+  .config-dot.fail { background: #dc2626; }
+  .config-dot.loading { background: var(--ember); animation: pulse 1s infinite; }
+
+  .font-size-panel {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+  }
+  .fs-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .fs-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .fs-btn:active {
+    transform: scale(0.9);
+  }
+  .fs-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 36px;
+    text-align: center;
+    font-family: 'Zen Maru Gothic', sans-serif;
+  }
+  @media (max-width: 380px) {
+    .font-size-panel { padding: 2px 3px; gap: 2px; }
+    .fs-btn { width: 24px; height: 24px; font-size: 10px; }
+    .fs-label { font-size: 10px; min-width: 28px; }
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 60px 20px;
+    text-align: center; color: var(--text-muted);
+  }
+  .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+
+  /* ===== Timer Screen — 3-Column Layout ===== */
+  #screenTimer.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .timer-topbar {
+    flex-shrink: 0;
+    padding: 10px 20px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+  .timer-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(140px, 210px) 1fr 1fr;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .timer-col {
+    padding: 14px;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .timer-col-left {
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    padding: 12px 10px;
+  }
+  .timer-col-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 8px;
+    overflow-y: auto;
+  }
+  .timer-col-right {
+    border-left: 1px solid var(--border);
+    padding: 16px;
+  }
+  .timer-controls {
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+  }
+  .timer-ring-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+  .timer-ring-container svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 10px var(--accent-glow));
+  }
+  .timer-ring-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 8;
+  }
+  .timer-ring-progress {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 8;
+    stroke-linecap: round;
+  }
+  .timer-ring-progress.warning {
+    stroke: var(--ember);
+    filter: drop-shadow(0 0 6px rgba(249,115,22,0.4));
+  }
+  .timer-ring-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .breath-circle-wrap {
+    text-align: center;
+    padding: 8px 0;
+    flex-shrink: 0;
+  }
+  .breath-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    margin: 0 auto;
+    background: radial-gradient(circle at 35% 35%, var(--accent-light), var(--accent));
+    box-shadow: 0 0 24px var(--accent-glow), inset 0 -4px 8px rgba(0,0,0,0.08);
+    will-change: transform, opacity;
+  }
+  .dark .breath-circle {
+    box-shadow: 0 0 30px var(--accent-glow), inset 0 -4px 8px rgba(0,0,0,0.2);
+  }
+
+  .breath-round-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .phase-hint-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    min-height: 18px;
+    transition: color 0.3s;
+  }
+  .round-progress-wrap {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .round-progress-heading {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .round-progress-section {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 4px 2px;
+    margin-top: 6px;
+  }
+  .round-progress-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    margin-bottom: 1px;
+    transition: all 0.2s;
+  }
+  .round-progress-item.rp-completed {
+    color: var(--accent);
+    opacity: 0.55;
+  }
+  .round-progress-item.rp-current {
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-glow);
+  }
+  .round-progress-item.rp-pending {
+    color: var(--text-muted);
+  }
+
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    transition: all 0.25s;
+    margin-bottom: 3px;
+  }
+  .step-indicator.completed {
+    color: var(--accent);
+    opacity: 0.55;
+  }
+  .step-indicator.completed span:first-of-type {
+    text-decoration: line-through;
+  }
+  .step-indicator.current {
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-weight: 600;
+    border-left: 3px solid var(--accent);
+  }
+  .step-indicator.pending {
+    color: var(--text-muted);
+  }
+  .control-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .control-btn:hover {
+    background: var(--bg-card-hover);
+    color: var(--accent);
+  }
+  .control-btn:active {
+    transform: scale(0.9);
+  }
+  .control-btn-play {
+    width: 64px;
+    height: 64px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 24px;
+    border: none;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .control-btn-play:hover {
+    background: var(--accent-light);
+    box-shadow: 0 6px 28px var(--accent-glow);
+  }
+  .control-btn-play:active {
+    transform: scale(0.93);
+  }
+  .progress-bar-track {
+    width: 100%;
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    min-width: 0;
+  }
+
+  /* Mobile: stack columns vertically */
+  @media (max-width: 768px) {
+    .timer-grid {
+      grid-template-columns: 1fr;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .timer-col { overflow-y: visible; }
+    .timer-col-left {
+      border-right: none;
+      border-top: 1px solid var(--border);
+      order: 3;
+    }
+    .timer-col-center { order: 1; padding: 16px 8px; }
+    .timer-col-right {
+      border-left: none;
+      border-bottom: 1px solid var(--border);
+      order: 2;
+      text-align: center;
+    }
+  }
+  @media (max-width: 480px) {
+    .app-header { padding: 10px 12px; }
+    .card { padding: 16px; border-radius: 14px; }
+    .step-chip { padding: 12px; }
+    .timer-ring-container { width: 170px; height: 170px; }
+    .breath-circle { width: 52px; height: 52px; }
+    .control-btn-play { width: 56px; height: 56px; font-size: 22px; }
+  }
+
+  /* Height-constrained viewports (zoom or landscape) */
+  @media (max-height: 500px) {
+    .app-header { padding: 8px 12px; }
+    .timer-topbar { padding: 6px 16px 4px; }
+    .timer-ring-container { width: 130px; height: 130px; }
+    .breath-circle { width: 36px; height: 36px; }
+    .breath-circle-wrap { padding: 4px 0; }
+    .breath-round-label { font-size: 11px; margin-bottom: 3px; }
+    .phase-hint-text { font-size: 11px; margin-top: 2px; }
+    .control-btn-play { width: 48px; height: 48px; font-size: 20px; }
+    .control-btn { width: 36px; height: 36px; font-size: 14px; }
+    .timer-controls { padding: 8px 12px; }
+    .timer-col-center { padding: 6px 4px; }
+    .timer-col-left { padding: 8px 6px; }
+    .timer-col-right { padding: 10px; }
+  }
+
+  @media (max-height: 360px) {
+    .app-header { padding: 6px 10px; }
+    .timer-topbar { padding: 4px 12px 2px; }
+    .timer-ring-container { width: 90px; height: 90px; }
+    .breath-circle { width: 24px; height: 24px; }
+    .control-btn-play { width: 40px; height: 40px; font-size: 18px; }
+    .control-btn { width: 32px; height: 32px; font-size: 12px; }
+    .timer-controls { padding: 6px 10px; }
+  }
+
+  /* ===== Manual Editor ===== */
+  .manual-editor-step {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    margin-bottom: 10px;
+    transition: box-shadow 0.2s, border-color 0.2s, opacity 0.2s;
+  }
+  .manual-editor-step:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 4px 16px var(--shadow);
+  }
+  .drag-handle {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    cursor: grab;
+    font-size: 14px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: all 0.2s;
+  }
+  .drag-handle:hover {
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+  .drag-handle:active { cursor: grabbing; }
+  .manual-editor-step.dragging {
+    opacity: 0.35;
+    border-style: dashed;
+  }
+  .manual-editor-step.drag-clone {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0.92;
+    box-shadow: 0 12px 40px var(--shadow-strong);
+    transform: rotate(1deg) scale(1.02);
+    border-color: var(--accent);
+  }
+  .manual-editor-step.drop-before::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 8%;
+    right: 8%;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .manual-editor-step.drop-after::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 8%;
+    right: 8%;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .manual-step-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .manual-step-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .manual-step-row .input { flex: 1; }
+  .time-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .time-input-group .time-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .step-remove-btn {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .step-remove-btn:hover {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+  }
+  .manual-step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Zen Maru Gothic', sans-serif;
+  }
+  .step-move-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .step-move-btn {
+    width: 24px;
+    height: 20px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .step-move-btn:hover {
+    background: var(--accent-glow);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .step-move-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .manual-step-left-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  @media (max-width: 480px) {
+    .manual-step-row { flex-direction: column; align-items: stretch; }
+    .time-input-group { flex-wrap: wrap; }
+    .manual-editor-step { padding: 12px; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <!-- ========== HEADER ========== -->
+  <header class="app-header">
+    <div style="max-width:720px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="btn-icon" id="btnBack" style="display:none;" onclick="goBack()">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div>
+          <h1 id="headerTitle" style="font-size:20px; font-weight:700; line-height:1.2;">AI 運動計時器</h1>
+          <div id="configStatus" class="config-status">
+            <span class="config-dot loading"></span>
+            <span>載入設定中…</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <div id="fontSizePanel" class="font-size-panel" style="display:none;">
+          <button class="fs-btn" onclick="adjustFontSize(-0.1)" title="縮小字體">
+            <i class="fas fa-font" style="font-size:10px;"></i><i class="fas fa-minus" style="font-size:7px;"></i>
+          </button>
+          <span id="fontScaleLabel" class="fs-label">100%</span>
+          <button class="fs-btn" onclick="adjustFontSize(0.1)" title="放大字體">
+            <i class="fas fa-font" style="font-size:10px;"></i><i class="fas fa-plus" style="font-size:7px;"></i>
+          </button>
+          <button class="fs-btn" onclick="resetFontScale()" title="重設字體" style="margin-left:2px;">
+            <i class="fas fa-rotate-left" style="font-size:10px;"></i>
+          </button>
+        </div>
+        <button class="btn-icon" id="btnSettings" onclick="openSettingsModal()" title="設定">
+          <i class="fas fa-gear"></i>
+        </button>
+        <button class="btn-icon" id="btnAddFromHome" onclick="showScreen('parse')" title="新增程序">
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== CONTENT ========== -->
+  <main class="app-content bg-pattern">
+
+    <!-- ===== SCREEN: HOME ===== -->
+    <div id="screenHome" class="screen active">
+      <div style="max-width:720px; margin:0 auto; padding:20px 16px 100px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;" class="fade-in">
+          <div>
+            <h2 style="font-size:22px; font-weight:700;">我的運動程序</h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:2px;">點擊查看詳情</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-primary btn-sm" onclick="showScreen('parse')">
+              <i class="fas fa-robot"></i> AI 建立
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="startManualCreate()">
+              <i class="fas fa-pen"></i> 手動建立
+            </button>
+          </div>
+        </div>
+        <div id="programList"></div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: AI PARSE ===== -->
+    <div id="screenParse" class="screen">
+      <div style="max-width:720px; margin:0 auto; padding:20px 16px 100px;">
+        <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;" class="fade-in">AI 智能解析</h2>
+        <p style="font-size:14px; color:var(--text-muted); margin-bottom:24px;" class="fade-in fade-in-d1">貼上運動指示文字，AI 將自動解析為結構化步驟程序</p>
+
+        <div class="fade-in fade-in-d2" style="margin-bottom:20px;">
+          <label class="label">選擇 AI 模型</label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <img id="llmIcon" src="" alt="" style="width:32px; height:32px; border-radius:8px; display:none; flex-shrink:0; object-fit:cover; box-shadow:0 1px 3px rgba(0,0,0,.15);">
+            <select id="llmSelect" class="select" style="flex:1;" onchange="updateLlmIcon()"></select>
+          </div>
+        </div>
+
+        <div class="fade-in fade-in-d2" style="margin-bottom:20px;">
+          <label class="label">運動指示文字</label>
+          <textarea id="parseInput" class="textarea" placeholder="在此貼上運動流程文字，例如：&#10;Step 1｜腹式呼吸暖身（1 分鐘）&#10;鼻吸氣 4 秒，嘴吐氣 6 秒，重複 6 回合…" rows="10"></textarea>
+        </div>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap;" class="fade-in fade-in-d3">
+          <button class="btn btn-primary" id="btnParse" onclick="startAIParse()">
+            <i class="fas fa-wand-magic-sparkles"></i> 開始解析
+          </button>
+          <button class="btn btn-secondary" onclick="loadSampleText()">
+            <i class="fas fa-file-lines"></i> 載入範例
+          </button>
+        </div>
+
+        <!-- Parse Result Preview -->
+        <div id="parseResult" style="display:none; margin-top:28px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <h3 style="font-size:18px; font-weight:700;">解析結果預覽</h3>
+            <button class="btn btn-primary btn-sm" onclick="saveParsedProgram()">
+              <i class="fas fa-save"></i> 儲存程序
+            </button>
+          </div>
+          <div id="parsePreview"></div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="parseLoading" style="display:none; margin-top:28px;">
+          <div class="card" style="text-align:center; padding:40px;">
+            <div class="spinner" style="margin:0 auto 16px;"></div>
+            <p style="font-weight:500;">AI 正在解析您的運動指示…</p>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:6px;" class="loading-dots">請稍候</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: MANUAL EDITOR ===== -->
+    <div id="screenManual" class="screen">
+      <div style="max-width:720px; margin:0 auto; padding:20px 16px 100px;">
+        <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;" class="fade-in">手動編輯模式</h2>
+        <p style="font-size:14px; color:var(--text-muted); margin-bottom:24px;" class="fade-in fade-in-d1">不依賴 AI，直接建立並編輯運動步驟，拖拽可排序</p>
+
+        <div class="fade-in fade-in-d1" style="margin-bottom:16px;">
+          <label class="label">程序名稱 <span style="color:var(--ember);">*</span></label>
+          <input id="manualProgName" class="input" type="text" placeholder="例如：晨間伸展 10 分鐘" >
+        </div>
+
+        <div class="fade-in fade-in-d2" style="margin-bottom:24px;">
+          <label class="label">簡短描述</label>
+          <input id="manualProgDesc" class="input" type="text" placeholder="例如：適合每天早上起床後進行" >
+        </div>
+
+        <div class="fade-in fade-in-d2" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+          <h3 style="font-size:17px; font-weight:700;">步驟列表</h3>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span id="manualTotalTime" style="font-size:13px; color:var(--text-muted);"><i class="fas fa-clock" style="margin-right:4px;"></i>0 分鐘</span>
+            <button class="btn btn-primary btn-sm" onclick="addManualStep()">
+              <i class="fas fa-plus"></i> 新增步驟
+            </button>
+          </div>
+        </div>
+
+        <div id="manualStepList" class="fade-in fade-in-d3"></div>
+
+        <div id="manualEmptyState" class="empty-state fade-in" style="padding:40px 20px;">
+          <i class="fas fa-shoe-prints"></i>
+          <h3 style="font-size:16px; margin-bottom:6px;">尚未新增步驟</h3>
+          <p style="font-size:13px;">點擊上方「新增步驟」開始建立你的運動程序</p>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:24px; flex-wrap:wrap;" class="fade-in fade-in-d3">
+          <button class="btn btn-primary" onclick="saveManualProgram()">
+            <i class="fas fa-save"></i> 儲存程序
+          </button>
+          <button class="btn btn-secondary" onclick="goBack()">
+            <i class="fas fa-times"></i> 取消
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: PROGRAM DETAIL ===== -->
+    <div id="screenDetail" class="screen">
+      <div style="max-width:720px; margin:0 auto; padding:20px 16px 100px;">
+        <div id="detailContent"></div>
+      </div>
+    </div>
+
+    <!-- ===== SCREEN: TIMER (3-column) ===== -->
+    <div id="screenTimer" class="screen">
+      <!-- Top bar: program name + overall progress -->
+      <div class="timer-topbar">
+        <div style="max-width:960px; margin:0 auto;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
+            <p id="timerProgramName" style="font-size:14px; font-weight:600; color:var(--text-secondary); margin:0;"></p>
+            <span id="timerStepLabel" style="font-size:12px; color:var(--text-muted); flex-shrink:0;">步驟 1 / 8</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="overallProgressBar" style="width:0%;"></div>
+          </div>
+          <div style="text-align:right; font-size:11px; color:var(--text-muted); margin-top:3px;">
+            <span id="timerTotalTime">0:00 / 11:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3-column grid -->
+      <div class="timer-grid">
+        <!-- LEFT: Step overview -->
+        <div class="timer-col timer-col-left">
+          <h4 style="font-size:11px; font-weight:600; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:1px;">步驟總覽</h4>
+          <div id="timerStepList"></div>
+        </div>
+
+        <!-- CENTER: Timer ring + breathing -->
+        <div class="timer-col timer-col-center">
+          <div class="timer-ring-container">
+            <svg viewBox="0 0 220 220">
+              <circle class="timer-ring-bg" cx="110" cy="110" r="100"/>
+              <circle class="timer-ring-progress" id="timerRingProgress" cx="110" cy="110" r="100"
+                stroke-dasharray="628.32" stroke-dashoffset="628.32"/>
+            </svg>
+            <div class="timer-ring-text">
+              <span id="timerCountdown" style="font-size:46px; font-weight:700; font-family:'Zen Maru Gothic',sans-serif; line-height:1;">0:30</span>
+              <span id="timerStepTitle" style="font-size:13px; font-weight:600; color:var(--text-secondary); margin-top:6px; text-align:center; max-width:150px;"></span>
+            </div>
+          </div>
+          <!-- Breathing Guide -->
+          <div id="breathingGuide" style="display:none;">
+            <div class="breath-circle-wrap">
+              <p id="breathRoundLabel" class="breath-round-label"></p>
+              <div class="breath-circle" id="breathCircle"></div>
+              <p id="breathLabel" style="font-size:16px; font-weight:700; margin-top:10px; letter-spacing:2px;"></p>
+              <p id="breathHint" class="phase-hint-text"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Step details / description -->
+        <div class="timer-col timer-col-right">
+          <h4 id="timerDetailTitle" style="font-size:16px; font-weight:700; margin-bottom:10px; color:var(--text-primary);"></h4>
+          <p id="timerStepDesc" style="font-size:14px; color:var(--text-secondary); line-height:1.7; margin-bottom:10px;"></p>
+          <ul id="timerSubSteps" style="margin:8px 0; padding-left:18px; font-size:13px; color:var(--text-secondary); line-height:1.9;"></ul>
+          <div id="timerRoundProgress"></div>
+          <p id="timerStepNotes" style="display:none; font-size:12px; color:var(--ember); font-style:italic; margin-top:10px;"></p>
+        </div>
+      </div>
+
+      <!-- Fixed Bottom Controls -->
+      <div class="timer-controls">
+        <div style="max-width:360px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:20px;">
+          <button class="control-btn" onclick="timerPrevStep()" title="上一步">
+            <i class="fas fa-backward-step"></i>
+          </button>
+          <button class="control-btn control-btn-play" id="timerPlayBtn" onclick="timerToggle()" title="開始">
+            <i class="fas fa-play" id="timerPlayIcon"></i>
+          </button>
+          <button class="control-btn" onclick="timerNextStep()" title="下一步">
+            <i class="fas fa-forward-step"></i>
+          </button>
+          <button class="control-btn" onclick="timerRestart()" title="重新開始">
+            <i class="fas fa-rotate-left"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Hidden file input for import -->
+<input type="file" id="importFileInput" accept=".json" style="display:none;">
+
+<script>
+// =============================================
+// APP STATE
+// =============================================
+const AppState = {
+  currentScreen: 'home',
+  screenHistory: [],
+  programs: [],
+  selectedProgramId: null,
+  llmList: [],
+  llmCategories: [],
+  llmConfigSource: null,
+  parsedProgram: null,
+};
+
+// =============================================
+// DEFAULT PROGRAM (from attached exercise)
+// =============================================
+function getDefaultProgram() {
+  return {
+    id: 'default-office-10min',
+    programName: '10 分鐘辦公室同步版',
+    description: '坐著即可完成的呼吸伸展同步運動，適合每天上午、下午各做一次。全程以舒服不痛為原則。',
+    totalEstimatedSeconds: 659,
+    isDefault: true,
+    createdAt: new Date().toISOString(),
+    steps: [
+      {
+        id: 0, title: '準備姿勢', durationSeconds: 15,
+        description: '坐到椅子前 1/3，調整姿勢。',
+        subSteps: ['雙腳踩穩地面、與髖同寬', '想像頭頂被往上提，肩膀放鬆下沉', '一手放腹部（肚臍附近），另一手放胸口'],
+        repetitions: null, breathingPattern: null, actionCycles: null,
+        notes: '全程以舒服不痛為原則'
+      },
+      {
+        id: 1, title: '腹式呼吸暖身', durationSeconds: 60,
+        description: '進入副交感、降低久坐緊繃，後面伸展更順。',
+        subSteps: ['鼻吸氣 4 秒：讓腹部先鼓起', '嘴吐氣 6 秒：肚子慢慢回收', '重複約 6 回合'],
+        repetitions: 6, breathingPattern: { inhale: 4, exhale: 6 },
+        actionCycles: [{
+          totalRounds: 6,
+          phases: [
+            { label: '鼻吸氣', hint: '讓腹部先鼓起', duration: 4, type: 'inhale' },
+            { label: '嘴吐氣,肩膀繞圈', hint: '肚子慢慢回收', duration: 6, type: 'exhale' }
+          ]
+        }],
+        notes: '吐氣時間比吸氣長，身體會更放鬆'
+      },
+      {
+        id: 2, title: '噘嘴呼吸', durationSeconds: 80,
+        description: '提高呼氣阻力、讓呼吸更深更穩。',
+        subSteps: ['鼻吸氣 2–3 秒（自然，不要吸到憋）', '嘴巴噘起像吹蠟燭，慢慢吐 4–6 秒', '做滿 10 次'],
+        repetitions: 10, breathingPattern: { inhale: 3, exhale: 5 },
+        actionCycles: [{
+          totalRounds: 10,
+          phases: [
+            { label: '鼻吸氣', hint: '自然，不要吸到憋', duration: 3, type: 'inhale' },
+            { label: '噘嘴吐氣', hint: '像吹蠟燭，慢慢吐', duration: 5, type: 'exhale' }
+          ]
+        }],
+        notes: '若頭暈：吐氣縮短到 3–4 秒'
+      },
+      {
+        id: 3, title: '擴胸伸展＋呼吸同步', durationSeconds: 128,
+        description: '打開胸廓、改善久坐圓肩、配合呼吸更有感。',
+        subSteps: ['吸氣 3–4 秒：雙手在身後，肩胛骨向後向下收，胸口打開', '停 1 秒：感受胸前伸展', '噘嘴吐氣 5–6 秒：維持打開但放鬆，吐完回到中立'],
+        repetitions: 8, breathingPattern: { inhale: 4, exhale: 6 },
+        actionCycles: [{
+          totalRounds: 8,
+          phases: [
+            { label: '吸氣', hint: '肩胛骨向後向下收，胸口打開', duration: 4, type: 'inhale' },
+            { label: '停住', hint: '感受胸前伸展', duration: 2, type: 'hold' },
+            { label: '噘嘴吐氣', hint: '維持打開但放鬆', duration: 6, type: 'exhale' },
+            { label: '回到中立', hint: '放鬆準備下一次', duration: 4, type: 'rest' }
+          ]
+        }],
+        notes: '每次約 16 秒，不要聳肩'
+      },
+      {
+        id: 4, title: '手腕伸展', durationSeconds: 120,
+        description: '鍵盤族手腕前後側都照顧到。',
+        subSteps: ['左手臂伸直在前、手掌朝下', '吐氣時輕輕向下按（伸展前臂上側），維持 8 秒', '吸氣回中立', '換方向：吐氣時向上拉（伸展前臂下側），維持 8 秒', '右手重複以上動作'],
+        repetitions: 3, breathingPattern: null,
+        actionCycles: [
+          { sectionLabel: '左手・向下按', totalRounds: 3, phases: [
+            { label: '吐氣向下按', hint: '伸展前臂上側', duration: 8, type: 'exhale' },
+            { label: '吸氣回中立', hint: '', duration: 2, type: 'inhale' }
+          ]},
+          { sectionLabel: '左手・向上拉', totalRounds: 3, phases: [
+            { label: '吐氣向上拉', hint: '伸展前臂下側', duration: 8, type: 'exhale' },
+            { label: '吸氣回中立', hint: '', duration: 2, type: 'inhale' }
+          ]},
+          { sectionLabel: '右手・向下按', totalRounds: 3, phases: [
+            { label: '吐氣向下按', hint: '伸展前臂上側', duration: 8, type: 'exhale' },
+            { label: '吸氣回中立', hint: '', duration: 2, type: 'inhale' }
+          ]},
+          { sectionLabel: '右手・向上拉', totalRounds: 3, phases: [
+            { label: '吐氣向上拉', hint: '伸展前臂下側', duration: 8, type: 'exhale' },
+            { label: '吸氣回中立', hint: '', duration: 2, type: 'inhale' }
+          ]}
+        ],
+        notes: '到明顯拉伸即可，不要到刺痛或麻'
+      },
+      {
+        id: 5, title: '膝蓋伸直活動', durationSeconds: 120,
+        description: '久坐讓膝蓋與大腿前側僵硬，改善循環。',
+        subSteps: ['坐直、腳跟在地', '吐氣時慢慢伸直膝蓋（腳尖可微勾）', '停 1–2 秒', '吸氣時慢慢放下', '左右各做 6 次'],
+        repetitions: 6, breathingPattern: null,
+        actionCycles: [
+          { sectionLabel: '左腳', totalRounds: 6, phases: [
+            { label: '吐氣伸直', hint: '慢慢伸直膝蓋，腳尖微勾', duration: 4, type: 'exhale' },
+            { label: '停住', hint: '', duration: 2, type: 'hold' },
+            { label: '吸氣放下', hint: '慢慢放下', duration: 4, type: 'inhale' }
+          ]},
+          { sectionLabel: '右腳', totalRounds: 6, phases: [
+            { label: '吐氣伸直', hint: '慢慢伸直膝蓋，腳尖微勾', duration: 4, type: 'exhale' },
+            { label: '停住', hint: '', duration: 2, type: 'hold' },
+            { label: '吸氣放下', hint: '慢慢放下', duration: 4, type: 'inhale' }
+          ]}
+        ],
+        notes: '伸直＝吐氣；放下＝吸氣'
+      },
+      {
+        id: 6, title: '椅子撐體', durationSeconds: 96,
+        description: '坐於穩固無輪椅子邊緣，用手臂力量撐起身體，訓練上肢肌力與核心穩定。',
+        subSteps: [
+          '坐到椅子前緣，雙手握住椅子兩側把手或邊緣',
+          '雙腳踩穩地面，與肩同寬',
+          '臀部微微離開椅面',
+          '吸氣時手臂彎曲、身體慢慢下降',
+          '吐氣時手臂用力撐起身體',
+          '重複 8 次'
+        ],
+        repetitions: 8, breathingPattern: { inhale: 3, exhale: 3 },
+        actionCycles: [{
+          totalRounds: 8,
+          phases: [
+            { label: '吸氣下降', hint: '手臂彎曲，身體慢慢下降', duration: 4, type: 'inhale' },
+            { label: '放鬆準備下一次', hint: '', duration: 2, type: 'hold' },
+            { label: '吐氣撐起', hint: '手臂用力推起身體', duration: 4, type: 'exhale' },
+            { label: '頂部停留', hint: '穩定姿勢', duration: 2, type: 'hold' }
+          ]
+        }],
+        notes: '全程保持核心收緊，下降幅度以舒適為準，不要勉強；確保椅子穩固不滑動'
+      },
+      {
+        id: 7, title: '收操', durationSeconds: 40,
+        description: '回到腹式呼吸，緩和結束。',
+        subSteps: ['腹式呼吸：吸 4 秒 / 吐 6 秒，做 4 回合', '吐氣時肩膀慢慢繞圈'],
+        repetitions: 4, breathingPattern: { inhale: 4, exhale: 6 },
+        actionCycles: [{
+          sectionLabel: '腹式呼吸',
+          totalRounds: 4,
+          phases: [
+            { label: '吸氣', hint: '', duration: 4, type: 'inhale' },
+            { label: '吐氣,肩膀繞圈', hint: '慢慢的', duration: 6, type: 'exhale' }
+          ]
+        }],
+        notes: null
+      }
+    ]
+  };
+}
+
+// =============================================
+// DEFAULT LLM FALLBACK
+// =============================================
+const DEFAULT_LLMS = [
+  { id: 'l1', name: 'GPT-5.4', description: 'OpenAI 最新旗艦模型，400k context，支援網路搜尋', category: 'text', isPinned: true, iconUrl: 'https://qph.cf2.poecdn.net/main-thumb-pb-3059-200-ftfdcmjibjzhyaworsxmtkykumwdemnw.jpeg' },
+  { id: 'l2', name: 'Claude-Sonnet-4.6', description: 'Anthropic 模型，1M context，適合程式開發', category: 'text', isPinned: true, iconUrl: 'https://qph.cf2.poecdn.net/main-thumb-pb-1042-200-ojftpbuyljsmmohjrdguquhuaqdlprew.jpeg' },
+  { id: 'l4', name: 'Gemini-3.0-Pro', description: 'Google 進階模型，1M context，支援影片輸入', category: 'text', isPinned: false },
+  { id: 'l5', name: 'Gemini-2.5-Flash', description: 'Google 快速模型，1M context，低成本', category: 'text', isPinned: false },
+];
+
+// =============================================
+// SAMPLE TEXT (from the attached exercise)
+// =============================================
+const SAMPLE_TEXT = `10 分鐘辦公室同步版（坐著即可完成）
+
+準備姿勢（15 秒）
+1. 坐到椅子前 1/3，雙腳踩穩地面、與髖同寬。
+2. 想像頭頂被往上提，肩膀放鬆下沉。
+3. 一手放腹部（肚臍附近），另一手放胸口。
+
+Step 1｜腹式呼吸暖身（1 分鐘，6 回合）
+目的：進入副交感、降低久坐緊繃。
+1. 鼻吸氣 4 秒：讓腹部先鼓起。
+2. 嘴吐氣 6 秒：肚子慢慢回收，肩膀繞圈。
+3. 重複約 6 回合。
+重點：吐氣時間比吸氣長。
+
+Step 2｜噘嘴呼吸（80 秒，10 次）
+目的：提高呼氣阻力、讓呼吸更深更穩。
+1. 鼻吸氣 2–3 秒。
+2. 嘴巴噘起像吹蠟燭，慢慢吐 4–6 秒。
+3. 做滿 10 次。
+
+Step 3｜擴胸伸展 + 呼吸同步（128 秒，8 次）
+目的：打開胸廓、改善久坐圓肩。做 8 次，每次約 16 秒。
+1. 吸氣 4 秒：肩胛骨向後向下收，胸口打開。
+2. 停 2 秒：感受胸前伸展。
+3. 噘嘴吐氣 6 秒：維持打開但放鬆。
+4. 回到中立 4 秒：放鬆準備下一次。
+
+Step 4｜手腕伸展（左右各 1 分鐘，共 2 分鐘）
+目的：鍵盤族手腕前後側都照顧到。每側：向下按壓 3 回合 + 向上拉起 3 回合（每回合 8 秒）
+1. 左手臂伸直在前、手掌朝下。
+2. 吐氣時輕輕向下按，維持 8 秒。
+3. 換方向：吐氣時輕輕向上拉，維持 8 秒。
+
+Step 5｜膝蓋伸直活動（2 分鐘，左右各 6 次）
+目的：改善循環。每邊 6 次。
+1. 坐直、腳跟在地。
+2. 吐氣 4 秒慢慢伸直膝蓋。
+3. 停 2 秒。
+4. 吸氣 4 秒慢慢放下。
+
+Step 6｜椅子撐體（96 秒，8 次）
+目的：訓練上肢肌力與核心穩定。每次約 12 秒（下降 4 秒＋準備 2 秒＋撐起 4 秒＋停留 2 秒）。
+1. 坐到椅子前緣，雙手握住椅子兩側把手或邊緣。
+2. 雙腳踩穩地面，與肩同寬。
+3. 臀部微微離開椅面。
+4. 吸氣時手臂彎曲、身體慢慢下降。
+5. 吐氣時手臂用力撐起身體。
+6. 頂部停留 2 秒，穩定姿勢。
+注意：確保椅子穩固不滑動，下降幅度以舒適為準。
+
+Step 7｜40 秒收操（4 回合）
+1. 回到腹式呼吸：吸 4 / 吐 6，吐氣時肩膀慢慢繞圈，做 4 回合。`;
+
+// =============================================
+// CONFIG LOADER
+// =============================================
+async function loadLLMConfig() {
+  const statusEl = document.getElementById('configStatus');
+  statusEl.innerHTML = '<span class="config-dot loading"></span><span>載入設定中…</span>';
+
+  const cdnUrl = 'https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json?t=' + Date.now();
+
+  try {
+    const res = await fetch(cdnUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+
+    if (data && data.items && Array.isArray(data.items)) {
+      AppState.llmList = data.items;
+      if (data.categories && Array.isArray(data.categories)) {
+        AppState.llmCategories = data.categories;
+      }
+      AppState.llmConfigSource = 'remote';
+      statusEl.innerHTML = '<span class="config-dot ok"></span><span>遠端設定已載入</span>';
+      showToast('LLM 設定載入成功', 'success');
+    } else {
+      throw new Error('Invalid JSON structure');
+    }
+  } catch (err) {
+    console.log('Config load failed: ' + err.message + ', using defaults');
+    AppState.llmList = DEFAULT_LLMS;
+    AppState.llmConfigSource = 'fallback';
+    statusEl.innerHTML = '<span class="config-dot fail"></span><span>使用預設設定</span>';
+    showToast('遠端設定載入失敗，已使用預設', 'info');
+  }
+
+  populateLLMSelect();
+}
+
+function populateLLMSelect() {
+  const sel = document.getElementById('llmSelect');
+  sel.innerHTML = '';
+  const textLlms = AppState.llmList.filter(function(l) { return l.category === 'text'; });
+  const pinned = textLlms.filter(function(l) { return l.isPinned; });
+  const others = textLlms.filter(function(l) { return !l.isPinned; });
+
+  function makeOpt(l) {
+    var opt = document.createElement('option');
+    opt.value = l.name;
+    opt.textContent = l.name + ' — ' + l.description;
+    if (l.iconUrl) opt.setAttribute('data-icon', l.iconUrl);
+    return opt;
+  }
+
+  if (pinned.length > 0) {
+    var ogPinned = document.createElement('optgroup');
+    ogPinned.label = '⭐ 推薦';
+    pinned.forEach(function(l) { ogPinned.appendChild(makeOpt(l)); });
+    sel.appendChild(ogPinned);
+  }
+  if (others.length > 0) {
+    var ogOthers = document.createElement('optgroup');
+    ogOthers.label = '其他模型';
+    others.forEach(function(l) { ogOthers.appendChild(makeOpt(l)); });
+    sel.appendChild(ogOthers);
+  }
+  updateLlmIcon();
+}
+
+function updateLlmIcon() {
+  var sel = document.getElementById('llmSelect');
+  var iconEl = document.getElementById('llmIcon');
+  var selected = sel.options[sel.selectedIndex];
+  if (selected && selected.getAttribute('data-icon')) {
+    iconEl.src = selected.getAttribute('data-icon');
+    iconEl.style.display = 'block';
+  } else {
+    iconEl.style.display = 'none';
+  }
+}
+
+// =============================================
+// NAVIGATION
+// =============================================
+function showScreen(name) {
+  if (AppState.currentScreen !== name) {
+    AppState.screenHistory.push(AppState.currentScreen);
+  }
+  AppState.currentScreen = name;
+
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  var target = document.getElementById('screen' + name.charAt(0).toUpperCase() + name.slice(1));
+  if (target) target.classList.add('active');
+
+  var backBtn = document.getElementById('btnBack');
+  var addBtn = document.getElementById('btnAddFromHome');
+  var settingsBtn = document.getElementById('btnSettings');
+  var titleEl = document.getElementById('headerTitle');
+  var fontPanel = document.getElementById('fontSizePanel');
+
+  if (name === 'home') {
+    backBtn.style.display = 'none';
+    addBtn.style.display = '';
+    settingsBtn.style.display = '';
+    fontPanel.style.display = 'none';
+    titleEl.textContent = 'AI 運動計時器';
+  } else if (name === 'parse') {
+    backBtn.style.display = '';
+    addBtn.style.display = 'none';
+    settingsBtn.style.display = 'none';
+    fontPanel.style.display = 'none';
+    titleEl.textContent = 'AI 智能解析';
+  } else if (name === 'detail') {
+    backBtn.style.display = '';
+    addBtn.style.display = 'none';
+    settingsBtn.style.display = 'none';
+    fontPanel.style.display = 'none';
+    titleEl.textContent = '程序詳情';
+  } else if (name === 'manual') {
+    backBtn.style.display = '';
+    addBtn.style.display = 'none';
+    settingsBtn.style.display = 'none';
+    fontPanel.style.display = 'none';
+    titleEl.textContent = '手動編輯';
+  } else if (name === 'timer') {
+    backBtn.style.display = '';
+    addBtn.style.display = 'none';
+    settingsBtn.style.display = 'none';
+    fontPanel.style.display = '';
+    titleEl.textContent = '計時執行';
+  }
+
+  // Scroll to top
+  document.querySelector('.app-content').scrollTop = 0;
+}
+
+function goBack() {
+  if (AppState.screenHistory.length > 0) {
+    // Pause timer if leaving timer screen
+    if (AppState.currentScreen === 'timer') {
+      timerPause();
+    }
+    var prev = AppState.screenHistory.pop();
+    AppState.currentScreen = prev;
+
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+    var target = document.getElementById('screen' + prev.charAt(0).toUpperCase() + prev.slice(1));
+    if (target) target.classList.add('active');
+
+    var backBtn = document.getElementById('btnBack');
+    var addBtn = document.getElementById('btnAddFromHome');
+    var settingsBtn = document.getElementById('btnSettings');
+    var titleEl = document.getElementById('headerTitle');
+    var fontPanel = document.getElementById('fontSizePanel');
+
+    if (prev === 'home') {
+      backBtn.style.display = 'none';
+      addBtn.style.display = '';
+      settingsBtn.style.display = '';
+      fontPanel.style.display = 'none';
+      titleEl.textContent = 'AI 運動計時器';
+      renderProgramList();
+    } else if (prev === 'parse') {
+      backBtn.style.display = '';
+      addBtn.style.display = 'none';
+      settingsBtn.style.display = 'none';
+      fontPanel.style.display = 'none';
+      titleEl.textContent = 'AI 智能解析';
+    } else if (prev === 'detail') {
+      backBtn.style.display = '';
+      addBtn.style.display = 'none';
+      settingsBtn.style.display = 'none';
+      fontPanel.style.display = 'none';
+      titleEl.textContent = '程序詳情';
+    } else if (prev === 'manual') {
+      backBtn.style.display = '';
+      addBtn.style.display = 'none';
+      settingsBtn.style.display = 'none';
+      fontPanel.style.display = 'none';
+      titleEl.textContent = '手動編輯';
+    } else if (prev === 'timer') {
+      backBtn.style.display = '';
+      addBtn.style.display = 'none';
+      settingsBtn.style.display = 'none';
+      fontPanel.style.display = '';
+      titleEl.textContent = '計時執行';
+    }
+
+    document.querySelector('.app-content').scrollTop = 0;
+  }
+}
+
+// =============================================
+// TOAST
+// =============================================
+function showToast(msg, type) {
+  type = type || 'info';
+  var container = document.getElementById('toastContainer');
+  var toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  var icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+  toast.innerHTML = '<i class="fas ' + icon + '" style="margin-right:8px;"></i>' + msg;
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.style.animation = 'toastOut 0.3s ease-in forwards';
+    setTimeout(function() { toast.remove(); }, 300);
+  }, 3000);
+}
+
+// =============================================
+// PROGRAM LIST RENDERING
+// =============================================
+function renderProgramList() {
+  var container = document.getElementById('programList');
+
+  if (AppState.programs.length === 0) {
+    container.innerHTML =
+      '<div class="empty-state">' +
+        '<i class="fas fa-dumbbell"></i>' +
+        '<h3 style="font-size:18px; margin-bottom:8px;">還沒有運動程序</h3>' +
+        '<p style="font-size:14px;">使用 AI 解析功能建立你的第一個程序</p>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+  AppState.programs.forEach(function(prog, idx) {
+    var stepCount = prog.steps ? prog.steps.length : 0;
+    var totalMin = Math.ceil((prog.totalEstimatedSeconds || 0) / 60);
+    var defaultBadge = prog.isDefault ? '<span class="badge badge-accent"><i class="fas fa-star" style="font-size:10px;"></i> 預設</span>' : '';
+
+    html +=
+      '<div class="card fade-in" style="margin-bottom:12px; cursor:pointer; animation-delay:' + (idx * 0.05) + 's;" onclick="viewProgram(\'' + prog.id + '\')">' +
+        '<div style="display:flex; align-items:flex-start; justify-content:space-between;">' +
+          '<div style="flex:1; min-width:0;">' +
+            '<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">' +
+              '<h3 style="font-size:17px; font-weight:700;">' + escapeHtml(prog.programName) + '</h3>' +
+              defaultBadge +
+            '</div>' +
+            '<p style="font-size:13px; color:var(--text-secondary); margin-bottom:10px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">' + escapeHtml(prog.description || '') + '</p>' +
+            '<div style="display:flex; gap:16px; font-size:13px; color:var(--text-muted);">' +
+              '<span><i class="fas fa-list-ol" style="margin-right:4px;"></i>' + stepCount + ' 步驟</span>' +
+              '<span><i class="fas fa-clock" style="margin-right:4px;"></i>' + totalMin + ' 分鐘</span>' +
+            '</div>' +
+          '</div>' +
+          '<i class="fas fa-chevron-right" style="color:var(--text-muted); margin-top:4px; flex-shrink:0;"></i>' +
+        '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+// =============================================
+// PROGRAM DETAIL VIEW
+// =============================================
+function viewProgram(id) {
+  var prog = AppState.programs.find(function(p) { return p.id === id; });
+  if (!prog) return;
+
+  AppState.selectedProgramId = id;
+  var container = document.getElementById('detailContent');
+  var totalMin = Math.ceil((prog.totalEstimatedSeconds || 0) / 60);
+
+  var html =
+    '<div class="fade-in">' +
+      '<div style="display:flex; align-items:center; gap:8px; margin-bottom:4px; flex-wrap:wrap;">' +
+        '<h2 style="font-size:24px; font-weight:700;">' + escapeHtml(prog.programName) + '</h2>' +
+        (prog.isDefault ? '<span class="badge badge-accent"><i class="fas fa-star" style="font-size:10px;"></i> 預設</span>' : '') +
+      '</div>' +
+      '<p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px; line-height:1.6;">' + escapeHtml(prog.description || '') + '</p>' +
+      '<div style="display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap;">' +
+        '<span class="badge badge-accent"><i class="fas fa-list-ol" style="font-size:10px;"></i> ' + (prog.steps ? prog.steps.length : 0) + ' 步驟</span>' +
+        '<span class="badge badge-ember"><i class="fas fa-clock" style="font-size:10px;"></i> ' + totalMin + ' 分鐘</span>' +
+      '</div>' +
+    '</div>';
+
+  // Action buttons
+  html +=
+    '<div style="display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap;" class="fade-in fade-in-d1">' +
+      '<button class="btn btn-primary" onclick="startTimer(\'' + id + '\')">' +
+        '<i class="fas fa-play"></i> 開始執行' +
+      '</button>' +
+      '<button class="btn btn-secondary btn-sm" onclick="editProgramManually(\'' + id + '\')">' +
+        '<i class="fas fa-pen-to-square"></i> 編輯' +
+      '</button>' +
+      '<button class="btn btn-secondary btn-sm" onclick="deleteProgramConfirm(\'' + id + '\')" ' + (prog.isDefault ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : '') + '>' +
+        '<i class="fas fa-trash"></i> 刪除' +
+      '</button>' +
+    '</div>';
+
+  // Steps
+  html += '<h3 style="font-size:17px; font-weight:700; margin-bottom:14px;" class="fade-in fade-in-d2">步驟列表</h3>';
+
+  if (prog.steps && prog.steps.length > 0) {
+    prog.steps.forEach(function(step, idx) {
+      var durLabel = step.durationSeconds >= 60
+        ? Math.floor(step.durationSeconds / 60) + ' 分' + (step.durationSeconds % 60 > 0 ? ' ' + (step.durationSeconds % 60) + ' 秒' : '')
+        : step.durationSeconds + ' 秒';
+
+      var breathHtml = '';
+      if (step.breathingPattern) {
+        breathHtml =
+          '<div style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12px;">' +
+            '<span class="badge badge-accent"><i class="fas fa-wind" style="font-size:9px;"></i> 吸 ' + step.breathingPattern.inhale + '秒 / 吐 ' + step.breathingPattern.exhale + '秒</span>' +
+          '</div>';
+      }
+
+      var repHtml = step.repetitions
+        ? '<span class="badge badge-ember" style="font-size:11px;">' + step.repetitions + ' 次</span>'
+        : '';
+
+      var subHtml = '';
+      if (step.subSteps && step.subSteps.length > 0) {
+        subHtml = '<ul style="margin-top:8px; padding-left:18px; font-size:13px; color:var(--text-secondary); line-height:1.8;">';
+        step.subSteps.forEach(function(ss) {
+          subHtml += '<li>' + escapeHtml(ss) + '</li>';
+        });
+        subHtml += '</ul>';
+      }
+
+      var notesHtml = step.notes
+        ? '<p style="margin-top:8px; font-size:12px; color:var(--ember); font-style:italic;"><i class="fas fa-lightbulb" style="margin-right:4px;"></i>' + escapeHtml(step.notes) + '</p>'
+        : '';
+
+      html +=
+        '<div class="step-chip fade-in" style="margin-bottom:10px; animation-delay:' + ((idx + 3) * 0.05) + 's;">' +
+          '<div class="step-num">' + (idx + 1) + '</div>' +
+          '<div style="flex:1; min-width:0;">' +
+            '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">' +
+              '<span style="font-weight:600; font-size:15px;">' + escapeHtml(step.title) + '</span>' +
+              '<span style="font-size:12px; color:var(--text-muted);"><i class="fas fa-clock" style="font-size:10px;"></i> ' + durLabel + '</span>' +
+              repHtml +
+            '</div>' +
+            '<p style="font-size:13px; color:var(--text-secondary); margin-top:4px;">' + escapeHtml(step.description || '') + '</p>' +
+            subHtml +
+            breathHtml +
+            notesHtml +
+          '</div>' +
+        '</div>';
+    });
+  }
+
+  container.innerHTML = html;
+  showScreen('detail');
+}
+
+// =============================================
+// DELETE PROGRAM (custom modal, no confirm())
+// =============================================
+function deleteProgramConfirm(id) {
+  var prog = AppState.programs.find(function(p) { return p.id === id; });
+  if (!prog || prog.isDefault) return;
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box">' +
+      '<h3 style="font-size:18px; font-weight:700; margin-bottom:8px;">確認刪除</h3>' +
+      '<p style="font-size:14px; color:var(--text-secondary); margin-bottom:20px;">確定要刪除「' + escapeHtml(prog.programName) + '」嗎？此操作無法復原。</p>' +
+      '<div style="display:flex; gap:10px; justify-content:flex-end;">' +
+        '<button class="btn btn-secondary btn-sm" onclick="this.closest(\'.modal-overlay\').remove()">取消</button>' +
+        '<button class="btn btn-danger btn-sm" id="confirmDeleteBtn">刪除</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#confirmDeleteBtn').onclick = function() {
+    AppState.programs = AppState.programs.filter(function(p) { return p.id !== id; });
+    overlay.remove();
+    showToast('程序已刪除', 'success');
+    goBack();
+  };
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+// =============================================
+// AI PARSING
+// =============================================
+function loadSampleText() {
+  document.getElementById('parseInput').value = SAMPLE_TEXT;
+  showToast('已載入範例文字', 'success');
+}
+
+async function startAIParse() {
+  var text = document.getElementById('parseInput').value.trim();
+  if (!text) {
+    showToast('請先輸入或貼上運動指示文字', 'error');
+    return;
+  }
+
+  var llmName = document.getElementById('llmSelect').value;
+  if (!llmName) {
+    showToast('請選擇一個 AI 模型', 'error');
+    return;
+  }
+
+  // Hide result, show loading
+  document.getElementById('parseResult').style.display = 'none';
+  document.getElementById('parseLoading').style.display = 'block';
+  document.getElementById('btnParse').disabled = true;
+
+  var prompt = '你是一個運動程序解析器。請將以下運動指示文字解析為嚴格的 JSON 格式。\n' +
+    '只輸出 JSON，不要有 markdown 代碼塊標記，不要有其他文字。\n' +
+    'JSON Schema 如下：\n' +
+    '{\n' +
+    '  "programName": "程序名稱（從文字中提取）",\n' +
+    '  "description": "簡短描述（1-2句）",\n' +
+    '  "totalEstimatedSeconds": 總估計秒數（數字）,\n' +
+    '  "steps": [\n' +
+    '    {\n' +
+    '      "id": 序號（從0開始的數字）,\n' +
+    '      "title": "步驟標題",\n' +
+    '      "durationSeconds": 該步驟秒數（數字）,\n' +
+    '      "description": "步驟目的或說明",\n' +
+    '      "subSteps": ["子步驟1", "子步驟2"],\n' +
+    '      "repetitions": 重複次數（數字或null）,\n' +
+    '      "breathingPattern": { "inhale": 吸氣秒數, "exhale": 吐氣秒數 } 或 null,\n' +
+    '      "notes": "注意事項" 或 null\n' +
+    '    }\n' +
+    '  ]\n' +
+    '}\n\n' +
+    '以下是要解析的運動指示文字：\n\n' + text;
+
+  try {
+    window.Poe.registerHandler('parse-handler', function(result) {
+      var msg = result.responses[0];
+      if (msg.status === 'error') {
+        document.getElementById('parseLoading').style.display = 'none';
+        document.getElementById('btnParse').disabled = false;
+        showToast('AI 回應錯誤：' + (msg.statusText || '未知錯誤'), 'error');
+      } else if (msg.status === 'complete') {
+        document.getElementById('parseLoading').style.display = 'none';
+        document.getElementById('btnParse').disabled = false;
+        handleParseResult(msg.content);
+      }
+    });
+
+    await window.Poe.sendUserMessage('@' + llmName + ' ' + prompt, {
+      handler: 'parse-handler',
+      stream: false,
+      openChat: false,
+      parameters: {}
+    });
+  } catch (err) {
+    document.getElementById('parseLoading').style.display = 'none';
+    document.getElementById('btnParse').disabled = false;
+    showToast('發送失敗：' + (err.message || err), 'error');
+  }
+}
+
+function handleParseResult(content) {
+  try {
+    // Try to extract JSON from content (might have markdown code blocks)
+    var jsonStr = content;
+    var match = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) {
+      jsonStr = match[1].trim();
+    }
+    // Also try to find raw JSON
+    if (jsonStr.indexOf('{') !== 0) {
+      var startIdx = jsonStr.indexOf('{');
+      var endIdx = jsonStr.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        jsonStr = jsonStr.substring(startIdx, endIdx + 1);
+      }
+    }
+
+    var parsed = JSON.parse(jsonStr);
+
+    // Validate basic structure
+    if (!parsed.programName || !parsed.steps || !Array.isArray(parsed.steps)) {
+      throw new Error('缺少必要欄位 (programName, steps)');
+    }
+
+    AppState.parsedProgram = parsed;
+    renderParsePreview(parsed);
+    document.getElementById('parseResult').style.display = 'block';
+    showToast('解析成功！共 ' + parsed.steps.length + ' 個步驟', 'success');
+  } catch (err) {
+    showToast('JSON 解析失敗：' + err.message, 'error');
+    console.log('Parse error raw content: ' + content.substring(0, 500));
+  }
+}
+
+function renderParsePreview(prog) {
+  var container = document.getElementById('parsePreview');
+  var totalMin = Math.ceil((prog.totalEstimatedSeconds || 0) / 60);
+
+  var html =
+    '<div class="card" style="margin-bottom:16px;">' +
+      '<h4 style="font-size:17px; font-weight:700; margin-bottom:4px;">' + escapeHtml(prog.programName) + '</h4>' +
+      '<p style="font-size:13px; color:var(--text-secondary); margin-bottom:10px;">' + escapeHtml(prog.description || '') + '</p>' +
+      '<div style="display:flex; gap:12px; font-size:13px; color:var(--text-muted);">' +
+        '<span><i class="fas fa-list-ol" style="margin-right:4px;"></i>' + prog.steps.length + ' 步驟</span>' +
+        '<span><i class="fas fa-clock" style="margin-right:4px;"></i>~' + totalMin + ' 分鐘</span>' +
+      '</div>' +
+    '</div>';
+
+  prog.steps.forEach(function(step, idx) {
+    var durLabel = step.durationSeconds >= 60
+      ? Math.floor(step.durationSeconds / 60) + ' 分' + (step.durationSeconds % 60 > 0 ? ' ' + (step.durationSeconds % 60) + ' 秒' : '')
+      : step.durationSeconds + ' 秒';
+
+    var breathTag = step.breathingPattern
+      ? ' <span class="badge badge-accent" style="font-size:11px;"><i class="fas fa-wind" style="font-size:9px;"></i> 吸' + step.breathingPattern.inhale + '/吐' + step.breathingPattern.exhale + '</span>'
+      : '';
+
+    var subHtml = '';
+    if (step.subSteps && step.subSteps.length > 0) {
+      subHtml = '<ul style="margin-top:6px; padding-left:16px; font-size:12px; color:var(--text-secondary); line-height:1.7;">';
+      step.subSteps.forEach(function(ss) { subHtml += '<li>' + escapeHtml(ss) + '</li>'; });
+      subHtml += '</ul>';
+    }
+
+    html +=
+      '<div class="step-chip" style="margin-bottom:8px;">' +
+        '<div class="step-num">' + (idx + 1) + '</div>' +
+        '<div style="flex:1; min-width:0;">' +
+          '<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">' +
+            '<span style="font-weight:600; font-size:14px;">' + escapeHtml(step.title) + '</span>' +
+            '<span style="font-size:12px; color:var(--text-muted);">' + durLabel + '</span>' +
+            (step.repetitions ? '<span class="badge badge-ember" style="font-size:11px;">' + step.repetitions + '次</span>' : '') +
+            breathTag +
+          '</div>' +
+          subHtml +
+        '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function saveParsedProgram() {
+  if (!AppState.parsedProgram) return;
+
+  var prog = Object.assign({}, AppState.parsedProgram);
+  prog.id = 'prog-' + Date.now();
+  prog.isDefault = false;
+  prog.createdAt = new Date().toISOString();
+
+  // Ensure steps have ids
+  if (prog.steps) {
+    prog.steps.forEach(function(s, i) { s.id = i; });
+  }
+
+  AppState.programs.push(prog);
+  AppState.parsedProgram = null;
+
+  showToast('程序已儲存！', 'success');
+
+  // Reset parse screen
+  document.getElementById('parseResult').style.display = 'none';
+  document.getElementById('parseInput').value = '';
+
+  // Go to detail
+  viewProgram(prog.id);
+}
+
+// =============================================
+// TIMER ENGINE
+// =============================================
+var TimerState = {
+  program: null,
+  currentStepIndex: 0,
+  isRunning: false,
+  stepElapsedMs: 0,
+  stepStartTime: 0,
+  animFrameId: null,
+  audioCtx: null,
+  isComplete: false,
+  // Phase-based timing
+  actionTimeline: [],
+  timelineIndex: 0,
+  phaseElapsedMs: 0,
+  phaseStartTime: 0
+};
+
+function buildActionTimeline(step) {
+  if (!step.actionCycles || step.actionCycles.length === 0) return [];
+  var timeline = [];
+  step.actionCycles.forEach(function(section, sIdx) {
+    for (var r = 0; r < section.totalRounds; r++) {
+      section.phases.forEach(function(phase) {
+        timeline.push({
+          sectionIndex: sIdx,
+          sectionLabel: section.sectionLabel || null,
+          round: r + 1,
+          totalRounds: section.totalRounds,
+          label: phase.label,
+          hint: phase.hint || '',
+          duration: phase.duration,
+          type: phase.type
+        });
+      });
+    }
+  });
+  return timeline;
+}
+
+function getStepDuration(step) {
+  if (step.actionCycles && step.actionCycles.length > 0) {
+    var total = 0;
+    step.actionCycles.forEach(function(section) {
+      section.phases.forEach(function(phase) {
+        total += phase.duration * section.totalRounds;
+      });
+    });
+    return total;
+  }
+  return step.durationSeconds;
+}
+
+function startTimer(programId) {
+  var prog = AppState.programs.find(function(p) { return p.id === programId; });
+  if (!prog || !prog.steps || prog.steps.length === 0) {
+    showToast('此程序沒有步驟', 'error');
+    return;
+  }
+
+  // Deep copy program
+  TimerState.program = JSON.parse(JSON.stringify(prog));
+  TimerState.currentStepIndex = 0;
+  TimerState.isRunning = false;
+  TimerState.stepElapsedMs = 0;
+  TimerState.stepStartTime = 0;
+  TimerState.isComplete = false;
+  TimerState.actionTimeline = [];
+  TimerState.timelineIndex = 0;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.phaseStartTime = 0;
+
+  if (TimerState.animFrameId) {
+    cancelAnimationFrame(TimerState.animFrameId);
+    TimerState.animFrameId = null;
+  }
+
+  showScreen('timer');
+  initTimerDisplay();
+}
+
+function initTimerDisplay() {
+  var prog = TimerState.program;
+  document.getElementById('timerProgramName').textContent = prog.programName;
+  document.getElementById('timerPlayIcon').className = 'fas fa-play';
+
+  // Reset ring color
+  var ringEl = document.getElementById('timerRingProgress');
+  ringEl.style.stroke = '';
+  ringEl.classList.remove('warning');
+
+  applyFontScale();
+  updateTimerStepDisplay();
+  updateOverallProgress();
+  if (TimerState.actionTimeline.length > 0) {
+    updatePhaseDisplay();
+  } else {
+    updateLegacyRing();
+  }
+  renderTimerStepList();
+}
+
+function updateTimerStepDisplay() {
+  var prog = TimerState.program;
+  var step = prog.steps[TimerState.currentStepIndex];
+  var total = prog.steps.length;
+
+  document.getElementById('timerStepLabel').textContent = '步驟 ' + (TimerState.currentStepIndex + 1) + ' / ' + total;
+  document.getElementById('timerDetailTitle').textContent = '步驟 ' + (TimerState.currentStepIndex + 1) + '：' + step.title;
+  document.getElementById('timerStepDesc').textContent = step.description || '';
+
+  // Build action timeline for this step
+  TimerState.actionTimeline = buildActionTimeline(step);
+  TimerState.timelineIndex = 0;
+  TimerState.phaseElapsedMs = 0;
+
+  var hasTimeline = TimerState.actionTimeline.length > 0;
+
+  // Sub steps: hide when actionCycles active (round progress replaces them)
+  var subEl = document.getElementById('timerSubSteps');
+  if (!hasTimeline && step.subSteps && step.subSteps.length > 0) {
+    subEl.innerHTML = '';
+    step.subSteps.forEach(function(ss) {
+      var li = document.createElement('li');
+      li.textContent = ss;
+      subEl.appendChild(li);
+    });
+    subEl.style.display = '';
+  } else {
+    subEl.innerHTML = '';
+    subEl.style.display = 'none';
+  }
+
+  // Notes
+  var notesEl = document.getElementById('timerStepNotes');
+  if (step.notes) {
+    notesEl.innerHTML = '<i class="fas fa-lightbulb" style="margin-right:4px;"></i>' + escapeHtml(step.notes);
+    notesEl.style.display = '';
+  } else {
+    notesEl.style.display = 'none';
+  }
+
+  // Breathing guide: show when actionCycles or breathingPattern exists
+  var breathEl = document.getElementById('breathingGuide');
+  if (hasTimeline) {
+    breathEl.style.display = '';
+    var circle = document.getElementById('breathCircle');
+    circle.style.transform = 'scale(0.6)';
+    circle.style.opacity = '0.5';
+    var firstEntry = TimerState.actionTimeline[0];
+    document.getElementById('breathLabel').textContent = firstEntry.label;
+    document.getElementById('breathLabel').style.color = 'var(--accent)';
+    document.getElementById('breathHint').textContent = firstEntry.hint;
+    var roundText = firstEntry.sectionLabel ? firstEntry.sectionLabel + ' · ' : '';
+    roundText += '第 1 次 / ' + firstEntry.totalRounds;
+    document.getElementById('breathRoundLabel').textContent = roundText;
+    document.getElementById('timerStepTitle').textContent = firstEntry.label;
+    document.getElementById('timerCountdown').textContent = firstEntry.duration;
+  } else if (step.breathingPattern) {
+    breathEl.style.display = '';
+    var circle2 = document.getElementById('breathCircle');
+    circle2.style.transform = 'scale(0.6)';
+    circle2.style.opacity = '0.5';
+    document.getElementById('breathLabel').textContent = '吸 氣';
+    document.getElementById('breathLabel').style.color = 'var(--accent)';
+    document.getElementById('breathHint').textContent = '';
+    document.getElementById('breathRoundLabel').textContent = '';
+    document.getElementById('timerStepTitle').textContent = step.title;
+  } else {
+    breathEl.style.display = 'none';
+    document.getElementById('timerStepTitle').textContent = step.title;
+  }
+
+  // Round progress
+  renderRoundProgress();
+
+  // Update step list highlights
+  renderTimerStepList();
+}
+
+// Overall progress bar + total time (used in both modes)
+function updateOverallProgress() {
+  var step = TimerState.program.steps[TimerState.currentStepIndex];
+  var stepDur = getStepDuration(step);
+  var completedSec = 0;
+  for (var i = 0; i < TimerState.currentStepIndex; i++) {
+    completedSec += getStepDuration(TimerState.program.steps[i]);
+  }
+  completedSec += Math.min(TimerState.stepElapsedMs / 1000, stepDur);
+  var totalSec = TimerState.program.steps.reduce(function(s, st) { return s + getStepDuration(st); }, 0);
+
+  var overallPct = Math.min(100, (completedSec / totalSec) * 100);
+  document.getElementById('overallProgressBar').style.width = overallPct + '%';
+  document.getElementById('timerTotalTime').textContent =
+    formatTime(Math.floor(completedSec)) + ' / ' + formatTime(totalSec);
+}
+
+// Legacy ring display (steps without actionCycles)
+function updateLegacyRing() {
+  var step = TimerState.program.steps[TimerState.currentStepIndex];
+  var durationMs = step.durationSeconds * 1000;
+  var remainMs = Math.max(0, durationMs - TimerState.stepElapsedMs);
+  var remainSec = Math.ceil(remainMs / 1000);
+
+  document.getElementById('timerCountdown').textContent = formatTime(remainSec);
+
+  var progress = Math.min(1, TimerState.stepElapsedMs / durationMs);
+  var circumference = 628.32;
+  var offset = circumference * (1 - progress);
+  var ringEl = document.getElementById('timerRingProgress');
+  ringEl.style.strokeDashoffset = offset;
+  ringEl.style.stroke = '';
+
+  if (remainSec <= 5 && remainSec > 0 && TimerState.isRunning) {
+    ringEl.classList.add('warning');
+  } else if (!TimerState.isComplete) {
+    ringEl.classList.remove('warning');
+  }
+
+  // Legacy breathing guide (for AI-parsed programs with breathingPattern but no actionCycles)
+  var step2 = TimerState.program.steps[TimerState.currentStepIndex];
+  if (step2.breathingPattern && !step2.actionCycles) {
+    var bp = step2.breathingPattern;
+    var cycleMs = (bp.inhale + bp.exhale) * 1000;
+    var elapsed = TimerState.stepElapsedMs % cycleMs;
+    var inhaleMs = bp.inhale * 1000;
+    var exhaleMs = bp.exhale * 1000;
+    var circle = document.getElementById('breathCircle');
+    var label = document.getElementById('breathLabel');
+    var hint = document.getElementById('breathHint');
+
+    if (elapsed < inhaleMs) {
+      var t = elapsed / inhaleMs;
+      circle.style.transform = 'scale(' + (0.6 + 0.6 * easeInOutSine(t)).toFixed(3) + ')';
+      circle.style.opacity = (0.5 + 0.5 * t).toFixed(3);
+      label.textContent = '吸 氣';
+      label.style.color = 'var(--accent)';
+      hint.textContent = Math.ceil((inhaleMs - elapsed) / 1000) + ' 秒';
+    } else {
+      var exElapsed = elapsed - inhaleMs;
+      var t2 = exElapsed / exhaleMs;
+      circle.style.transform = 'scale(' + (1.2 - 0.6 * easeInOutSine(t2)).toFixed(3) + ')';
+      circle.style.opacity = (1 - 0.5 * t2).toFixed(3);
+      label.textContent = '吐 氣';
+      label.style.color = 'var(--ember)';
+      hint.textContent = Math.ceil((exhaleMs - exElapsed) / 1000) + ' 秒';
+    }
+  }
+}
+
+// =============================================
+// PHASE-BASED DISPLAY (actionCycles mode)
+// =============================================
+function updatePhaseDisplay() {
+  if (TimerState.actionTimeline.length === 0) return;
+  var entry = TimerState.actionTimeline[TimerState.timelineIndex];
+  var phaseDurMs = entry.duration * 1000;
+  var phaseRemainSec = Math.ceil(Math.max(0, phaseDurMs - TimerState.phaseElapsedMs) / 1000);
+  phaseRemainSec = Math.min(phaseRemainSec, entry.duration);
+
+  // Ring: phase countdown
+  document.getElementById('timerCountdown').textContent = phaseRemainSec;
+  document.getElementById('timerStepTitle').textContent = entry.label;
+
+  // Ring progress: fills over phase duration
+  var phaseProgress = Math.min(1, TimerState.phaseElapsedMs / phaseDurMs);
+  var circumference = 628.32;
+  var offset = circumference * (1 - phaseProgress);
+  var ringEl = document.getElementById('timerRingProgress');
+  ringEl.style.strokeDashoffset = offset;
+  ringEl.classList.remove('warning');
+
+  // Ring color by type
+  if (entry.type === 'inhale') {
+    ringEl.style.stroke = 'var(--accent)';
+  } else if (entry.type === 'exhale') {
+    ringEl.style.stroke = 'var(--ember)';
+  } else if (entry.type === 'hold') {
+    ringEl.style.stroke = 'var(--ember-light)';
+  } else if (entry.type === 'rest') {
+    ringEl.style.stroke = 'var(--text-muted)';
+  } else {
+    ringEl.style.stroke = 'var(--accent-light)';
+  }
+
+  // Warning for last 2 seconds
+  if (phaseRemainSec <= 2 && phaseRemainSec > 0 && TimerState.isRunning) {
+    ringEl.classList.add('warning');
+  }
+
+  // Breathing circle animation
+  var circle = document.getElementById('breathCircle');
+  var t = Math.min(1, TimerState.phaseElapsedMs / phaseDurMs);
+  if (entry.type === 'inhale') {
+    circle.style.transform = 'scale(' + (0.6 + 0.6 * easeInOutSine(t)).toFixed(3) + ')';
+    circle.style.opacity = (0.5 + 0.5 * t).toFixed(3);
+  } else if (entry.type === 'exhale') {
+    circle.style.transform = 'scale(' + (1.2 - 0.6 * easeInOutSine(t)).toFixed(3) + ')';
+    circle.style.opacity = (1 - 0.5 * t).toFixed(3);
+  } else if (entry.type === 'hold') {
+    circle.style.transform = 'scale(1.2)';
+    circle.style.opacity = '1';
+  } else if (entry.type === 'rest') {
+    circle.style.transform = 'scale(' + (0.9 - 0.3 * easeInOutSine(t)).toFixed(3) + ')';
+    circle.style.opacity = (0.7 - 0.2 * t).toFixed(3);
+  } else {
+    var pulse = 0.8 + 0.15 * Math.sin(t * Math.PI * 4);
+    circle.style.transform = 'scale(' + pulse.toFixed(3) + ')';
+    circle.style.opacity = '0.85';
+  }
+
+  // Labels
+  var label = document.getElementById('breathLabel');
+  label.textContent = entry.label;
+  if (entry.type === 'inhale') { label.style.color = 'var(--accent)'; }
+  else if (entry.type === 'exhale') { label.style.color = 'var(--ember)'; }
+  else if (entry.type === 'hold') { label.style.color = 'var(--ember-light)'; }
+  else if (entry.type === 'rest') { label.style.color = 'var(--text-muted)'; }
+  else { label.style.color = 'var(--accent-light)'; }
+
+  document.getElementById('breathHint').textContent = entry.hint;
+
+  // Round indicator
+  var roundText = entry.sectionLabel ? entry.sectionLabel + ' · ' : '';
+  roundText += '第 ' + entry.round + ' 次 / ' + entry.totalRounds;
+  document.getElementById('breathRoundLabel').textContent = roundText;
+}
+
+function easeInOutSine(t) {
+  return -(Math.cos(Math.PI * t) - 1) / 2;
+}
+
+// =============================================
+// TIMER CONTROLS
+// =============================================
+function timerToggle() {
+  if (TimerState.isComplete) {
+    timerRestart();
+    return;
+  }
+  if (TimerState.isRunning) {
+    timerPause();
+  } else {
+    timerResume();
+  }
+}
+
+function timerResume() {
+  if (TimerState.isRunning) return;
+  TimerState.isRunning = true;
+  TimerState.stepStartTime = performance.now() - TimerState.stepElapsedMs;
+  if (TimerState.actionTimeline.length > 0) {
+    TimerState.phaseStartTime = performance.now() - TimerState.phaseElapsedMs;
+  }
+  document.getElementById('timerPlayIcon').className = 'fas fa-pause';
+  playBeep(660, 120);
+  timerTick();
+}
+
+function timerPause() {
+  if (!TimerState.isRunning) return;
+  TimerState.isRunning = false;
+  if (TimerState.animFrameId) {
+    cancelAnimationFrame(TimerState.animFrameId);
+    TimerState.animFrameId = null;
+  }
+  document.getElementById('timerPlayIcon').className = 'fas fa-play';
+}
+
+function timerTick() {
+  if (!TimerState.isRunning) return;
+
+  var now = performance.now();
+
+  if (TimerState.actionTimeline.length > 0) {
+    // Phase-based tick
+    TimerState.phaseElapsedMs = now - TimerState.phaseStartTime;
+    var entry = TimerState.actionTimeline[TimerState.timelineIndex];
+    var phaseDurMs = entry.duration * 1000;
+
+    if (TimerState.phaseElapsedMs >= phaseDurMs) {
+      TimerState.phaseElapsedMs = phaseDurMs;
+      advancePhase();
+      return;
+    }
+
+    // Calculate stepElapsedMs from timeline
+    var elapsed = 0;
+    for (var i = 0; i < TimerState.timelineIndex; i++) {
+      elapsed += TimerState.actionTimeline[i].duration * 1000;
+    }
+    elapsed += TimerState.phaseElapsedMs;
+    TimerState.stepElapsedMs = elapsed;
+
+    updatePhaseDisplay();
+    updateOverallProgress();
+    renderRoundProgress();
+    TimerState.animFrameId = requestAnimationFrame(timerTick);
+  } else {
+    // Legacy tick
+    TimerState.stepElapsedMs = now - TimerState.stepStartTime;
+    var step = TimerState.program.steps[TimerState.currentStepIndex];
+    var durationMs = step.durationSeconds * 1000;
+
+    if (TimerState.stepElapsedMs >= durationMs) {
+      TimerState.stepElapsedMs = durationMs;
+      updateOverallProgress();
+      updateLegacyRing();
+      advanceTimerStep();
+      return;
+    }
+
+    updateLegacyRing();
+    updateOverallProgress();
+    TimerState.animFrameId = requestAnimationFrame(timerTick);
+  }
+}
+
+function advancePhase() {
+  var nextIdx = TimerState.timelineIndex + 1;
+
+  if (nextIdx >= TimerState.actionTimeline.length) {
+    // All phases done → advance to next step
+    advanceTimerStep();
+    return;
+  }
+
+  var currentEntry = TimerState.actionTimeline[TimerState.timelineIndex];
+  var nextEntry = TimerState.actionTimeline[nextIdx];
+
+  // Play sound based on transition type
+  if (nextEntry.round !== currentEntry.round || nextEntry.sectionIndex !== currentEntry.sectionIndex) {
+    playBeep(880, 150); // New round or section
+  } else {
+    playBeep(550, 80); // Phase change within round
+  }
+
+  TimerState.timelineIndex = nextIdx;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.phaseStartTime = performance.now();
+
+  updatePhaseDisplay();
+  renderRoundProgress();
+  TimerState.animFrameId = requestAnimationFrame(timerTick);
+}
+
+function advanceTimerStep() {
+  var nextIdx = TimerState.currentStepIndex + 1;
+
+  if (nextIdx >= TimerState.program.steps.length) {
+    timerComplete();
+    return;
+  }
+
+  playBeep(880, 180);
+
+  TimerState.currentStepIndex = nextIdx;
+  TimerState.stepElapsedMs = 0;
+  TimerState.stepStartTime = performance.now();
+  TimerState.actionTimeline = [];
+  TimerState.timelineIndex = 0;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.phaseStartTime = performance.now();
+
+  updateTimerStepDisplay();
+  updateOverallProgress();
+  if (TimerState.actionTimeline.length > 0) {
+    updatePhaseDisplay();
+  } else {
+    updateLegacyRing();
+  }
+  scrollToTimerStep();
+
+  TimerState.animFrameId = requestAnimationFrame(timerTick);
+}
+
+function timerComplete() {
+  TimerState.isRunning = false;
+  TimerState.isComplete = true;
+  TimerState.actionTimeline = [];
+  TimerState.timelineIndex = 0;
+
+  if (TimerState.animFrameId) {
+    cancelAnimationFrame(TimerState.animFrameId);
+    TimerState.animFrameId = null;
+  }
+
+  document.getElementById('timerPlayIcon').className = 'fas fa-rotate-left';
+  document.getElementById('timerCountdown').textContent = '完成！';
+  document.getElementById('timerStepTitle').textContent = '做得好！';
+  document.getElementById('timerDetailTitle').textContent = '運動完成！';
+  document.getElementById('timerStepDesc').textContent = '恭喜你完成了整套運動程序';
+  document.getElementById('timerSubSteps').style.display = 'none';
+  document.getElementById('timerStepNotes').style.display = 'none';
+  document.getElementById('breathingGuide').style.display = 'none';
+  document.getElementById('timerRoundProgress').innerHTML = '';
+  document.getElementById('overallProgressBar').style.width = '100%';
+
+  var ringEl = document.getElementById('timerRingProgress');
+  ringEl.style.strokeDashoffset = '0';
+  ringEl.classList.remove('warning');
+  ringEl.style.stroke = 'var(--accent-light)';
+
+  renderTimerStepList();
+  playCompletionSound();
+  showToast('運動程序完成！做得好！', 'success');
+}
+
+function timerNextStep() {
+  if (!TimerState.program || TimerState.isComplete) return;
+
+  var nextIdx = TimerState.currentStepIndex + 1;
+  if (nextIdx >= TimerState.program.steps.length) {
+    if (TimerState.isRunning) {
+      timerComplete();
+    }
+    return;
+  }
+
+  playBeep(880, 100);
+  TimerState.currentStepIndex = nextIdx;
+  TimerState.stepElapsedMs = 0;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.timelineIndex = 0;
+  TimerState.actionTimeline = [];
+
+  if (TimerState.isRunning) {
+    TimerState.stepStartTime = performance.now();
+    TimerState.phaseStartTime = performance.now();
+  }
+
+  updateTimerStepDisplay();
+  updateOverallProgress();
+  if (TimerState.actionTimeline.length > 0) {
+    updatePhaseDisplay();
+  } else {
+    updateLegacyRing();
+  }
+  scrollToTimerStep();
+}
+
+function timerPrevStep() {
+  if (!TimerState.program || TimerState.isComplete) return;
+  if (TimerState.currentStepIndex <= 0) return;
+
+  playBeep(440, 100);
+  TimerState.currentStepIndex--;
+  TimerState.stepElapsedMs = 0;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.timelineIndex = 0;
+  TimerState.actionTimeline = [];
+
+  if (TimerState.isRunning) {
+    TimerState.stepStartTime = performance.now();
+    TimerState.phaseStartTime = performance.now();
+  }
+
+  updateTimerStepDisplay();
+  updateOverallProgress();
+  if (TimerState.actionTimeline.length > 0) {
+    updatePhaseDisplay();
+  } else {
+    updateLegacyRing();
+  }
+  scrollToTimerStep();
+}
+
+function timerRestart() {
+  if (!TimerState.program) return;
+
+  if (TimerState.animFrameId) {
+    cancelAnimationFrame(TimerState.animFrameId);
+    TimerState.animFrameId = null;
+  }
+
+  TimerState.currentStepIndex = 0;
+  TimerState.stepElapsedMs = 0;
+  TimerState.isRunning = false;
+  TimerState.isComplete = false;
+  TimerState.actionTimeline = [];
+  TimerState.timelineIndex = 0;
+  TimerState.phaseElapsedMs = 0;
+  TimerState.phaseStartTime = 0;
+
+  document.getElementById('timerPlayIcon').className = 'fas fa-play';
+  initTimerDisplay();
+  playBeep(330, 150);
+  showToast('已重新開始', 'info');
+}
+
+// =============================================
+// TIMER STEP LIST
+// =============================================
+function renderTimerStepList() {
+  var container = document.getElementById('timerStepList');
+  var steps = TimerState.program.steps;
+  var html = '';
+
+  steps.forEach(function(step, idx) {
+    var cls, icon;
+    if (TimerState.isComplete || idx < TimerState.currentStepIndex) {
+      cls = 'completed';
+      icon = '<i class="fas fa-check-circle"></i>';
+    } else if (idx === TimerState.currentStepIndex && !TimerState.isComplete) {
+      cls = 'current';
+      icon = '<i class="fas fa-circle-play"></i>';
+    } else {
+      cls = 'pending';
+      icon = '<i class="far fa-circle"></i>';
+    }
+
+    var dur = step.durationSeconds >= 60
+      ? Math.floor(step.durationSeconds / 60) + '分' + (step.durationSeconds % 60 > 0 ? step.durationSeconds % 60 + '秒' : '')
+      : step.durationSeconds + '秒';
+
+    html += '<div class="step-indicator ' + cls + '" id="tStep' + idx + '">' +
+      icon +
+      '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(step.title) + '</span>' +
+      '<span style="font-size:11px; flex-shrink:0; opacity:0.7;">' + dur + '</span>' +
+    '</div>';
+  });
+
+  container.innerHTML = html;
+}
+
+function scrollToTimerStep() {
+  var el = document.getElementById('tStep' + TimerState.currentStepIndex);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+// =============================================
+// ROUND PROGRESS (right column)
+// =============================================
+function renderRoundProgress() {
+  var container = document.getElementById('timerRoundProgress');
+  if (!TimerState.actionTimeline || TimerState.actionTimeline.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  var step = TimerState.program.steps[TimerState.currentStepIndex];
+  if (!step.actionCycles) { container.innerHTML = ''; return; }
+
+  var currentEntry = TimerState.actionTimeline[TimerState.timelineIndex];
+  var sections = step.actionCycles;
+  var hasSectionLabels = sections.some(function(s) { return s.sectionLabel; });
+
+  var html = '<div class="round-progress-wrap"><div class="round-progress-heading">回合進度</div>';
+
+  sections.forEach(function(section, sIdx) {
+    // Section label
+    if (hasSectionLabels && section.sectionLabel) {
+      var sClass = '';
+      if (sIdx < currentEntry.sectionIndex) { sClass = 'color:var(--accent); opacity:0.6;'; }
+      else if (sIdx === currentEntry.sectionIndex) { sClass = 'color:var(--text-primary);'; }
+      else { sClass = 'color:var(--text-muted);'; }
+
+      var sIcon = sIdx < currentEntry.sectionIndex ? '<i class="fas fa-check" style="margin-right:4px; font-size:10px;"></i>' : '';
+      html += '<div class="round-progress-section" style="' + sClass + '">' + sIcon + escapeHtml(section.sectionLabel) + '</div>';
+    }
+
+    // Rounds in this section
+    for (var r = 1; r <= section.totalRounds; r++) {
+      var status;
+      if (sIdx < currentEntry.sectionIndex) {
+        status = 'completed';
+      } else if (sIdx === currentEntry.sectionIndex) {
+        if (r < currentEntry.round) { status = 'completed'; }
+        else if (r === currentEntry.round) { status = 'current'; }
+        else { status = 'pending'; }
+      } else {
+        status = 'pending';
+      }
+
+      var icon, extra = '';
+      if (status === 'completed') {
+        icon = '<i class="fas fa-check-circle" style="font-size:11px;"></i>';
+      } else if (status === 'current') {
+        icon = '<i class="fas fa-circle-play" style="font-size:11px;"></i>';
+        var phaseRemain = Math.ceil(Math.max(0, currentEntry.duration * 1000 - TimerState.phaseElapsedMs) / 1000);
+        extra = ' — ' + escapeHtml(currentEntry.label) + ' ' + phaseRemain;
+      } else {
+        icon = '<i class="far fa-circle" style="font-size:11px;"></i>';
+      }
+
+      html += '<div class="round-progress-item rp-' + status + '">' +
+              icon + '<span>第 ' + r + ' 次' + extra + '</span></div>';
+    }
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// =============================================
+// WEB AUDIO — BEEPS & SOUND EFFECTS
+// =============================================
+function getAudioCtx() {
+  if (!TimerState.audioCtx) {
+    try {
+      TimerState.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) { /* no audio support */ }
+  }
+  return TimerState.audioCtx;
+}
+
+function playBeep(freq, durMs) {
+  var ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durMs / 1000);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + durMs / 1000);
+  } catch (e) { /* silent fail */ }
+}
+
+function playCompletionSound() {
+  var ctx = getAudioCtx();
+  if (!ctx) return;
+  try {
+    var notes = [523, 659, 784, 1047]; // C5, E5, G5, C6 arpeggio
+    notes.forEach(function(freq, i) {
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      var t = ctx.currentTime + i * 0.15;
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.start(t);
+      osc.stop(t + 0.35);
+    });
+  } catch (e) { /* silent fail */ }
+}
+
+// =============================================
+// UTILS
+// =============================================
+function escapeHtml(str) {
+  if (!str) return '';
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function formatTime(seconds) {
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// =============================================
+// FONT SIZE CONTROL
+// =============================================
+var fontScale = 1;
+
+function adjustFontSize(delta) {
+  fontScale = Math.round(Math.max(0.6, Math.min(2.0, fontScale + delta)) * 10) / 10;
+  applyFontScale();
+}
+
+function resetFontScale() {
+  fontScale = 1;
+  applyFontScale();
+  showToast('字體大小已重設', 'info');
+}
+
+function applyFontScale() {
+  var s = fontScale;
+  var label = document.getElementById('fontScaleLabel');
+  if (label) label.textContent = Math.round(s * 100) + '%';
+
+  // When scale is 1 (default), clear all inline overrides to let CSS/media queries handle sizing
+  if (s === 1) {
+    clearFontScaleStyles();
+    return;
+  }
+
+  // Timer ring
+  var ring = document.querySelector('.timer-ring-container');
+  if (ring) {
+    ring.style.width = (200 * s) + 'px';
+    ring.style.height = (200 * s) + 'px';
+  }
+
+  // Breath circle
+  var bc = document.getElementById('breathCircle');
+  if (bc) {
+    bc.style.width = (64 * s) + 'px';
+    bc.style.height = (64 * s) + 'px';
+  }
+
+  // Countdown text
+  var cd = document.getElementById('timerCountdown');
+  if (cd) cd.style.fontSize = (46 * s) + 'px';
+
+  // Step title in ring
+  var st = document.getElementById('timerStepTitle');
+  if (st) st.style.fontSize = (13 * s) + 'px';
+
+  // Breath label
+  var bl = document.getElementById('breathLabel');
+  if (bl) bl.style.fontSize = (16 * s) + 'px';
+
+  // Breath hint
+  var bh = document.getElementById('breathHint');
+  if (bh) bh.style.fontSize = (13 * s) + 'px';
+
+  // Round label
+  var rl = document.getElementById('breathRoundLabel');
+  if (rl) rl.style.fontSize = (14 * s) + 'px';
+
+  // Detail title (right column)
+  var dt = document.getElementById('timerDetailTitle');
+  if (dt) dt.style.fontSize = (16 * s) + 'px';
+
+  // Step description
+  var sd = document.getElementById('timerStepDesc');
+  if (sd) sd.style.fontSize = (14 * s) + 'px';
+
+  // Sub steps
+  var ss = document.getElementById('timerSubSteps');
+  if (ss) ss.style.fontSize = (13 * s) + 'px';
+
+  // Step notes
+  var sn = document.getElementById('timerStepNotes');
+  if (sn) sn.style.fontSize = (12 * s) + 'px';
+
+  // Step list in left column
+  var stepItems = document.querySelectorAll('.step-indicator');
+  stepItems.forEach(function(item) {
+    item.style.fontSize = (12 * s) + 'px';
+  });
+}
+
+function clearFontScaleStyles() {
+  var ring = document.querySelector('.timer-ring-container');
+  if (ring) { ring.style.width = ''; ring.style.height = ''; }
+
+  var bc = document.getElementById('breathCircle');
+  if (bc) { bc.style.width = ''; bc.style.height = ''; }
+
+  var els = [
+    'timerCountdown', 'timerStepTitle', 'breathLabel',
+    'breathHint', 'breathRoundLabel', 'timerDetailTitle',
+    'timerStepDesc', 'timerSubSteps', 'timerStepNotes'
+  ];
+  els.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.fontSize = '';
+  });
+
+  var stepItems = document.querySelectorAll('.step-indicator');
+  stepItems.forEach(function(item) { item.style.fontSize = ''; });
+}
+
+// =============================================
+// MANUAL EDITOR
+// =============================================
+var ManualEditorState = {
+  steps: [],
+  editingProgramId: null
+};
+
+function startManualCreate() {
+  showScreen('manual');
+  initManualEditor(null);
+}
+
+function editProgramManually(id) {
+  showScreen('manual');
+  initManualEditor(id);
+}
+
+function initManualEditor(existingProgId) {
+  ManualEditorState.editingProgramId = existingProgId || null;
+
+  if (existingProgId) {
+    var prog = AppState.programs.find(function(p) { return p.id === existingProgId; });
+    if (prog) {
+      document.getElementById('manualProgName').value = prog.programName || '';
+      document.getElementById('manualProgDesc').value = prog.description || '';
+      ManualEditorState.steps = JSON.parse(JSON.stringify(prog.steps || []));
+    }
+  } else {
+    document.getElementById('manualProgName').value = '';
+    document.getElementById('manualProgDesc').value = '';
+    ManualEditorState.steps = [];
+  }
+
+  renderManualSteps();
+}
+
+function addManualStep() {
+  syncAllManualSteps();
+  ManualEditorState.steps.push({
+    id: Date.now(),
+    title: '',
+    durationSeconds: 60,
+    description: '',
+    subSteps: [],
+    repetitions: null,
+    breathingPattern: null,
+    actionCycles: null,
+    notes: null
+  });
+  renderManualSteps();
+
+  setTimeout(function() {
+    var list = document.getElementById('manualStepList');
+    var lastStep = list.lastElementChild;
+    if (lastStep) {
+      lastStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      var titleInput = lastStep.querySelector('.manual-step-title');
+      if (titleInput) titleInput.focus();
+    }
+  }, 80);
+}
+
+function removeManualStep(idx) {
+  ManualEditorState.steps.splice(idx, 1);
+  renderManualSteps();
+}
+
+function removeManualStepUI(idx) {
+  syncAllManualSteps();
+  removeManualStep(idx);
+}
+
+function moveManualStep(fromIdx, toIdx) {
+  if (toIdx < 0 || toIdx >= ManualEditorState.steps.length) return;
+  var item = ManualEditorState.steps.splice(fromIdx, 1)[0];
+  ManualEditorState.steps.splice(toIdx, 0, item);
+  renderManualSteps();
+}
+
+function moveManualStepUI(fromIdx, toIdx) {
+  syncAllManualSteps();
+  moveManualStep(fromIdx, toIdx);
+}
+
+function syncManualStepFromDOM(idx) {
+  var container = document.getElementById('manualStepList');
+  var cards = container.querySelectorAll('.manual-editor-step');
+  if (!cards[idx]) return;
+
+  var card = cards[idx];
+  var step = ManualEditorState.steps[idx];
+  if (!step) return;
+
+  var titleEl = card.querySelector('.manual-step-title');
+  if (titleEl) step.title = titleEl.value || '';
+
+  var minEl = card.querySelector('.manual-step-min');
+  var secEl = card.querySelector('.manual-step-sec');
+  var minVal = minEl ? (parseInt(minEl.value) || 0) : 0;
+  var secVal = secEl ? (parseInt(secEl.value) || 0) : 0;
+  step.durationSeconds = Math.max(1, minVal * 60 + secVal);
+
+  var descEl = card.querySelector('.manual-step-desc');
+  if (descEl) step.description = descEl.value || '';
+
+  var subsEl = card.querySelector('.manual-step-subs');
+  if (subsEl) {
+    var subText = subsEl.value || '';
+    step.subSteps = subText.split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+  }
+
+  var repsEl = card.querySelector('.manual-step-reps');
+  if (repsEl) {
+    step.repetitions = repsEl.value ? (parseInt(repsEl.value) || null) : null;
+  }
+
+  var notesEl = card.querySelector('.manual-step-notes');
+  if (notesEl) step.notes = notesEl.value || null;
+}
+
+function syncAllManualSteps() {
+  for (var i = 0; i < ManualEditorState.steps.length; i++) {
+    syncManualStepFromDOM(i);
+  }
+}
+
+function updateManualTotalTime() {
+  syncAllManualSteps();
+  var total = ManualEditorState.steps.reduce(function(s, step) {
+    return s + (step.durationSeconds || 0);
+  }, 0);
+  var min = Math.floor(total / 60);
+  var sec = total % 60;
+  var label = min > 0 ? min + ' 分' : '';
+  if (sec > 0) label += (label ? ' ' : '') + sec + ' 秒';
+  if (!label) label = '0 分鐘';
+  document.getElementById('manualTotalTime').innerHTML = '<i class="fas fa-clock" style="margin-right:4px;"></i>' + label;
+}
+
+function escapeAttr(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function renderManualSteps() {
+  var container = document.getElementById('manualStepList');
+  var emptyEl = document.getElementById('manualEmptyState');
+  var steps = ManualEditorState.steps;
+
+  if (steps.length === 0) {
+    container.innerHTML = '';
+    emptyEl.style.display = '';
+    updateManualTotalTime();
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  var html = '';
+
+  steps.forEach(function(step, idx) {
+    var minutes = Math.floor((step.durationSeconds || 0) / 60);
+    var seconds = (step.durationSeconds || 0) % 60;
+    var subStepsText = (step.subSteps || []).join('\n');
+    var isFirst = idx === 0;
+    var isLast = idx === steps.length - 1;
+
+    html +=
+      '<div class="manual-editor-step" data-idx="' + idx + '">' +
+        '<div class="manual-step-left-col">' +
+          '<div class="manual-step-num">' + (idx + 1) + '</div>' +
+          '<div class="drag-handle" data-idx="' + idx + '" title="拖拽排序">' +
+            '<i class="fas fa-grip-vertical"></i>' +
+          '</div>' +
+          '<div class="step-move-btns">' +
+            '<button class="step-move-btn" onclick="moveManualStepUI(' + idx + ',' + (idx - 1) + ')" ' + (isFirst ? 'disabled' : '') + ' title="上移">' +
+              '<i class="fas fa-chevron-up"></i>' +
+            '</button>' +
+            '<button class="step-move-btn" onclick="moveManualStepUI(' + idx + ',' + (idx + 1) + ')" ' + (isLast ? 'disabled' : '') + ' title="下移">' +
+              '<i class="fas fa-chevron-down"></i>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="manual-step-fields">' +
+          '<div class="manual-step-row">' +
+            '<input class="input manual-step-title" type="text" placeholder="步驟標題（必填）" value="' + escapeAttr(step.title || '') + '" oninput="syncManualStepFromDOM(' + idx + ')" style="font-weight:600;" />' +
+            '<button class="step-remove-btn" onclick="removeManualStepUI(' + idx + ')" title="刪除此步驟">' +
+              '<i class="fas fa-trash"></i>' +
+            '</button>' +
+          '</div>' +
+          '<div class="manual-step-row">' +
+            '<div class="time-input-group">' +
+              '<span class="time-label"><i class="fas fa-hourglass-half" style="margin-right:3px;"></i>時長：</span>' +
+              '<input class="input manual-step-min" type="number" min="0" max="99" value="' + minutes + '" onchange="updateManualTotalTime()" style="width:60px;text-align:center;padding:8px 4px;" />' +
+              '<span class="time-label">分</span>' +
+              '<input class="input manual-step-sec" type="number" min="0" max="59" value="' + seconds + '" onchange="updateManualTotalTime()" style="width:60px;text-align:center;padding:8px 4px;" />' +
+              '<span class="time-label">秒</span>' +
+            '</div>' +
+            '<div class="time-input-group">' +
+              '<span class="time-label">重複：</span>' +
+              '<input class="input manual-step-reps" type="number" min="0" max="999" value="' + (step.repetitions || '') + '" placeholder="—" onchange="syncManualStepFromDOM(' + idx + ')" style="width:60px;text-align:center;padding:8px 4px;" />' +
+              '<span class="time-label">次</span>' +
+            '</div>' +
+          '</div>' +
+          '<input class="input manual-step-desc" type="text" placeholder="步驟說明（選填）" value="' + escapeAttr(step.description || '') + '" oninput="syncManualStepFromDOM(' + idx + ')" />' +
+          '<textarea class="input manual-step-subs" rows="2" placeholder="子步驟（每行一項，選填）" style="resize:vertical;min-height:50px;line-height:1.6;">' + escapeHtml(subStepsText) + '</textarea>' +
+          '<input class="input manual-step-notes" type="text" placeholder="注意事項（選填）" value="' + escapeAttr(step.notes || '') + '" oninput="syncManualStepFromDOM(' + idx + ')" />' +
+        '</div>' +
+      '</div>';
+  });
+
+  container.innerHTML = html;
+  updateManualTotalTime();
+  initDragAndDrop();
+}
+
+function saveManualProgram() {
+  syncAllManualSteps();
+
+  var name = document.getElementById('manualProgName').value.trim();
+  var desc = document.getElementById('manualProgDesc').value.trim();
+
+  if (!name) {
+    showToast('請輸入程序名稱', 'error');
+    document.getElementById('manualProgName').focus();
+    return;
+  }
+
+  if (ManualEditorState.steps.length === 0) {
+    showToast('請至少新增一個步驟', 'error');
+    return;
+  }
+
+  for (var i = 0; i < ManualEditorState.steps.length; i++) {
+    if (!ManualEditorState.steps[i].title.trim()) {
+      showToast('步驟 ' + (i + 1) + ' 缺少標題', 'error');
+      return;
+    }
+  }
+
+  var totalSec = ManualEditorState.steps.reduce(function(s, st) { return s + (st.durationSeconds || 0); }, 0);
+  var finalSteps = ManualEditorState.steps.map(function(s, i) {
+    var copy = JSON.parse(JSON.stringify(s));
+    copy.id = i;
+    return copy;
+  });
+
+  if (ManualEditorState.editingProgramId) {
+    var existing = AppState.programs.find(function(p) { return p.id === ManualEditorState.editingProgramId; });
+    if (existing) {
+      existing.programName = name;
+      existing.description = desc;
+      existing.totalEstimatedSeconds = totalSec;
+      existing.steps = finalSteps;
+      showToast('程序已更新！', 'success');
+      viewProgram(existing.id);
+    }
+  } else {
+    var prog = {
+      id: 'prog-' + Date.now(),
+      programName: name,
+      description: desc,
+      totalEstimatedSeconds: totalSec,
+      isDefault: false,
+      createdAt: new Date().toISOString(),
+      steps: finalSteps
+    };
+    AppState.programs.push(prog);
+    showToast('程序已儲存！', 'success');
+    viewProgram(prog.id);
+  }
+}
+
+// =============================================
+// DRAG AND DROP (pointer events for mouse+touch)
+// =============================================
+var DragCtx = {
+  active: false,
+  idx: -1,
+  clone: null,
+  startY: 0,
+  offsetY: 0,
+  container: null,
+  items: [],
+  currentDropIdx: -1
+};
+
+function initDragAndDrop() {
+  var handles = document.querySelectorAll('#manualStepList .drag-handle');
+  handles.forEach(function(handle) {
+    handle.addEventListener('pointerdown', onDragStart);
+  });
+}
+
+function onDragStart(e) {
+  e.preventDefault();
+  var handle = e.currentTarget;
+  var idx = parseInt(handle.getAttribute('data-idx'));
+  var container = document.getElementById('manualStepList');
+  var items = container.querySelectorAll('.manual-editor-step');
+  var item = items[idx];
+  if (!item) return;
+
+  syncAllManualSteps();
+
+  var rect = item.getBoundingClientRect();
+
+  DragCtx.active = true;
+  DragCtx.idx = idx;
+  DragCtx.container = container;
+  DragCtx.startY = e.clientY;
+  DragCtx.offsetY = e.clientY - rect.top;
+  DragCtx.currentDropIdx = idx;
+
+  DragCtx.clone = item.cloneNode(true);
+  DragCtx.clone.classList.add('drag-clone');
+  DragCtx.clone.style.width = rect.width + 'px';
+  DragCtx.clone.style.left = rect.left + 'px';
+  DragCtx.clone.style.top = (e.clientY - DragCtx.offsetY) + 'px';
+  document.body.appendChild(DragCtx.clone);
+
+  item.classList.add('dragging');
+
+  DragCtx.items = [];
+  items.forEach(function(el, i) {
+    var r = el.getBoundingClientRect();
+    DragCtx.items.push({ el: el, idx: i, top: r.top, bottom: r.bottom, mid: (r.top + r.bottom) / 2 });
+  });
+
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener('pointermove', onDragMove);
+  handle.addEventListener('pointerup', onDragEnd);
+  handle.addEventListener('pointercancel', onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!DragCtx.active) return;
+  e.preventDefault();
+
+  DragCtx.clone.style.top = (e.clientY - DragCtx.offsetY) + 'px';
+
+  // Determine drop index: count items whose midpoint is above the cursor
+  var insertBefore = ManualEditorState.steps.length;
+  for (var i = 0; i < DragCtx.items.length; i++) {
+    if (i === DragCtx.idx) continue;
+    if (e.clientY < DragCtx.items[i].mid) {
+      insertBefore = i;
+      break;
+    }
+  }
+
+  var toIdx;
+  if (insertBefore > DragCtx.idx) {
+    toIdx = insertBefore - 1;
+  } else {
+    toIdx = insertBefore;
+  }
+  toIdx = Math.max(0, Math.min(ManualEditorState.steps.length - 1, toIdx));
+  DragCtx.currentDropIdx = toIdx;
+
+  // Visual feedback
+  DragCtx.items.forEach(function(item) {
+    item.el.classList.remove('drop-before', 'drop-after');
+  });
+
+  if (toIdx !== DragCtx.idx) {
+    if (toIdx < DragCtx.idx && DragCtx.items[toIdx]) {
+      DragCtx.items[toIdx].el.classList.add('drop-before');
+    } else if (toIdx > DragCtx.idx && DragCtx.items[toIdx]) {
+      DragCtx.items[toIdx].el.classList.add('drop-after');
+    }
+  }
+}
+
+function onDragEnd(e) {
+  if (!DragCtx.active) return;
+  DragCtx.active = false;
+
+  if (DragCtx.clone && DragCtx.clone.parentNode) {
+    DragCtx.clone.parentNode.removeChild(DragCtx.clone);
+  }
+
+  DragCtx.items.forEach(function(item) {
+    item.el.classList.remove('dragging', 'drop-before', 'drop-after');
+  });
+
+  var handle = e.currentTarget;
+  if (handle) {
+    handle.removeEventListener('pointermove', onDragMove);
+    handle.removeEventListener('pointerup', onDragEnd);
+    handle.removeEventListener('pointercancel', onDragEnd);
+  }
+
+  if (DragCtx.currentDropIdx !== DragCtx.idx && DragCtx.currentDropIdx >= 0) {
+    moveManualStep(DragCtx.idx, DragCtx.currentDropIdx);
+  }
+
+  DragCtx.clone = null;
+  DragCtx.items = [];
+}
+
+// =============================================
+// IMPORT / EXPORT SETTINGS
+// =============================================
+function openSettingsModal() {
+  var programCount = AppState.programs.length;
+  var scaleLabel = Math.round(fontScale * 100) + '%';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box">' +
+      '<div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">' +
+        '<div style="width:40px;height:40px;border-radius:12px;background:var(--accent-glow);display:flex;align-items:center;justify-content:center;">' +
+          '<i class="fas fa-gear" style="font-size:18px;color:var(--accent);"></i>' +
+        '</div>' +
+        '<div>' +
+          '<h3 style="font-size:18px; font-weight:700; line-height:1.2;">設定</h3>' +
+          '<p style="font-size:12px; color:var(--text-muted);">匯入 / 匯出應用程式資料</p>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="background:var(--bg-secondary);border-radius:12px;padding:14px 16px;margin-bottom:16px;border:1px solid var(--border);">' +
+        '<p style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">目前資料概覽</p>' +
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--text-secondary);">' +
+          '<span><i class="fas fa-dumbbell" style="margin-right:4px;color:var(--accent);"></i>' + programCount + ' 個程序</span>' +
+          '<span><i class="fas fa-font" style="margin-right:4px;color:var(--accent);"></i>字體 ' + scaleLabel + '</span>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">' +
+        '<button class="btn btn-primary" id="settingsExportBtn" style="width:100%; justify-content:center;">' +
+          '<i class="fas fa-file-export"></i> 匯出設定' +
+        '</button>' +
+        '<p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:-4px;">' +
+          '將所有運動程序與偏好設定儲存為 JSON 檔案' +
+        '</p>' +
+
+        '<button class="btn btn-secondary" id="settingsImportBtn" style="width:100%; justify-content:center;">' +
+          '<i class="fas fa-file-import"></i> 匯入設定' +
+        '</button>' +
+        '<p style="font-size:12px; color:var(--text-muted); text-align:center; margin-top:-4px;">' +
+          '從 JSON 檔案還原運動程序與偏好設定' +
+        '</p>' +
+      '</div>' +
+
+      '<div style="text-align:right;">' +
+        '<button class="btn btn-secondary btn-sm" id="settingsCloseBtn">關閉</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#settingsExportBtn').onclick = function() {
+    overlay.remove();
+    exportSettings();
+  };
+  overlay.querySelector('#settingsImportBtn').onclick = function() {
+    overlay.remove();
+    triggerImport();
+  };
+  overlay.querySelector('#settingsCloseBtn').onclick = function() {
+    overlay.remove();
+  };
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+function exportSettings() {
+  var data = {
+    version: 1,
+    appName: 'AI 運動計時器',
+    exportDate: new Date().toISOString(),
+    fontScale: fontScale,
+    programs: AppState.programs
+  };
+
+  var json = JSON.stringify(data, null, 2);
+  var blob = new Blob([json], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'ai-exercise-timer-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('設定已匯出為 JSON 檔案', 'success');
+}
+
+function triggerImport() {
+  var fileInput = document.getElementById('importFileInput');
+  fileInput.value = '';
+  fileInput.onchange = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var data = JSON.parse(ev.target.result);
+        if (!data.programs || !Array.isArray(data.programs)) {
+          throw new Error('無效的設定檔案：缺少 programs 欄位');
+        }
+        showImportConfirmModal(data, file.name);
+      } catch (err) {
+        showToast('匯入失敗：' + err.message, 'error');
+      }
+    };
+    reader.onerror = function() {
+      showToast('讀取檔案失敗', 'error');
+    };
+    reader.readAsText(file);
+  };
+  fileInput.click();
+}
+
+function showImportConfirmModal(data, fileName) {
+  var programCount = data.programs ? data.programs.length : 0;
+  var scaleLabel = data.fontScale ? Math.round(data.fontScale * 100) + '%' : '預設 (100%)';
+  var dateLabel = data.exportDate ? new Date(data.exportDate).toLocaleString('zh-TW') : '未知';
+
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal-box">' +
+      '<h3 style="font-size:18px; font-weight:700; margin-bottom:12px;">' +
+        '<i class="fas fa-file-import" style="margin-right:8px; color:var(--accent);"></i>確認匯入' +
+      '</h3>' +
+
+      '<div style="background:var(--bg-secondary);border-radius:12px;padding:14px 16px;margin-bottom:16px;border:1px solid var(--border);">' +
+        '<p style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">' +
+          '<i class="fas fa-file-code" style="margin-right:6px;color:var(--accent);"></i>' + escapeHtml(fileName) +
+        '</p>' +
+        '<ul style="font-size:13px; color:var(--text-secondary); padding-left:20px; line-height:1.9; margin:0;">' +
+          '<li>' + programCount + ' 個運動程序</li>' +
+          '<li>字體大小：' + scaleLabel + '</li>' +
+          '<li>匯出時間：' + dateLabel + '</li>' +
+        '</ul>' +
+      '</div>' +
+
+      '<p style="font-size:13px; color:var(--ember); margin-bottom:20px; line-height:1.6;">' +
+        '<i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i>' +
+        '此操作將<strong>覆蓋</strong>目前所有運動程序及設定，無法復原。' +
+      '</p>' +
+
+      '<div style="display:flex; gap:10px; justify-content:flex-end;">' +
+        '<button class="btn btn-secondary btn-sm" id="importCancelBtn">取消</button>' +
+        '<button class="btn btn-primary btn-sm" id="importConfirmBtn">' +
+          '<i class="fas fa-check"></i> 確認匯入' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#importConfirmBtn').onclick = function() {
+    applyImportData(data);
+    overlay.remove();
+  };
+  overlay.querySelector('#importCancelBtn').onclick = function() {
+    overlay.remove();
+  };
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+function applyImportData(data) {
+  // Restore programs
+  if (data.programs && Array.isArray(data.programs)) {
+    AppState.programs = data.programs;
+  }
+
+  // Restore font scale
+  if (typeof data.fontScale === 'number' && data.fontScale >= 0.6 && data.fontScale <= 2.0) {
+    fontScale = Math.round(data.fontScale * 10) / 10;
+  } else {
+    fontScale = 1;
+  }
+  applyFontScale();
+
+  // Re-render
+  renderProgramList();
+  showToast('設定已成功匯入！共載入 ' + AppState.programs.length + ' 個程序', 'success');
+}
+
+// =============================================
+// DARK MODE DETECTION
+// =============================================
+if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(event) {
+  if (event.matches) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+});
+
+// =============================================
+// INIT
+// =============================================
+function init() {
+  // Load default program
+  AppState.programs = [getDefaultProgram()];
+
+  // Render
+  renderProgramList();
+
+  // Load LLM config
+  loadLLMConfig();
+}
+
+init();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+

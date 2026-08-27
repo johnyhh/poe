@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log File Filter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            },
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">Log File Filter</h1>
+
+        <!-- Filter Mode Selector -->
+        <div class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <h2 class="text-lg font-semibold mb-2">Step 1: Select Filter Mode</h2>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="filterMode" value="date" id="filterModeDate" checked class="accent-primary">
+                    <span>Select Date Range</span>
+                </label>
+
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="filterMode" value="line" id="filterModeLine" class="accent-primary">
+                    <span>Select by Line Numbers</span>
+                </label>
+            </div>
+
+            <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                Date Range mode filters records by detected dates. Line Numbers mode cuts raw text by line number and should support any text file that can be opened in Notepad.
+            </p>
+        </div>
+        
+        <!-- Date Range Selector -->
+        <div id="dateRangePanel" class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <h2 class="text-lg font-semibold mb-2">Select Date Range</h2>
+            
+            <!-- Quick Date Range Buttons -->
+            <div class="mb-4">
+                <p class="mb-2 text-sm">Quick Select:</p>
+                <div class="flex flex-wrap gap-2">
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-week">Last Week</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="this-month">This Month</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-month">Last Month</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-3-months">Last 3 Months</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-6-months">Last 6 Months</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="this-year">This Year</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-year">Last Year</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="last-24-hours">Last 24 Hours</button>
+                    <button class="quick-date-btn py-1 px-3 text-sm bg-primary/80 hover:bg-primary text-white rounded" data-range="today">Today</button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="startDate" class="block mb-1">Start Date:</label>
+                    <input type="date" id="startDate" class="w-full p-2 border rounded text-base bg-white dark:bg-gray-700 dark:border-gray-600 text-black dark:text-white">
+                </div>
+                <div>
+                    <label for="endDate" class="block mb-1">End Date:</label>
+                    <input type="date" id="endDate" class="w-full p-2 border rounded text-base bg-white dark:bg-gray-700 dark:border-gray-600 text-black dark:text-white">
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Number Selector -->
+        <div id="lineRangePanel" class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg hidden">
+            <h2 class="text-lg font-semibold mb-2">Select by Line Numbers</h2>
+
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Enter the line range to extract. Line numbering starts from 1. For example, From Line 10 to Line 50 will extract lines 10 through 50, inclusive.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="fromLine" class="block mb-1">From Line:</label>
+                    <input type="number" id="fromLine" min="1" step="1" value="1" class="w-full p-2 border rounded text-base bg-white dark:bg-gray-700 dark:border-gray-600 text-black dark:text-white">
+                </div>
+                <div>
+                    <label for="toLine" class="block mb-1">To Line:</label>
+                    <input type="number" id="toLine" min="1" step="1" value="100" class="w-full p-2 border rounded text-base bg-white dark:bg-gray-700 dark:border-gray-600 text-black dark:text-white">
+                </div>
+            </div>
+
+            <div class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Note: If To Line is larger than the actual number of lines, the program will simply extract until the end of the file.
+            </div>
+        </div>
+        
+        <!-- File Selection -->
+        <div class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <h2 class="text-lg font-semibold mb-2">Step 2: Select Files</h2>
+            <input type="file" id="logFiles" multiple class="block w-full text-base file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-primary/90">
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                You can select multiple files. Date Range mode supports log/date-based filtering. Line Numbers mode supports text files readable by Notepad.
+            </p>
+        </div>
+        
+        <!-- Date Format Configuration Management -->
+        <div id="dateConfigPanel" class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <h2 class="text-lg font-semibold mb-2">Date Format Configurations</h2>
+            <p class="text-sm mb-3">Date formats are automatically detected using AI, but you can also manage them manually.</p>
+            <div class="text-xs text-orange-600 dark:text-orange-400 mb-3">
+                <strong>Note:</strong> Configurations are only stored for the current session and will be lost when you close or refresh the page. 
+                Export your configurations if you need to save them for future use.
+            </div>
+            
+            <div class="flex flex-wrap gap-3 mb-3">
+                <button id="exportConfigBtn" class="py-1 px-3 bg-primary hover:bg-primary/90 text-white text-sm rounded">
+                    Export Configurations
+                </button>
+                <button id="importConfigBtn" class="py-1 px-3 bg-primary hover:bg-primary/90 text-white text-sm rounded">
+                    Import Configurations
+                </button>
+                <button id="clearConfigBtn" class="py-1 px-3 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded">
+                    Clear Configurations
+                </button>
+            </div>
+            
+            <div id="configStats" class="text-sm text-gray-600 dark:text-gray-400">
+                No saved configurations yet.
+            </div>
+            
+            <!-- Hidden file input for importing -->
+            <input type="file" id="importConfigFile" accept=".json" class="hidden">
+        </div>
+        
+        <!-- Process Button -->
+        <div class="mb-6">
+            <button id="processButton" class="w-full py-2 px-4 bg-primary hover:bg-primary/90 text-white font-semibold rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                Process Files
+            </button>
+        </div>
+        
+        <!-- Notification System -->
+        <div id="notificationArea" class="fixed top-4 right-4 left-4 z-50 transition-opacity duration-300 opacity-0 pointer-events-none">
+            <div id="notificationContent" class="p-4 rounded-lg shadow-lg max-w-md mx-auto flex items-center justify-between">
+                <span id="notificationMessage" class="text-sm"></span>
+                <button id="notificationClose" class="ml-2 text-lg font-bold">&times;</button>
+            </div>
+        </div>
+
+        <!-- Status and Progress -->
+        <div id="statusArea" class="mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg hidden">
+            <h2 class="text-lg font-semibold mb-2">Processing Status</h2>
+            <div id="processingStatus" class="text-sm"></div>
+            <div class="mt-2">
+                <div class="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="resultsSection" class="mb-6 hidden">
+            <h2 class="text-lg font-semibold mb-4">Filtered Results</h2>
+            <div id="fileResults" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <script>
+        // Check for dark mode preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Cache for date info to avoid redundant AI calls - using in-memory storage only
+        // Since localStorage is not available in the sandbox environment
+        let dateInfoCache = {
+            "SmarterTimeTimeslots.csv": {
+                "datePosition": "multiple positions: 'Day' column contains YYYYMMDD date, 'Timestamp UTC ms' column contains Unix timestamp in milliseconds, 'Time' column contains full datetime string with timezone",
+                "dateFormat": "EEE MMM dd HH:mm:ss z yyyy",
+                "dateRegex": "\"([A-Za-z]{3} [A-Za-z]{3} \\d{2} \\d{2}:\\d{2}:\\d{2} [A-Za-z\\+\\-\\d:]+ \\d{4})\"",
+                "recordType": "single-line",
+                "recordStartPattern": "^\\d{8},\\d+,"
+            },
+            "Diarium*.json": {
+                "datePosition": "JSON array records, each object has a date field",
+                "dateFormat": "YYYY-MM-DDTHH:mm:ss",
+                "dateRegex": "\"date\"\\s*:\\s*\"([^\"]+)\"",
+                "recordType": "json-array",
+                "recordStartPattern": ""
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const fromLineInput = document.getElementById('fromLine');
+            const toLineInput = document.getElementById('toLine');
+
+            const filterModeDate = document.getElementById('filterModeDate');
+            const filterModeLine = document.getElementById('filterModeLine');
+            const dateRangePanel = document.getElementById('dateRangePanel');
+            const lineRangePanel = document.getElementById('lineRangePanel');
+            const dateConfigPanel = document.getElementById('dateConfigPanel');
+
+            const logFilesInput = document.getElementById('logFiles');
+            const processButton = document.getElementById('processButton');
+            const statusArea = document.getElementById('statusArea');
+            const processingStatus = document.getElementById('processingStatus');
+            const progressBar = document.getElementById('progressBar');
+            const resultsSection = document.getElementById('resultsSection');
+            const fileResults = document.getElementById('fileResults');
+            const exportConfigBtn = document.getElementById('exportConfigBtn');
+            const importConfigBtn = document.getElementById('importConfigBtn');
+            const clearConfigBtn = document.getElementById('clearConfigBtn');
+            const importConfigFile = document.getElementById('importConfigFile');
+            const configStats = document.getElementById('configStats');
+            
+            // Notification elements
+            const notificationArea = document.getElementById('notificationArea');
+            const notificationContent = document.getElementById('notificationContent');
+            const notificationMessage = document.getElementById('notificationMessage');
+            const notificationClose = document.getElementById('notificationClose');
+            
+            // Notification system
+            let notificationTimeout;
+
+            function getSelectedFilterMode() {
+                return filterModeLine.checked ? 'line' : 'date';
+            }
+
+            function updateFilterModeUI() {
+                const mode = getSelectedFilterMode();
+
+                if (mode === 'date') {
+                    dateRangePanel.classList.remove('hidden');
+                    dateConfigPanel.classList.remove('hidden');
+                    lineRangePanel.classList.add('hidden');
+                } else {
+                    dateRangePanel.classList.add('hidden');
+                    dateConfigPanel.classList.add('hidden');
+                    lineRangePanel.classList.remove('hidden');
+                }
+            }
+
+            filterModeDate.addEventListener('change', updateFilterModeUI);
+            filterModeLine.addEventListener('change', updateFilterModeUI);
+            updateFilterModeUI();
+            
+            function showNotification(message, type = 'info', duration = 3000) {
+                if (notificationTimeout) {
+                    clearTimeout(notificationTimeout);
+                }
+                
+                notificationMessage.textContent = message;
+                notificationContent.className = 'p-4 rounded-lg shadow-lg max-w-md mx-auto flex items-center justify-between';
+                
+                if (type === 'error') {
+                    notificationContent.classList.add('bg-red-500', 'text-white');
+                } else if (type === 'success') {
+                    notificationContent.classList.add('bg-green-500', 'text-white');
+                } else if (type === 'warning') {
+                    notificationContent.classList.add('bg-yellow-500', 'text-white');
+                } else {
+                    notificationContent.classList.add('bg-primary', 'text-white');
+                }
+                
+                notificationArea.classList.remove('opacity-0', 'pointer-events-none');
+                notificationArea.classList.add('opacity-100', 'pointer-events-auto');
+                
+                notificationTimeout = setTimeout(() => {
+                    hideNotification();
+                }, duration);
+            }
+            
+            function hideNotification() {
+                notificationArea.classList.remove('opacity-100', 'pointer-events-auto');
+                notificationArea.classList.add('opacity-0', 'pointer-events-none');
+            }
+            
+            notificationClose.addEventListener('click', hideNotification);
+            
+            updateConfigStats();
+            
+            function updateStatus(message, progress = null) {
+                processingStatus.textContent = message;
+                if (progress !== null) {
+                    progressBar.style.width = `${progress}%`;
+                }
+            }
+            
+            function sampleCsvRows(content, sampleSize = 5) {
+                const lines = splitTextLines(content);
+                return lines.slice(0, Math.min(sampleSize, lines.length)).join('\n');
+            }
+            
+            function sampleLogLines(content, sampleSize = 20) {
+                const lines = splitTextLines(content);
+                return lines.slice(0, Math.min(sampleSize, lines.length)).join('\n');
+            }
+
+            function splitTextLines(content) {
+                return content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+            }
+
+            function getOriginalLineEnding(content) {
+                if (content.includes('\r\n')) return '\r\n';
+                if (content.includes('\r')) return '\r';
+                return '\n';
+            }
+
+            function isDiariumJsonFile(fileName, content = '') {
+                const diariumPattern = /^Diarium.*\.json$/i;
+                if (diariumPattern.test(fileName)) return true;
+
+                const trimmed = content.trim();
+                if (!fileName.toLowerCase().endsWith('.json')) return false;
+                return trimmed.startsWith('[') && trimmed.includes('"date"') && trimmed.includes('"heading"') && trimmed.includes('"html"');
+            }
+
+            function sanitizeDiariumRecords(records) {
+                return records.map(record => ({
+                    date: record.date ?? '',
+                    heading: record.heading ?? '',
+                    html: record.html ?? ''
+                }));
+            }
+
+            processButton.addEventListener('click', async function() {
+                const mode = getSelectedFilterMode();
+
+                if (logFilesInput.files.length === 0) {
+                    showNotification('Please select at least one file', 'error');
+                    return;
+                }
+
+                if (mode === 'date') {
+                    await processFilesByDateRange();
+                } else {
+                    await processFilesByLineRange();
+                }
+            });
+
+            async function processFilesByLineRange() {
+                const fromLine = parseInt(fromLineInput.value, 10);
+                const toLine = parseInt(toLineInput.value, 10);
+
+                if (!Number.isInteger(fromLine) || !Number.isInteger(toLine)) {
+                    showNotification('Please enter valid line numbers', 'error');
+                    return;
+                }
+
+                if (fromLine < 1 || toLine < 1) {
+                    showNotification('Line numbers must be 1 or greater', 'error');
+                    return;
+                }
+
+                if (fromLine > toLine) {
+                    showNotification('From Line must be less than or equal to To Line', 'error');
+                    return;
+                }
+
+                statusArea.classList.remove('hidden');
+                resultsSection.classList.add('hidden');
+                fileResults.innerHTML = '';
+                processButton.disabled = true;
+
+                const files = logFilesInput.files;
+                const totalFiles = files.length;
+                let processedFiles = 0;
+
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    updateStatus(`Processing file ${i + 1} of ${totalFiles}: ${file.name}`, (processedFiles / totalFiles) * 100);
+
+                    try {
+                        const content = await readFileContent(file);
+
+                        updateStatus(`Extracting lines ${fromLine} to ${toLine} from ${file.name}...`, (processedFiles / totalFiles) * 100);
+
+                        const filteredData = filterTextByLineRange(content, fromLine, toLine);
+
+                        displayLogResults(file.name, filteredData, {
+                            filterMode: 'line',
+                            fromLine,
+                            toLine
+                        });
+
+                        processedFiles++;
+                        updateStatus(`Processed ${processedFiles} of ${totalFiles} files`, (processedFiles / totalFiles) * 100);
+                    } catch (error) {
+                        console.error(`Error processing ${file.name}:`, error);
+                        updateStatus(`Error processing ${file.name}: ${error.message}`, (processedFiles / totalFiles) * 100);
+                    }
+                }
+
+                resultsSection.classList.remove('hidden');
+                processButton.disabled = false;
+                updateStatus(`Completed processing ${processedFiles} of ${totalFiles} files`, 100);
+            }
+
+            async function processFilesByDateRange() {
+                if (!startDateInput.value || !endDateInput.value) {
+                    showNotification('Please select both start and end dates', 'error');
+                    return;
+                }
+                
+                const startDate = new Date(startDateInput.value);
+                startDate.setHours(0, 0, 0, 0);
+                
+                const endDate = new Date(endDateInput.value);
+                endDate.setHours(23, 59, 59, 999);
+                
+                if (startDate > endDate) {
+                    showNotification('Start date must be before end date', 'error');
+                    return;
+                }
+                
+                statusArea.classList.remove('hidden');
+                resultsSection.classList.add('hidden');
+                fileResults.innerHTML = '';
+                processButton.disabled = true;
+                
+                const files = logFilesInput.files;
+                const totalFiles = files.length;
+                let processedFiles = 0;
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    updateStatus(`Processing file ${i + 1} of ${totalFiles}: ${file.name}`, (processedFiles / totalFiles) * 100);
+                    
+                    try {
+                        const content = await readFileContent(file);
+
+                        if (isDiariumJsonFile(file.name, content)) {
+                            updateStatus(`Filtering Diarium JSON for ${file.name}...`, (processedFiles / totalFiles) * 100);
+                            const filteredData = await filterDiariumJsonByDateRange(content, startDate, endDate);
+                            const diariumLogInfo = {
+                                dateFormat: 'YYYY-MM-DDTHH:mm:ss',
+                                recordType: 'json-array',
+                                datePosition: 'JSON object field: date'
+                            };
+                            displayLogResults(file.name, filteredData, diariumLogInfo);
+                        } else {
+                            const sampleContent = sampleLogLines(content);
+                            updateStatus(`Analyzing log format for ${file.name}...`, (processedFiles / totalFiles) * 100);
+                            const logInfo = await getLogInfoFromAI(sampleContent, file.name);
+                            
+                            updateStatus(`Filtering records for ${file.name}...`, (processedFiles / totalFiles) * 100);
+                            const filteredData = await filterLogByDateRange(content, logInfo, startDate, endDate);
+                            
+                            displayLogResults(file.name, filteredData, logInfo);
+                        }
+                        
+                        processedFiles++;
+                        updateStatus(`Processed ${processedFiles} of ${totalFiles} files`, (processedFiles / totalFiles) * 100);
+                    } catch (error) {
+                        console.error(`Error processing ${file.name}:`, error);
+                        updateStatus(`Error processing ${file.name}: ${error.message}`, (processedFiles / totalFiles) * 100);
+                    }
+                }
+                
+                resultsSection.classList.remove('hidden');
+                processButton.disabled = false;
+                updateStatus(`Completed processing ${processedFiles} of ${totalFiles} files`, 100);
+            }
+            
+            function readFileContent(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.onerror = () => reject(new Error('Error reading file'));
+                    reader.readAsText(file);
+                });
+            }
+
+            function filterTextByLineRange(content, fromLine, toLine) {
+                const originalLineEnding = getOriginalLineEnding(content);
+                const lines = splitTextLines(content);
+                const totalLines = lines.length;
+
+                const startIndex = Math.max(fromLine - 1, 0);
+                const endIndexExclusive = Math.min(toLine, totalLines);
+
+                const selectedLines = lines.slice(startIndex, endIndexExclusive);
+
+                return {
+                    records: selectedLines,
+                    totalRecords: totalLines,
+                    filteredCount: selectedLines.length,
+                    outputType: 'line-range',
+                    fromLine,
+                    toLine,
+                    actualFromLine: selectedLines.length > 0 ? fromLine : null,
+                    actualToLine: selectedLines.length > 0 ? Math.min(toLine, totalLines) : null,
+                    lineEnding: originalLineEnding
+                };
+            }
+
+            function filterDiariumJsonByDateRange(content, startDate, endDate) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const parsed = JSON.parse(content);
+
+                        if (!Array.isArray(parsed)) {
+                            throw new Error('Diarium JSON must be an array');
+                        }
+
+                        const filteredRecords = parsed.filter(item => {
+                            if (!item || typeof item !== 'object' || !item.date) return false;
+                            const recordDate = new Date(item.date);
+                            if (isNaN(recordDate.getTime())) return false;
+                            return recordDate >= startDate && recordDate <= endDate;
+                        });
+
+                        const sanitizedRecords = sanitizeDiariumRecords(filteredRecords);
+
+                        resolve({
+                            records: sanitizedRecords,
+                            totalRecords: parsed.length,
+                            filteredCount: sanitizedRecords.length,
+                            outputType: 'diarium-json'
+                        });
+                    } catch (error) {
+                        reject(new Error(`Error filtering Diarium JSON: ${error.message}`));
+                    }
+                });
+            }
+            
+            async function getLogInfoFromAI(sampleContent, fileName) {
+                const cacheKey = getCacheKeyForFile(fileName);
+                
+                if (dateInfoCache[cacheKey]) {
+                    console.log(`Using cached log format info for ${fileName}`);
+                    return dateInfoCache[cacheKey];
+                }
+                
+                const patternMatch = findPatternMatch(fileName);
+                if (patternMatch) {
+                    console.log(`Using pattern match log format for ${fileName} from pattern ${patternMatch.pattern}`);
+                    return patternMatch.dateInfo;
+                }
+                
+                const prompt = `@Claude-3.7-Sonnet 
+I have a log file named "${fileName}". Here are the first few lines as a sample:
+
+\`\`\`
+${sampleContent}
+\`\`\`
+
+Please analyze this log file and tell me:
+1. Where is the datetime information in each log entry?
+2. What is the format of the datetime (e.g., MM/DD/YYYY HH:MM:SS AM/PM, YYYY-MM-DD HH:MM:SS, etc.)?
+3. How do I identify individual log records? Is each line a separate record or are there multi-line records?
+4. If multi-line records, what pattern identifies the start of a new record?
+
+It's important that you identify time information down to the second if it exists in the log. Pay special attention to AM/PM indicators if present, as these are critical for proper 12-hour time formatting.
+
+Provide ONLY raw JSON in your response with no explanations, additional text, or code block formatting (no \`\`\`). Format:
+{
+  "datePosition": "description of date position (e.g., 'at start of line', 'inside <time> tag', etc.)",
+  "dateFormat": "format_string",
+  "dateRegex": "regular expression to extract the date string",
+  "recordType": "single-line" or "multi-line",
+  "recordStartPattern": "regex pattern that identifies the start of a new record (needed for multi-line)"
+}`;
+
+                try {
+                    const handlerId = `log-info-${Date.now()}`;
+                    let aiResponse = '';
+                    
+                    return new Promise((resolve, reject) => {
+                        window.Poe.registerHandler(handlerId, (result) => {
+                            try {
+                                const msg = result.responses[0];
+                                
+                                if (msg.status === "error") {
+                                    reject(new Error(msg.statusText || "AI analysis failed"));
+                                } else if (msg.status === "complete") {
+                                    aiResponse = msg.content;
+                                    try {
+                                        let jsonStr = aiResponse;
+                                        
+                                        if (jsonStr.includes('```json')) {
+                                            jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```/, '');
+                                        } else if (jsonStr.includes('```')) {
+                                            jsonStr = jsonStr.replace(/```\s*/, '').replace(/\s*```/, '');
+                                        }
+                                        
+                                        const logInfo = JSON.parse(jsonStr);
+                                        
+                                        console.log(`AI identified log format:`, logInfo);
+                                        
+                                        dateInfoCache[cacheKey] = logInfo;
+                                        saveDateInfoCache();
+                                        updateConfigStats();
+                                        
+                                        resolve(logInfo);
+                                    } catch (parseError) {
+                                        console.error("Failed to parse AI response:", aiResponse, parseError);
+                                        reject(new Error("Invalid response format from AI"));
+                                    }
+                                }
+                            } catch (err) {
+                                reject(err);
+                            }
+                        });
+                        
+                        window.Poe.sendUserMessage(prompt, {
+                            handler: handlerId,
+                            stream: false,
+                            openChat: false
+                        }).catch(err => {
+                            reject(new Error(`Failed to communicate with AI: ${err.message}`));
+                        });
+                    });
+                } catch (error) {
+                    console.error("AI analysis error:", error);
+                    throw new Error(`AI analysis failed: ${error.message}`);
+                }
+            }
+            
+            function getCacheKeyForFile(fileName) {
+                return fileName.trim();
+            }
+            
+            function escapeRegExp(str) {
+                return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            function wildcardToRegExp(pattern) {
+                const escaped = escapeRegExp(pattern)
+                    .replace(/\\\*/g, '.*')
+                    .replace(/\\\?/g, '.');
+
+                return new RegExp('^' + escaped + '$', 'i');
+            }
+            
+            function findPatternMatch(fileName) {
+                const filePatterns = Object.keys(dateInfoCache)
+                    .filter(key => key.includes('*') || key.includes('?'));
+                
+                for (const pattern of filePatterns) {
+                    const regex = wildcardToRegExp(pattern);
+                    if (regex.test(fileName)) {
+                        return { pattern, dateInfo: dateInfoCache[pattern] };
+                    }
+                }
+                
+                const baseFileName = fileName.replace(/\(\d+\)(?=\.[^.]+$|$)/, '');
+                if (baseFileName !== fileName && dateInfoCache[baseFileName]) {
+                    console.log(`Found smart match: ${fileName} → ${baseFileName}`);
+                    return { pattern: baseFileName, dateInfo: dateInfoCache[baseFileName] };
+                }
+                
+                const fileNameWithoutExt = fileName.replace(/\.[^.]+$/, '');
+                const baseNameWithoutNumbers = fileNameWithoutExt.replace(/\(\d+\)$/, '');
+                
+                for (const cacheKey of Object.keys(dateInfoCache)) {
+                    const cacheKeyWithoutExt = cacheKey.replace(/\.[^.]+$/, '');
+                    if (cacheKeyWithoutExt === baseNameWithoutNumbers || 
+                        baseNameWithoutNumbers === cacheKeyWithoutExt.replace(/\(\d+\)$/, '')) {
+                        console.log(`Found similar match: ${fileName} → ${cacheKey}`);
+                        return { pattern: cacheKey, dateInfo: dateInfoCache[cacheKey] };
+                    }
+                }
+                
+                return null;
+            }
+            
+            function saveDateInfoCache() {
+                updateConfigStats();
+                console.log('Updated in-memory date info cache');
+            }
+            
+            function updateConfigStats() {
+                const count = Object.keys(dateInfoCache).length;
+                if (count === 0) {
+                    configStats.textContent = 'No saved configurations yet.';
+                    return;
+                }
+                
+                const exactConfigs = Object.keys(dateInfoCache).filter(k => !k.includes('*') && !k.includes('?')).length;
+                const patternConfigs = count - exactConfigs;
+                
+                configStats.innerHTML = `${count} saved configuration${count !== 1 ? 's' : ''} ` +
+                    `(${exactConfigs} exact, ${patternConfigs} pattern${patternConfigs !== 1 ? 's' : ''})`;
+            }
+            
+            function exportConfigurations() {
+                try {
+                    if (Object.keys(dateInfoCache).length === 0) {
+                        showNotification('No configurations to export', 'warning');
+                        return;
+                    }
+                    
+                    const dataStr = JSON.stringify(dateInfoCache, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.download = 'csv_date_formats.json';
+                    link.href = url;
+                    link.click();
+                    
+                    setTimeout(() => {
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                    
+                    showNotification('Configurations exported successfully', 'success');
+                } catch (e) {
+                    console.error('Error exporting configurations:', e);
+                    showNotification('Error exporting configurations: ' + e.message, 'error');
+                }
+            }
+            
+            function importConfigurations(file) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const reader = new FileReader();
+
+                        reader.onload = function(e) {
+                            try {
+                                const configurations = JSON.parse(e.target.result);
+                                
+                                let isValid = true;
+
+                                Object.entries(configurations).forEach(([key, value]) => {
+                                    if (!value.dateFormat || (!value.dateRegex && !value.dateColumn && value.recordType !== 'json-array')) {
+                                        console.log('Invalid configuration format for key:', key, 'value:', value);
+                                        isValid = false;
+                                    }
+                                });
+                                
+                                if (!isValid) {
+                                    reject(new Error('Invalid configuration format - Missing required fields (dateFormat and dateRegex or dateColumn)'));
+                                    return;
+                                }
+                                
+                                dateInfoCache = { ...dateInfoCache, ...configurations };
+                                saveDateInfoCache();
+                                updateConfigStats();
+                                
+                                resolve({
+                                    count: Object.keys(configurations).length
+                                });
+                            } catch (parseError) {
+                                reject(new Error('Invalid JSON file: ' + parseError.message));
+                            }
+                        };
+
+                        reader.onerror = () => reject(new Error('Failed to read file'));
+                        reader.readAsText(file);
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            }
+            
+            function addPatternConfiguration(pattern, dateColumn, dateFormat) {
+                if (!pattern || !dateColumn || !dateFormat) {
+                    return false;
+                }
+                
+                dateInfoCache[pattern] = {
+                    dateColumn,
+                    dateFormat
+                };
+                
+                saveDateInfoCache();
+                updateConfigStats();
+                return true;
+            }
+            
+            function filterLogByDateRange(logContent, logInfo, startDate, endDate) {
+                return new Promise((resolve, reject) => {
+                    try {
+                        console.log(`Filtering with log format:`, logInfo);
+                        console.log(`Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+                        
+                        const normalizedStartDate = new Date(startDate);
+                        const normalizedEndDate = new Date(endDate);
+                        
+                        const parsedResult = parseLogIntoRecords(logContent, logInfo);
+                        const recordsArray = parsedResult.records;
+                        const headerLine = parsedResult.headerLine;
+                        
+                        console.log(`Parsed ${recordsArray.length} log records, Header:`, headerLine);
+                        
+                        let successfullyParsedDates = 0;
+                        let totalRecords = recordsArray.length;
+                        
+                        const filteredRecords = recordsArray.filter((record, index) => {
+                            let dateMatch;
+
+                            try {
+                                const dateRegex = new RegExp(logInfo.dateRegex);
+                                dateMatch = record.match(dateRegex);
+                            } catch (error) {
+                                console.error("Error with date regex:", error);
+                                return false;
+                            }
+                            
+                            if (!dateMatch || !(dateMatch[1] || dateMatch[0])) {
+                                if (index < 5) {
+                                    console.log(`No date match in record: ${record.substring(0, 100)}...`);
+                                }
+                                return false;
+                            }
+                            
+                            const dateStr = dateMatch[1] || dateMatch[0];
+                            const recordDate = parseLogDate(dateStr, logInfo.dateFormat);
+                            
+                            if (!recordDate) {
+                                if (index < 5) {
+                                    console.log(`Failed to parse date: "${dateStr}" with format "${logInfo.dateFormat}"`);
+                                }
+                                return false;
+                            }
+                            
+                            successfullyParsedDates++;
+                            
+                            const inRange = recordDate >= normalizedStartDate && recordDate <= normalizedEndDate;
+                            
+                            if (index < 5 || inRange) {
+                                console.log(`Record date: ${recordDate.toISOString()} - In range: ${inRange} - Value: "${dateStr}"`);
+                                console.log(`  Comparing: ${recordDate.getTime()} >= ${normalizedStartDate.getTime()} && ${recordDate.getTime()} <= ${normalizedEndDate.getTime()}`);
+                            }
+                            
+                            return inRange;
+                        });
+                        
+                        console.log(`Successfully parsed ${successfullyParsedDates} dates out of ${totalRecords} records`);
+                        console.log(`Found ${filteredRecords.length} records in date range`);
+                        
+                        if (headerLine && filteredRecords.length > 0) {
+                            filteredRecords.unshift(headerLine);
+                        }
+                        
+                        resolve({
+                            records: filteredRecords,
+                            totalRecords: recordsArray.length,
+                            filteredCount: filteredRecords.length - (headerLine ? 1 : 0),
+                            outputType: 'date-range'
+                        });
+                    } catch (error) {
+                        console.error("Error in filterLogByDateRange:", error);
+                        reject(new Error(`Error filtering log: ${error.message}`));
+                    }
+                });
+            }
+            
+            function parseLogIntoRecords(logContent, logInfo) {
+                try {
+                    const lines = splitTextLines(logContent);
+                    const isCSV = lines.length > 0 && lines[0].includes(',');
+                    let headerLine = null;
+                    
+                    if (isCSV && lines.length > 0) {
+                        const firstLine = lines[0];
+                        
+                        try {
+                            if (logInfo.dateRegex) {
+                                const dateRegex = new RegExp(logInfo.dateRegex);
+                                const dateMatch = firstLine.match(dateRegex);
+                                
+                                if (!dateMatch || !dateMatch[0]) {
+                                    headerLine = firstLine;
+                                    console.log('Detected header line:', headerLine);
+                                }
+                            }
+                        } catch (e) {
+                            console.log('Error checking header line:', e);
+                        }
+                    }
+                    
+                    if (logInfo.recordType === 'single-line') {
+                        let records = lines.filter(line => line.trim().length > 0);
+
+                        if (headerLine) {
+                            records = records.filter((line, index) => !(index === 0 && line === headerLine));
+                        }
+                        
+                        return {
+                            records: records,
+                            headerLine: headerLine
+                        };
+                    } else if (logInfo.recordType === 'multi-line') {
+                        const records = [];
+                        let currentRecord = '';
+                        
+                        let recordStartRegex;
+
+                        try {
+                            recordStartRegex = new RegExp(logInfo.recordStartPattern);
+                        } catch (error) {
+                            console.error("Invalid record start pattern regex:", error);
+                            throw new Error(`Invalid record start pattern: ${error.message}`);
+                        }
+                        
+                        const startIndex = headerLine ? 1 : 0;
+                        
+                        for (let i = startIndex; i < lines.length; i++) {
+                            const line = lines[i];
+
+                            if (recordStartRegex.test(line) && currentRecord.trim().length > 0) {
+                                records.push(currentRecord.trim());
+                                currentRecord = line + '\n';
+                            } else {
+                                currentRecord += line + '\n';
+                            }
+                        }
+                        
+                        if (currentRecord.trim().length > 0) {
+                            records.push(currentRecord.trim());
+                        }
+                        
+                        return {
+                            records: records,
+                            headerLine: headerLine
+                        };
+                    } else if (logInfo.recordType === 'json-array') {
+                        return {
+                            records: [],
+                            headerLine: null
+                        };
+                    } else {
+                        throw new Error(`Unknown record type: ${logInfo.recordType}`);
+                    }
+                } catch (error) {
+                    console.error("Error parsing log into records:", error);
+                    throw error;
+                }
+            }
+            
+            function parseLogDate(dateStr, dateFormat) {
+                try {
+                    dateStr = dateStr.trim();
+                    
+                    const patterns = {
+                        isoLike: /(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s](\d{1,2}):(\d{1,2}):(\d{1,2})(?:\.(\d+))?(?:\s*(?:Z|UTC|GMT|([+-]\d{2}:?\d{2})))?)?/,
+                        american: /(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(AM|PM))?)?/i,
+                        european: /(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/i,
+                        logFormat: /([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/i,
+                        withAmPm: /(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?(?:\s*(AM|PM))?)?/i,
+                        unixMs: /^\d{13}$/,
+                        unixSec: /^\d{10}$/
+                    };
+                    
+                    let match;
+                    let date;
+                    const upperFormat = dateFormat.toUpperCase();
+                    
+                    const excelImportPattern = /(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s+(\d{1,2}):(\d{1,2}):(\d{1,2})\s+(AM|PM)/i;
+                    match = dateStr.match(excelImportPattern);
+
+                    if (match) {
+                        const [_, year, month, day, hour, minute, second, ampm] = match;
+                        let hours = parseInt(hour, 10);
+                        
+                        if (ampm.toUpperCase() === 'PM' && hours < 12) {
+                            hours += 12;
+                        } else if (ampm.toUpperCase() === 'AM' && hours === 12) {
+                            hours = 0;
+                        }
+                        
+                        date = new Date(
+                            parseInt(year, 10),
+                            parseInt(month, 10) - 1,
+                            parseInt(day, 10),
+                            hours,
+                            parseInt(minute, 10),
+                            parseInt(second, 10)
+                        );
+                        
+                        console.log(`Parsed excel log date: "${dateStr}" → ${date.toISOString()} (${ampm.toUpperCase()} format, converted hour ${hour} to ${hours})`);
+                        return date;
+                    }
+                    
+                    if (patterns.unixMs.test(dateStr)) {
+                        return new Date(parseInt(dateStr, 10));
+                    } else if (patterns.unixSec.test(dateStr)) {
+                        return new Date(parseInt(dateStr, 10) * 1000);
+                    }
+                    
+                    if (upperFormat.includes('YYYY') && 
+                        upperFormat.includes('MM') && 
+                        upperFormat.includes('DD') &&
+                        (upperFormat.indexOf('YYYY') < upperFormat.indexOf('MM') && 
+                         upperFormat.indexOf('MM') < upperFormat.indexOf('DD'))) {
+                        match = dateStr.match(patterns.isoLike);
+
+                        if (match) {
+                            const [_, year, month, day, hour = '0', minute = '0', second = '0', ms = '0'] = match;
+
+                            date = new Date(
+                                parseInt(year, 10),
+                                parseInt(month, 10) - 1,
+                                parseInt(day, 10),
+                                parseInt(hour, 10),
+                                parseInt(minute, 10),
+                                parseInt(second, 10),
+                                parseInt(ms.substring(0, 3).padEnd(3, '0'), 10)
+                            );
+                        }
+                    } else if (upperFormat.includes('MM') && 
+                             upperFormat.includes('DD') && 
+                             upperFormat.includes('YYYY') &&
+                             (upperFormat.indexOf('MM') < upperFormat.indexOf('DD') && 
+                              upperFormat.indexOf('DD') < upperFormat.indexOf('YYYY'))) {
+                        match = dateStr.match(patterns.american);
+
+                        if (match) {
+                            const [_, month, day, year, hour = '0', minute = '0', second = '0', ampm = ''] = match;
+                            let hours = parseInt(hour, 10);
+                            
+                            if (ampm && (ampm.toUpperCase() === 'PM') && hours < 12) {
+                                hours += 12;
+                            } else if (ampm && (ampm.toUpperCase() === 'AM') && hours === 12) {
+                                hours = 0;
+                            }
+                            
+                            date = new Date(
+                                parseInt(year, 10),
+                                parseInt(month, 10) - 1,
+                                parseInt(day, 10),
+                                hours,
+                                parseInt(minute, 10),
+                                parseInt(second, 10)
+                            );
+                        }
+                    } else if (upperFormat.includes('MMM') && 
+                             upperFormat.includes('DD') && 
+                             upperFormat.includes('YYYY')) {
+                        match = dateStr.match(patterns.european);
+
+                        if (match) {
+                            const [_, day, monthStr, year, hour = '0', minute = '0', second = '0'] = match;
+                            const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+                            const month = monthNames.indexOf(monthStr.toLowerCase().substring(0, 3));
+                            
+                            if (month !== -1) {
+                                date = new Date(
+                                    parseInt(year, 10),
+                                    month,
+                                    parseInt(day, 10),
+                                    parseInt(hour, 10),
+                                    parseInt(minute, 10),
+                                    parseInt(second, 10)
+                                );
+                            }
+                        }
+                    } else if (upperFormat.includes('AM/PM') || upperFormat.includes('A/P')) {
+                        match = dateStr.match(patterns.withAmPm);
+
+                        if (match) {
+                            const [_, first, second, third, hour = '0', minute = '0', second_ = '0', ampm = ''] = match;
+                            
+                            let month, day, year;
+
+                            if (upperFormat.indexOf('MM') < upperFormat.indexOf('DD') && 
+                                upperFormat.indexOf('DD') < upperFormat.indexOf('YYYY')) {
+                                month = first;
+                                day = second;
+                                year = third;
+                            } else if (upperFormat.indexOf('DD') < upperFormat.indexOf('MM') && 
+                                       upperFormat.indexOf('MM') < upperFormat.indexOf('YYYY')) {
+                                day = first;
+                                month = second;
+                                year = third;
+                            } else {
+                                month = first;
+                                day = second;
+                                year = third;
+                            }
+                            
+                            let hours = parseInt(hour, 10);
+                            
+                            if (ampm && (ampm.toUpperCase() === 'PM') && hours < 12) {
+                                hours += 12;
+                            } else if (ampm && (ampm.toUpperCase() === 'AM') && hours === 12) {
+                                hours = 0;
+                            }
+                            
+                            date = new Date(
+                                parseInt(year, 10),
+                                parseInt(month, 10) - 1,
+                                parseInt(day, 10),
+                                hours,
+                                parseInt(minute, 10),
+                                parseInt(second_, 10)
+                            );
+                        }
+                    }
+                    
+                    if (!date || isNaN(date.getTime())) {
+                        date = new Date(dateStr);
+                    }
+                    
+                    if (!isNaN(date.getTime())) {
+                        return date;
+                    }
+                    
+                    console.warn(`Failed to parse date: "${dateStr}" with format "${dateFormat}"`);
+                    return null;
+                } catch (e) {
+                    console.error(`Error parsing date: "${dateStr}" with format "${dateFormat}"`, e);
+                    return null;
+                }
+            }
+            
+            function parseDate(dateStr, format) {
+                try {
+                    if (!dateStr) return null;
+                    
+                    dateStr = dateStr.trim();
+                    
+                    let year, month, day;
+                    const lowerFormat = format.toLowerCase();
+                    
+                    const normalizedFormat = lowerFormat
+                        .replace(/yyyy/g, 'YYYY')
+                        .replace(/mm/g, 'MM')
+                        .replace(/dd/g, 'DD');
+                    
+                    console.log(`Parsing date: "${dateStr}" with format: "${normalizedFormat}"`);
+                    
+                    if (normalizedFormat === 'yyyymmdd' || normalizedFormat === 'YYYYMMDD') {
+                        if (dateStr.length === 8) {
+                            year = parseInt(dateStr.substring(0, 4), 10);
+                            month = parseInt(dateStr.substring(4, 6), 10) - 1;
+                            day = parseInt(dateStr.substring(6, 8), 10);
+                            console.log(`Parsed YYYYMMDD: year=${year}, month=${month + 1}, day=${day}`);
+                        }
+                    } else {
+                        let separator = '-';
+
+                        if (dateStr.includes('/')) separator = '/';
+                        else if (dateStr.includes('.')) separator = '.';
+                        else if (dateStr.includes('-')) separator = '-';
+                        
+                        const parts = dateStr.split(separator);
+                        
+                        if (/YYYY[-\/\.]MM[-\/\.]DD/.test(normalizedFormat)) {
+                            if (parts.length === 3) {
+                                year = parseInt(parts[0], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                day = parseInt(parts[2], 10);
+                            }
+                        } else if (/MM[-\/\.]DD[-\/\.]YYYY/.test(normalizedFormat)) {
+                            if (parts.length === 3) {
+                                month = parseInt(parts[0], 10) - 1;
+                                day = parseInt(parts[1], 10);
+                                year = parseInt(parts[2], 10);
+                            }
+                        } else if (/DD[-\/\.]MM[-\/\.]YYYY/.test(normalizedFormat)) {
+                            if (parts.length === 3) {
+                                day = parseInt(parts[0], 10);
+                                month = parseInt(parts[1], 10) - 1;
+                                year = parseInt(parts[2], 10);
+                            }
+                        } else if (/M[-\/\.]D[-\/\.]YYYY/.test(normalizedFormat)) {
+                            if (parts.length === 3) {
+                                month = parseInt(parts[0], 10) - 1;
+                                day = parseInt(parts[1], 10);
+                                year = parseInt(parts[2], 10);
+                            }
+                        }
+                    }
+                    
+                    if (year && !isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                        const parsedDate = new Date(year, month, day, 12, 0, 0);
+                        
+                        if (parsedDate.getFullYear() === year && 
+                            parsedDate.getMonth() === month && 
+                            parsedDate.getDate() === day) {
+                            console.log(`Successfully parsed date: ${parsedDate.toISOString().split('T')[0]}`);
+                            return parsedDate;
+                        }
+                    }
+                    
+                    const fallbackDate = new Date(dateStr);
+
+                    if (!isNaN(fallbackDate.getTime())) {
+                        fallbackDate.setHours(12, 0, 0, 0);
+                        console.log(`Fallback parsed date: ${fallbackDate.toISOString().split('T')[0]}`);
+                        return fallbackDate;
+                    }
+                    
+                    console.warn(`Failed to parse date: "${dateStr}" with format "${format}"`);
+                    return null;
+                } catch (e) {
+                    console.warn(`Error parsing date: "${dateStr}" with format "${format}"`, e);
+                    return null;
+                }
+            }
+            
+            function setDateRange(rangeType) {
+                const today = new Date();
+                let startDate = new Date();
+                let endDate = new Date();
+                
+                switch (rangeType) {
+                    case 'last-week':
+                        const dayOfWeek = today.getDay();
+                        const daysSinceLastSunday = dayOfWeek === 0 ? 7 : dayOfWeek;
+                        const lastSunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysSinceLastSunday);
+                        const lastMonday = new Date(lastSunday.getFullYear(), lastSunday.getMonth(), lastSunday.getDate() - 6);
+
+                        startDate = new Date(lastMonday.getFullYear(), lastMonday.getMonth(), lastMonday.getDate(), 0, 0, 0);
+                        endDate = new Date(lastSunday.getFullYear(), lastSunday.getMonth(), lastSunday.getDate(), 23, 59, 59);
+                        break;
+
+                    case 'this-month':
+                        startDate = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+                        break;
+                        
+                    case 'last-month':
+                        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59);
+                        break;
+                        
+                    case 'last-3-months':
+                        startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+                        break;
+                        
+                    case 'last-6-months':
+                        startDate = new Date(today.getFullYear(), today.getMonth() - 6, 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+                        break;
+                        
+                    case 'this-year':
+                        startDate = new Date(today.getFullYear(), 0, 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), 11, 31, 23, 59, 59);
+                        break;
+                        
+                    case 'last-year':
+                        startDate = new Date(today.getFullYear() - 1, 0, 1, 0, 0, 0);
+                        endDate = new Date(today.getFullYear() - 1, 11, 31, 23, 59, 59);
+                        break;
+                        
+                    case 'last-24-hours':
+                        startDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                        endDate = new Date();
+                        break;
+                        
+                    case 'today':
+                        startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
+                        endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+                        break;
+                }
+                
+                startDateInput.value = formatDateTimeForInput(startDate);
+                endDateInput.value = formatDateTimeForInput(endDate);
+            }
+            
+            function formatDateTimeForInput(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+
+                return `${year}-${month}-${day}`;
+            }
+            
+            function formatDateForInput(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+
+                return `${year}-${month}-${day}`;
+            }
+            
+            document.querySelectorAll('.quick-date-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const rangeType = this.getAttribute('data-range');
+                    setDateRange(rangeType);
+                });
+            });
+            
+            startDateInput.addEventListener('change', function() {
+                if (this.value) {
+                    endDateInput.value = this.value;
+                }
+            });
+            
+            exportConfigBtn.addEventListener('click', exportConfigurations);
+            
+            importConfigBtn.addEventListener('click', () => {
+                importConfigFile.click();
+            });
+            
+            importConfigFile.addEventListener('change', async (event) => {
+                if (event.target.files.length === 0) return;
+                
+                try {
+                    const file = event.target.files[0];
+                    const result = await importConfigurations(file);
+                    showNotification(`Successfully imported ${result.count} configuration(s)`, 'success');
+                } catch (error) {
+                    showNotification(`Error importing configurations: ${error.message}`, 'error');
+                }
+                
+                event.target.value = '';
+            });
+            
+            const modalContainer = document.createElement('div');
+
+            modalContainer.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0 pointer-events-none';
+            modalContainer.innerHTML = `
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                    <h3 class="text-lg font-semibold mb-4" id="modalTitle">Confirmation</h3>
+                    <p class="mb-6" id="modalMessage">Are you sure?</p>
+                    <div class="flex justify-end gap-3">
+                        <button id="modalCancel" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500">Cancel</button>
+                        <button id="modalConfirm" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Confirm</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modalContainer);
+            
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const modalConfirm = document.getElementById('modalConfirm');
+            const modalCancel = document.getElementById('modalCancel');
+            
+            function showConfirmDialog(message, title = 'Confirmation') {
+                return new Promise((resolve) => {
+                    modalTitle.textContent = title;
+                    modalMessage.textContent = message;
+                    
+                    modalContainer.classList.remove('opacity-0', 'pointer-events-none');
+                    modalContainer.classList.add('opacity-100', 'pointer-events-auto');
+                    
+                    const confirmHandler = () => {
+                        hideModal();
+                        resolve(true);
+                    };
+                    
+                    const cancelHandler = () => {
+                        hideModal();
+                        resolve(false);
+                    };
+                    
+                    modalConfirm.replaceWith(modalConfirm.cloneNode(true));
+                    modalCancel.replaceWith(modalCancel.cloneNode(true));
+                    
+                    const newModalConfirm = document.getElementById('modalConfirm');
+                    const newModalCancel = document.getElementById('modalCancel');
+                    
+                    newModalConfirm.addEventListener('click', confirmHandler);
+                    newModalCancel.addEventListener('click', cancelHandler);
+                    
+                    const outsideClickHandler = (e) => {
+                        if (e.target === modalContainer) {
+                            hideModal();
+                            resolve(false);
+                        }
+                    };
+                    
+                    modalContainer.addEventListener('click', outsideClickHandler, { once: true });
+                });
+            }
+            
+            function hideModal() {
+                modalContainer.classList.remove('opacity-100', 'pointer-events-auto');
+                modalContainer.classList.add('opacity-0', 'pointer-events-none');
+            }
+            
+            clearConfigBtn.addEventListener('click', async function() {
+                const confirmed = await showConfirmDialog(
+                    'Are you sure you want to clear all date format configurations?', 
+                    'Clear Configurations'
+                );
+                
+                if (confirmed) {
+                    dateInfoCache = {};
+                    saveDateInfoCache();
+                    updateConfigStats();
+                    showNotification('All configurations cleared', 'success');
+                }
+            });
+            
+            function displayLogResults(fileName, filteredData, logInfo) {
+                const fileCard = document.createElement('div');
+                fileCard.className = 'p-4 bg-gray-100 dark:bg-gray-800 rounded-lg';
+                
+                const fileHeader = document.createElement('h3');
+                fileHeader.className = 'font-semibold mb-2';
+                fileHeader.textContent = fileName;
+                
+                const fileSummary = document.createElement('div');
+                fileSummary.className = 'text-sm mb-3';
+
+                if (filteredData.outputType === 'line-range') {
+                    fileSummary.textContent = `Extracted ${filteredData.filteredCount} lines from line ${filteredData.actualFromLine ?? '-'} to ${filteredData.actualToLine ?? '-'} (out of ${filteredData.totalRecords} total lines)`;
+                } else {
+                    fileSummary.textContent = `Found ${filteredData.filteredCount} records in date range (out of ${filteredData.totalRecords} total)`;
+                }
+                
+                if (logInfo) {
+                    const logInfoText = document.createElement('p');
+                    logInfoText.className = 'text-xs text-gray-500 dark:text-gray-400 mt-2';
+
+                    if (filteredData.outputType === 'line-range') {
+                        logInfoText.textContent = `Filter mode: Line Numbers, requested lines ${logInfo.fromLine} to ${logInfo.toLine}`;
+                    } else {
+                        logInfoText.textContent = `Log format: ${logInfo.dateFormat} (${logInfo.recordType}) - ${logInfo.datePosition}`;
+                    }
+
+                    fileSummary.appendChild(logInfoText);
+                }
+                
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex flex-wrap gap-2 mb-3';
+                
+                const downloadButton = document.createElement('button');
+                downloadButton.className = 'py-1 px-3 bg-primary hover:bg-primary/90 text-white text-sm rounded';
+                downloadButton.textContent = 'Download Filtered Results';
+                downloadButton.addEventListener('click', () => {
+                    downloadFilteredLog(fileName, filteredData);
+                });
+                
+                buttonContainer.appendChild(downloadButton);
+                
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'mt-3 overflow-auto';
+                
+                if (filteredData.records.length > 0) {
+                    const previewContainer = document.createElement('div');
+                    previewContainer.className = 'bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-300 dark:border-gray-700';
+                    
+                    if (filteredData.outputType === 'diarium-json') {
+                        const logPre = document.createElement('pre');
+                        logPre.className = 'text-xs whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200 overflow-x-auto';
+                        const previewRecords = filteredData.records.slice(0, 5);
+                        logPre.textContent = JSON.stringify(previewRecords, null, 2);
+                        previewContainer.appendChild(logPre);
+                    } else if (filteredData.outputType === 'line-range') {
+                        const logPre = document.createElement('pre');
+                        logPre.className = 'text-xs whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200 overflow-x-auto';
+                        const previewRecords = filteredData.records.slice(0, 20);
+                        logPre.textContent = previewRecords.join(filteredData.lineEnding || '\n');
+                        previewContainer.appendChild(logPre);
+                    } else {
+                        const logPre = document.createElement('pre');
+                        logPre.className = 'text-xs whitespace-pre-wrap font-mono text-gray-800 dark:text-gray-200 overflow-x-auto';
+                        
+                        const previewRecords = filteredData.records.slice(0, 5);
+                        const isCSV = fileName.toLowerCase().endsWith('.csv') || 
+                                     (previewRecords.length > 0 && typeof previewRecords[0] === 'string' && previewRecords[0].includes(','));
+                        
+                        if (isCSV) {
+                            logPre.textContent = previewRecords.join('\n');
+                        } else {
+                            const separator = '\n' + '-'.repeat(80) + '\n';
+                            logPre.textContent = previewRecords.join(separator);
+                        }
+                        
+                        previewContainer.appendChild(logPre);
+                    }
+
+                    previewDiv.appendChild(previewContainer);
+                    
+                    if (filteredData.outputType === 'line-range' && filteredData.records.length > 20) {
+                        const moreInfo = document.createElement('p');
+                        moreInfo.className = 'mt-2 text-sm text-gray-600 dark:text-gray-400';
+                        moreInfo.textContent = `Showing 20 of ${filteredData.filteredCount} lines. Download to see all.`;
+                        previewDiv.appendChild(moreInfo);
+                    } else if (filteredData.outputType !== 'line-range' && filteredData.records.length > 5) {
+                        const moreInfo = document.createElement('p');
+                        moreInfo.className = 'mt-2 text-sm text-gray-600 dark:text-gray-400';
+                        moreInfo.textContent = `Showing 5 of ${filteredData.filteredCount} records. Download to see all.`;
+                        previewDiv.appendChild(moreInfo);
+                    }
+                } else {
+                    const noResults = document.createElement('p');
+                    noResults.className = 'text-gray-600 dark:text-gray-400 italic';
+
+                    if (filteredData.outputType === 'line-range') {
+                        noResults.textContent = 'No lines found in the specified line range.';
+                    } else {
+                        noResults.textContent = 'No records found in the specified date range.';
+                    }
+
+                    previewDiv.appendChild(noResults);
+                }
+                
+                if (logInfo && filteredData.outputType !== 'diarium-json' && filteredData.outputType !== 'line-range') {
+                    const savePatternBtn = document.createElement('button');
+                    savePatternBtn.className = 'py-1 px-3 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded';
+                    savePatternBtn.textContent = 'Save as Pattern';
+                    savePatternBtn.title = 'Save this format for similar files';
+                    
+                    savePatternBtn.onclick = async function() {
+                        const patternDialog = document.createElement('div');
+                        patternDialog.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                        patternDialog.innerHTML = `
+                            <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                                <h3 class="text-lg font-semibold mb-4">Save Pattern Configuration</h3>
+                                <p class="mb-3 text-sm">Enter a file pattern to match similar files (use * for wildcards):</p>
+                                <input type="text" id="patternInput" class="w-full p-2 border rounded text-base mb-4 bg-white dark:bg-gray-700 dark:border-gray-600 text-black dark:text-white" 
+                                    value="${fileName.replace(/\.[^.]+$/, '*')}">
+                                <div class="flex justify-end gap-3">
+                                    <button id="patternCancel" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-400 dark:hover:bg-gray-500">Cancel</button>
+                                    <button id="patternSave" class="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Save</button>
+                                </div>
+                            </div>
+                        `;
+
+                        document.body.appendChild(patternDialog);
+                        
+                        return new Promise((resolve) => {
+                            const patternInput = document.getElementById('patternInput');
+                            const patternSave = document.getElementById('patternSave');
+                            const patternCancel = document.getElementById('patternCancel');
+                            
+                            setTimeout(() => patternInput.focus(), 100);
+                            
+                            patternSave.addEventListener('click', () => {
+                                const pattern = patternInput.value.trim();
+
+                                if (pattern) {
+                                    dateInfoCache[pattern] = logInfo;
+                                    saveDateInfoCache();
+                                    updateConfigStats();
+                                    showNotification(`Pattern "${pattern}" saved. This format will be used for matching files.`, 'success');
+                                    document.body.removeChild(patternDialog);
+                                    resolve(true);
+                                } else {
+                                    showNotification('Please enter a valid pattern', 'error');
+                                }
+                            });
+                            
+                            patternCancel.addEventListener('click', () => {
+                                document.body.removeChild(patternDialog);
+                                resolve(false);
+                            });
+                            
+                            patternInput.addEventListener('keydown', (e) => {
+                                if (e.key === 'Enter') {
+                                    patternSave.click();
+                                } else if (e.key === 'Escape') {
+                                    patternCancel.click();
+                                }
+                            });
+                            
+                            patternDialog.addEventListener('click', (e) => {
+                                if (e.target === patternDialog) {
+                                    document.body.removeChild(patternDialog);
+                                    resolve(false);
+                                }
+                            });
+                        });
+                    };
+                    
+                    buttonContainer.appendChild(savePatternBtn);
+                }
+                
+                fileCard.appendChild(fileHeader);
+                fileCard.appendChild(fileSummary);
+                fileCard.appendChild(buttonContainer);
+                fileCard.appendChild(previewDiv);
+                
+                fileResults.appendChild(fileCard);
+            }
+            
+            function downloadFilteredLog(fileName, filteredData) {
+                try {
+                    let content;
+                    let mimeType = 'text/plain;charset=utf-8;';
+                    let extension = '.log';
+
+                    const match = fileName.match(/\.[^.]+$/);
+
+                    if (match) {
+                        extension = match[0];
+                    }
+
+                    if (filteredData.outputType === 'diarium-json') {
+                        content = JSON.stringify(filteredData.records, null, 2);
+                        mimeType = 'application/json;charset=utf-8;';
+                        extension = '.json';
+                    } else if (filteredData.outputType === 'line-range') {
+                        content = filteredData.records.join(filteredData.lineEnding || '\n');
+                        mimeType = 'text/plain;charset=utf-8;';
+                    } else {
+                        const isCSV = fileName.toLowerCase().endsWith('.csv') || 
+                                     (filteredData.records.length > 0 && typeof filteredData.records[0] === 'string' && filteredData.records[0].includes(','));
+                        content = isCSV ? filteredData.records.join('\n') : filteredData.records.join('\n\n');
+                    }
+                    
+                    const blob = new Blob([content], { type: mimeType });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const nameWithoutExt = fileName.replace(/\.[^.]+$/, '');
+                    let downloadFileName;
+
+                    if (filteredData.outputType === 'line-range') {
+                        downloadFileName = `${nameWithoutExt}_lines_${filteredData.fromLine}_${filteredData.toLine}${extension}`;
+                    } else {
+                        const startDateStr = startDateInput.value;
+                        const endDateStr = endDateInput.value;
+                        downloadFileName = `${nameWithoutExt}_filtered_${startDateStr}_${endDateStr}${extension}`;
+                    }
+                    
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = downloadFileName;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    
+                    setTimeout(function() {
+                        document.body.removeChild(link);
+                        window.URL.revokeObjectURL(url);
+                    }, 100);
+                    
+                    if (filteredData.outputType === 'line-range') {
+                        showNotification(`Downloaded ${filteredData.filteredCount} lines`, 'success');
+                    } else {
+                        showNotification(`Downloaded ${filteredData.filteredCount} filtered log records`, 'success');
+                    }
+                } catch (error) {
+                    console.error('Download error:', error);
+                    showNotification('Error creating download: ' + error.message, 'error');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
