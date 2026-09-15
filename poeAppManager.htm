@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poe App Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #f8f9fc;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #eef1f6;
+      --text-primary: #1a1d29;
+      --text-secondary: #5c6370;
+      --text-muted: #9ca3af;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-light: #e0e7ff;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --card-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .dark {
+      --bg-primary: #0f1119;
+      --bg-secondary: #1a1d29;
+      --bg-tertiary: #252836;
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent: #818cf8;
+      --accent-hover: #a5b4fc;
+      --accent-light: #312e81;
+      --border: #374151;
+      --card-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --card-shadow-hover: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-icon:hover { background: var(--border); color: var(--text-primary); }
+    /* Search */
+    .search-bar {
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+      position: relative;
+    }
+    .search-bar input {
+      width: 100%;
+      padding: 10px 16px 10px 40px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-bar input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .search-bar i {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+    }
+    /* Tabs */
+    .tabs-container {
+      margin-bottom: 20px;
+    }
+    .main-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-tertiary);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      width: fit-content;
+    }
+    .main-tab {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .main-tab.active {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      box-shadow: var(--card-shadow);
+    }
+    .main-tab:hover:not(.active) { color: var(--text-primary); }
+    .category-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .category-tab {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .category-tab.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .category-tab:hover:not(.active) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    /* Grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    /* Card */
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      transition: all 0.2s;
+      position: relative;
+      cursor: pointer;
+    }
+    .card:hover {
+      box-shadow: var(--card-shadow-hover);
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .card-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    .card-icon.work { background: #dbeafe; color: #2563eb; }
+    .card-icon.faith { background: #fce7f3; color: #db2777; }
+    .card-icon.music { background: #d1fae5; color: #059669; }
+    .card-icon.docs { background: #fef3c7; color: #d97706; }
+    .card-icon.tools { background: #e0e7ff; color: #4f46e5; }
+    .card-icon.text { background: #dbeafe; color: #2563eb; }
+    .card-icon.image { background: #fce7f3; color: #db2777; }
+    .card-icon.video { background: #d1fae5; color: #059669; }
+    .card-icon.audio { background: #fef3c7; color: #d97706; }
+    .card-icon.agent { background: #e0e7ff; color: #4f46e5; }
+    .dark .card-icon.work { background: #1e3a5f; }
+    .dark .card-icon.faith { background: #4a1942; }
+    .dark .card-icon.music { background: #134e3a; }
+    .dark .card-icon.docs { background: #4a3520; }
+    .dark .card-icon.tools { background: #312e81; }
+    .dark .card-icon.text { background: #1e3a5f; }
+    .dark .card-icon.image { background: #4a1942; }
+    .dark .card-icon.video { background: #134e3a; }
+    .dark .card-icon.audio { background: #4a3520; }
+    .dark .card-icon.agent { background: #312e81; }
+    .card-info { flex: 1; min-width: 0; }
+    .card-name {
+      font-weight: 600;
+      font-size: 15px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-name span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .badge-private { background: var(--warning); color: white; }
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .card-actions {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .card:hover .card-actions { opacity: 1; }
+    .card-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .card-btn:hover { background: var(--border); color: var(--text-primary); }
+    .card-btn.pinned { color: var(--warning); }
+    .card-btn.danger:hover { background: #fee2e2; color: var(--danger); }
+    .dark .card-btn.danger:hover { background: #450a0a; }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .card-category {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .open-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      background: var(--accent);
+      color: white;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+    .open-btn:hover { background: var(--accent-hover); }
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+    .empty-state i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state p { margin-bottom: 16px; }
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal {
+      background: var(--bg-secondary);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: scale(0.95);
+      transition: transform 0.2s;
+    }
+    .modal-overlay.active .modal { transform: scale(1); }
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .modal-close:hover { background: var(--border); }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    /* Form */
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-textarea { resize: vertical; min-height: 80px; }
+    .form-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .form-checkbox input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .form-section {
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .form-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 10px;
+      box-shadow: var(--card-shadow-hover);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s ease;
+      max-width: 320px;
+    }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error { border-left: 4px solid var(--danger); }
+    .toast.info { border-left: 4px solid var(--accent); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    /* Confirm Dialog */
+    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    /* Tag Manager */
+    .tag-list { display: flex; flex-direction: column; gap: 8px; }
+    .tag-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .tag-item:hover { border-color: var(--accent); }
+    .tag-item.system { opacity: 0.7; }
+    .tag-item-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .tag-item-info { flex: 1; min-width: 0; }
+    .tag-item-name { font-weight: 500; font-size: 14px; }
+    .tag-item-id { font-size: 12px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+    .tag-item-actions { display: flex; gap: 4px; }
+    .tag-add-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg-primary);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .tag-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .emoji-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .emoji-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 6px;
+      background: var(--bg-secondary);
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .emoji-btn:hover { background: var(--accent-light); transform: scale(1.1); }
+    .emoji-btn.selected { background: var(--accent); }
+    .color-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .color-btn {
+      width: 28px;
+      height: 28px;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .color-btn:hover { transform: scale(1.1); }
+    .color-btn.selected { border-color: var(--text-primary); box-shadow: 0 0 0 2px var(--bg-secondary); }
+    /* Responsive */
+    @media (max-width: 640px) {
+      .header { flex-direction: column; align-items: stretch; }
+      .search-bar { max-width: none; order: -1; }
+      .header-left { justify-content: space-between; }
+      .header-actions { justify-content: flex-end; }
+      .grid { grid-template-columns: 1fr; }
+      .main-tabs { width: 100%; }
+      .main-tab { flex: 1; text-align: center; padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">Poe Manager</div>
+      </div>
+      <div class="search-bar">
+        <i class="ri-search-line"></i>
+        <input type="text" id="searchInput" placeholder="搜尋 App 或 LLM...">
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <i class="ri-add-line"></i> 新增
+        </button>
+        <button class="btn-icon" onclick="openTagManagerModal()" title="管理標籤">
+          <i class="ri-price-tag-3-line"></i>
+        </button>
+        <button class="btn-icon" onclick="openSettingsModal()" title="設定">
+          <i class="ri-settings-3-line"></i>
+        </button>
+        <button class="btn-icon" onclick="toggleTheme()" title="切換主題">
+          <i class="ri-moon-line" id="themeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+      <div class="main-tabs">
+        <button class="main-tab active" data-tab="apps" onclick="switchMainTab('apps')">
+          <i class="ri-apps-line"></i> 我的 Apps
+        </button>
+        <button class="main-tab" data-tab="llms" onclick="switchMainTab('llms')">
+          <i class="ri-robot-line"></i> 常用 LLMs
+        </button>
+      </div>
+      <div class="category-tabs" id="categoryTabs"></div>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid" id="mainGrid"></div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="editModalTitle">新增項目</div>
+        <button class="modal-close" onclick="closeModal('editModal')"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label class="form-label">名稱 *</label>
+          <input type="text" class="form-input" id="editName" placeholder="例如: Claude-Sonnet-4.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label">描述</label>
+          <textarea class="form-textarea" id="editDesc" placeholder="簡短描述此 App/LLM 的用途"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">圖示網址 (Icon URL)</label>
+          <input type="text" class="form-input" id="editIconUrl" placeholder="https://... (留空則使用分類圖示)">
+          <div class="form-hint">填入 App/Bot 的頭像圖片網址，留空則顯示分類預設圖示</div>
+          <div id="iconPreview" style="margin-top: 8px; display: none;">
+            <img id="iconPreviewImg" style="width: 44px; height: 44px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">分類</label>
+          <select class="form-select" id="editCategory"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input type="checkbox" id="editPinned">
+            <span>釘選為最愛</span>
+          </label>
+        </div>
+        <div class="form-group" id="privateGroup">
+          <label class="form-checkbox">
+            <input type="checkbox" id="editPrivate">
+            <span>私人項目</span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('editModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveItem()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <div class="modal-title"><i class="ri-settings-3-line"></i> 設定</div>
+        <button class="modal-close" onclick="closeModal('settingsModal')"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <!-- GitHub Config -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="ri-github-fill" style="color: #333;"></i> GitHub 配置
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repository (owner/repo)</label>
+            <input type="text" class="form-input" id="githubRepo" placeholder="username/my-poe-config">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Personal Access Token</label>
+            <input type="password" class="form-input" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
+            <div class="form-hint">需要 repo 權限 (讀寫 repository 內容)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Branch</label>
+            <input type="text" class="form-input" id="githubBranch" placeholder="main">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apps 檔案路徑</label>
+            <input type="text" class="form-input" id="githubAppsPath" placeholder="config/poe-apps.json">
+          </div>
+          <div class="form-group">
+            <label class="form-label">LLMs 檔案路徑</label>
+            <input type="text" class="form-input" id="githubLlmsPath" placeholder="config/poe-llms.json">
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-secondary" onclick="loadFromGithub('apps')">
+              <i class="ri-download-line"></i> 載入 Apps
+            </button>
+            <button class="btn btn-secondary" onclick="loadFromGithub('llms')">
+              <i class="ri-download-line"></i> 載入 LLMs
+            </button>
+            <button class="btn btn-primary" onclick="saveToGithub('apps')">
+              <i class="ri-upload-line"></i> 儲存 Apps
+            </button>
+            <button class="btn btn-primary" onclick="saveToGithub('llms')">
+              <i class="ri-upload-line"></i> 儲存 LLMs
+            </button>
+          </div>
+        </div>
+
+        <!-- Import/Export -->
+        <div class="form-section">
+          <div class="form-section-title">
+            <i class="ri-file-transfer-line"></i> 匯入 / 匯出 JSON
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <button class="btn btn-secondary" onclick="exportData('apps')">
+              <i class="ri-download-2-line"></i> 匯出 Apps
+            </button>
+            <button class="btn btn-secondary" onclick="exportData('llms')">
+              <i class="ri-download-2-line"></i> 匯出 LLMs
+            </button>
+            <button class="btn btn-secondary" onclick="exportData('all')">
+              <i class="ri-download-2-line"></i> 匯出全部
+            </button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">匯入 JSON</label>
+            <input type="file" class="form-input" id="importFile" accept=".json" onchange="importData(event)">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('settingsModal')">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <div class="modal-title" id="confirmTitle">確認</div>
+        <button class="modal-close" onclick="closeModal('confirmModal')"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage"></p>
+        <div class="confirm-actions">
+          <button class="btn btn-secondary" onclick="closeModal('confirmModal')">取消</button>
+          <button class="btn btn-danger" id="confirmBtn">確認刪除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag Manager Modal -->
+  <div class="modal-overlay" id="tagManagerModal">
+    <div class="modal" style="max-width: 550px;">
+      <div class="modal-header">
+        <div class="modal-title"><i class="ri-price-tag-3-line"></i> 管理標籤</div>
+        <button class="modal-close" onclick="closeModal('tagManagerModal')"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="main-tabs" style="margin-bottom: 16px;">
+          <button class="main-tab active" data-tagtab="apps" onclick="switchTagTab('apps')">Apps 標籤</button>
+          <button class="main-tab" data-tagtab="llms" onclick="switchTagTab('llms')">LLMs 標籤</button>
+        </div>
+        <div class="tag-list" id="tagList"></div>
+        <button class="tag-add-btn" onclick="openTagEditModal()">
+          <i class="ri-add-line"></i> 新增標籤
+        </button>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('tagManagerModal')">關閉</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tag Edit Modal -->
+  <div class="modal-overlay" id="tagEditModal">
+    <div class="modal" style="max-width: 450px;">
+      <div class="modal-header">
+        <div class="modal-title" id="tagEditTitle">新增標籤</div>
+        <button class="modal-close" onclick="closeModal('tagEditModal')"><i class="ri-close-line"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="tagEditId">
+        <div class="form-group">
+          <label class="form-label">標籤 ID *</label>
+          <input type="text" class="form-input" id="tagEditIdInput" placeholder="例如: design (英文小寫)">
+          <div class="form-hint">唯一識別碼，僅限英文小寫及數字</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">標籤名稱 *</label>
+          <input type="text" class="form-input" id="tagEditName" placeholder="例如: 🎨 設計創作">
+        </div>
+        <div class="form-group">
+          <label class="form-label">選擇表情符號</label>
+          <div class="emoji-picker" id="emojiPicker"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">圖示顏色</label>
+          <div class="color-picker" id="colorPicker"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('tagEditModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveTag()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== Data ==========
+    // System categories (cannot be deleted)
+    const SYSTEM_APP_CATEGORIES = [
+      { id: 'all', name: '全部', icon: 'ri-apps-line', isSystem: true },
+      { id: 'pinned', name: '⭐ 最愛', icon: 'ri-star-line', isSystem: true }
+    ];
+    const SYSTEM_LLM_CATEGORIES = [
+      { id: 'all', name: '全部', icon: 'ri-robot-line', isSystem: true },
+      { id: 'pinned', name: '⭐ 最愛', icon: 'ri-star-line', isSystem: true }
+    ];
+
+    // User-defined categories (can be edited/deleted)
+    let customAppCategories = [
+      { id: 'work', name: '📊 工作效率', icon: 'ri-briefcase-line', color: '#2563eb' },
+      { id: 'faith', name: '✝️ 信仰相關', icon: 'ri-heart-line', color: '#db2777' },
+      { id: 'music', name: '🎵 音樂娛樂', icon: 'ri-music-line', color: '#059669' },
+      { id: 'docs', name: '📝 文件處理', icon: 'ri-file-text-line', color: '#d97706' },
+      { id: 'tools', name: '🛠️ 其他工具', icon: 'ri-tools-line', color: '#4f46e5' },
+      { id: 'life', name: '✨ 生涯規劃', icon: 'ri-price-tag-3-line', color: '#f59e0b' }
+    ];
+
+    let customLlmCategories = [
+      { id: 'text', name: '💬 文字生成', icon: 'ri-chat-3-line', color: '#2563eb' },
+      { id: 'image', name: '🖼️ 圖片生成', icon: 'ri-image-line', color: '#db2777' },
+      { id: 'video', name: '🎬 影片生成', icon: 'ri-video-line', color: '#059669' },
+      { id: 'audio', name: '🔊 語音音樂', icon: 'ri-volume-up-line', color: '#d97706' },
+      { id: 'agent', name: '🤖 代理工具', icon: 'ri-cpu-line', color: '#4f46e5' }
+    ];
+
+    // Combined getters
+    function getAppCategories() {
+      return [...SYSTEM_APP_CATEGORIES, ...customAppCategories];
+    }
+    function getLlmCategories() {
+      return [...SYSTEM_LLM_CATEGORIES, ...customLlmCategories];
+    }
+
+    // Common emojis for picker
+    const EMOJI_OPTIONS = ['📊', '✝️', '🎵', '📝', '🛠️', '💬', '🖼️', '🎬', '🔊', '🤖', '💡', '🎨', '📈', '🎮', '📚', '🏠', '💼', '🔬', '🌍', '❤️', '⭐', '🚀', '💻', '📱', '🎯', '✨', '🔥', '💎', '🌟', '🎁'];
+
+    // Color options
+    const COLOR_OPTIONS = [
+      { id: 'blue', value: '#2563eb', bg: '#dbeafe', darkBg: '#1e3a5f' },
+      { id: 'pink', value: '#db2777', bg: '#fce7f3', darkBg: '#4a1942' },
+      { id: 'green', value: '#059669', bg: '#d1fae5', darkBg: '#134e3a' },
+      { id: 'orange', value: '#d97706', bg: '#fef3c7', darkBg: '#4a3520' },
+      { id: 'purple', value: '#4f46e5', bg: '#e0e7ff', darkBg: '#312e81' },
+      { id: 'red', value: '#ef4444', bg: '#fee2e2', darkBg: '#450a0a' },
+      { id: 'teal', value: '#0d9488', bg: '#ccfbf1', darkBg: '#134e4a' },
+      { id: 'amber', value: '#f59e0b', bg: '#fef3c7', darkBg: '#451a03' }
+    ];
+
+    const DEFAULT_APPS = [
+      { id: '1', name: 'togglTimeline', description: 'Timesheet Timeline display', category: 'work', isPinned: false, isPrivate: false },
+      { id: '2', name: 'SmarterxToggl', description: '', category: 'work', isPinned: false, isPrivate: false },
+      { id: '3', name: 'txn_pivot', description: '以 Pivot table 去 review 及編輯交易紀錄', category: 'work', isPinned: false, isPrivate: false },
+      { id: '4', name: 'monthly_analysis', description: '', category: 'work', isPinned: false, isPrivate: false },
+      { id: '5', name: 'gcc_songlist', description: '主恩會詩歌集搜尋', category: 'faith', isPinned: true, isPrivate: true },
+      { id: '6', name: 'bibleStudy3', description: '', category: 'faith', isPinned: false, isPrivate: false },
+      { id: '7', name: 'diarySonglist', description: '心情聽歌助理', category: 'music', isPinned: false, isPrivate: false },
+      { id: '8', name: 'YTTitleExtract', description: 'Use google takeaway to export paylist, then upload here to process.', category: 'music', isPinned: false, isPrivate: false },
+      { id: '9', name: 'WordToMD', description: '', category: 'docs', isPinned: false, isPrivate: false },
+      { id: '10', name: 'rpt_section_edit', description: 'Edit section by section', category: 'docs', isPinned: false, isPrivate: false },
+      { id: '11', name: 'TaskPlannerUI', description: '', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '12', name: 'TicktickHabiter', description: '', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '13', name: 'Apply_Leave_Helper', description: '���假小幫手', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '14', name: 'EngChkExplain', description: 'Correct you English, with reasoning explain how to correct your English, so you can learn from it.', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '15', name: 'SizingHelper', description: 'Effort estimation and proposed schedule for mini application development project', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '16', name: 'log_fdate', description: 'Filter log by date range', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '17', name: 'Existio_api', description: '', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '18', name: 'AI_mapping', description: '', category: 'tools', isPinned: false, isPrivate: false },
+      { id: '19', name: 'tc_report_beta', description: '', category: 'work', isPinned: false, isPrivate: true },
+      { id: '20', name: 'GTP-4-mini-pay', description: 'Fast and cover most daily use', category: 'tools', isPinned: false, isPrivate: false }
+    ];
+
+    const DEFAULT_LLMS = [
+      { id: 'l1', name: 'GPT-5.1', description: 'OpenAI 最新旗艦模型，400k context，支援網路搜尋', category: 'text', isPinned: true },
+      { id: 'l2', name: 'Claude-Sonnet-4.5', description: 'Anthropic 模型，200k context，適合程式開發', category: 'text', isPinned: true },
+      { id: 'l3', name: 'Claude-Opus-4.5', description: 'Anthropic 頂級模型，64k thinking budget', category: 'text', isPinned: false },
+      { id: 'l4', name: 'Gemini-3.0-Pro', description: 'Google 進階模型，1M context，支援影片輸入', category: 'text', isPinned: false },
+      { id: 'l5', name: 'Gemini-2.5-Flash', description: 'Google 快速模型，1M context，低成本', category: 'text', isPinned: true },
+      { id: 'l6', name: 'Grok-4-Fast-Non-Reasoning', description: 'xAI 快速模型，2M context，超低成本', category: 'text', isPinned: false },
+      { id: 'l7', name: 'Grok-Code-Fast-1', description: 'xAI 程式專用模型，256k context', category: 'text', isPinned: false },
+      { id: 'l8', name: 'o4-mini-deep-research', description: 'OpenAI 深度研究模型，複雜問題分析', category: 'text', isPinned: false },
+      { id: 'l9', name: 'Imagen-4-Ultra', description: 'DeepMind 圖片生成，高品質', category: 'image', isPinned: true },
+      { id: 'l10', name: 'Imagen-4-Fast', description: 'DeepMind 圖片生成，快速低成本', category: 'image', isPinned: false },
+      { id: 'l11', name: 'Nano-Banana', description: 'Gemini 圖片編輯，支援多輪對話', category: 'image', isPinned: true },
+      { id: 'l12', name: 'GPT-Image-1', description: 'OpenAI 圖片生成，支援編輯與風格轉換', category: 'image', isPinned: false },
+      { id: 'l13', name: 'FLUX-schnell', description: 'Turbo 圖片生成，快速低成本', category: 'image', isPinned: false },
+      { id: 'l14', name: 'Sora-2', description: 'OpenAI 影片生成，支援 text/image to video', category: 'video', isPinned: true },
+      { id: 'l15', name: 'Veo-v3.1', description: 'Google 影片生成，帶原生音訊', category: 'video', isPinned: false },
+      { id: 'l16', name: 'ElevenLabs-v2.5-Turbo', description: '文字轉語音，支援 40k 字元', category: 'audio', isPinned: true },
+      { id: 'l17', name: 'ElevenLabs-v3', description: '多人對話語音，支援情緒控制', category: 'audio', isPinned: false },
+      { id: 'l18', name: 'ElevenLabs-Music', description: '音樂生成，最長 5 分鐘', category: 'audio', isPinned: false },
+      { id: 'l19', name: 'Claude-Code', description: '代理模型，可執行 Python、操作檔案', category: 'agent', isPinned: true },
+      { id: 'l20', name: 'Whisper-V3-Large-T', description: '語音轉文字', category: 'agent', isPinned: false },
+      { id: 'l21', name: 'remove-background', description: '移除圖���背景', category: 'agent', isPinned: false }
+    ];
+
+    // State
+    let currentTab = 'apps';
+    let currentCategory = 'all';
+    let searchQuery = '';
+    let apps = [...DEFAULT_APPS];
+    let llms = [...DEFAULT_LLMS];
+    let githubConfig = {
+      repo: '',
+      token: '',
+      branch: 'main',
+      appsPath: 'config/poe-apps.json',
+      llmsPath: 'config/poe-llms.json'
+    };
+
+    // ========== Theme ==========
+    function initTheme() {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.classList.add('dark');
+        updateThemeIcon();
+      }
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+        if (event.matches) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        updateThemeIcon();
+        renderGrid(); // Re-render to update icon colors
+      });
+    }
+
+    function toggleTheme() {
+      document.documentElement.classList.toggle('dark');
+      updateThemeIcon();
+      renderGrid(); // Re-render to update icon colors
+    }
+
+    function updateThemeIcon() {
+      const icon = document.getElementById('themeIcon');
+      if (document.documentElement.classList.contains('dark')) {
+        icon.className = 'ri-sun-line';
+      } else {
+        icon.className = 'ri-moon-line';
+      }
+    }
+
+    // ========== Tabs ==========
+    function switchMainTab(tab) {
+      currentTab = tab;
+      currentCategory = 'all';
+      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`.main-tab[data-tab="${tab}"]`).classList.add('active');
+      renderCategoryTabs();
+      renderGrid();
+    }
+
+    function renderCategoryTabs() {
+      const categories = currentTab === 'apps' ? getAppCategories() : getLlmCategories();
+      const container = document.getElementById('categoryTabs');
+      container.innerHTML = categories.map(cat => `
+        <button class="category-tab ${cat.id === currentCategory ? 'active' : ''}"
+                onclick="switchCategory('${cat.id}')">
+          ${cat.name}
+        </button>
+      `).join('');
+    }
+
+    function switchCategory(cat) {
+      currentCategory = cat;
+      renderCategoryTabs();
+      renderGrid();
+    }
+
+    // ========== Grid ==========
+    function getFilteredItems() {
+      const items = currentTab === 'apps' ? apps : llms;
+      let filtered = [...items];
+
+      // Category filter
+      if (currentCategory === 'pinned') {
+        filtered = filtered.filter(item => item.isPinned);
+      } else if (currentCategory !== 'all') {
+        filtered = filtered.filter(item => item.category === currentCategory);
+      }
+
+      // Search filter
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(item =>
+          item.name.toLowerCase().includes(q) ||
+          (item.description && item.description.toLowerCase().includes(q))
+        );
+      }
+
+      // Sort: pinned first, then alphabetically
+      filtered.sort((a, b) => {
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return filtered;
+    }
+
+    function getCategoryIcon(category) {
+      // Check custom categories first
+      const allCategories = [...customAppCategories, ...customLlmCategories];
+      const customCat = allCategories.find(c => c.id === category);
+      if (customCat && customCat.icon) {
+        return customCat.icon;
+      }
+      // Fallback to default icons
+      const icons = {
+        work: 'ri-briefcase-line',
+        faith: 'ri-heart-line',
+        music: 'ri-music-line',
+        docs: 'ri-file-text-line',
+        tools: 'ri-tools-line',
+        text: 'ri-chat-3-line',
+        image: 'ri-image-line',
+        video: 'ri-video-line',
+        audio: 'ri-volume-up-line',
+        agent: 'ri-cpu-line'
+      };
+      return icons[category] || 'ri-price-tag-3-line';
+    }
+
+    function getCategoryName(category) {
+      const categories = currentTab === 'apps' ? getAppCategories() : getLlmCategories();
+      const cat = categories.find(c => c.id === category);
+      return cat ? cat.name : category;
+    }
+
+    function getCategoryColor(category) {
+      const allCategories = [...customAppCategories, ...customLlmCategories];
+      const cat = allCategories.find(c => c.id === category);
+      if (cat && cat.color) {
+        const colorInfo = COLOR_OPTIONS.find(c => c.value === cat.color);
+        if (colorInfo) {
+          return {
+            color: cat.color,
+            bg: colorInfo.bg,
+            darkBg: colorInfo.darkBg
+          };
+        }
+        return { color: cat.color, bg: cat.color + '20', darkBg: cat.color + '30' };
+      }
+      // Default colors based on category
+      const defaults = {
+        work: { color: '#2563eb', bg: '#dbeafe', darkBg: '#1e3a5f' },
+        faith: { color: '#db2777', bg: '#fce7f3', darkBg: '#4a1942' },
+        music: { color: '#059669', bg: '#d1fae5', darkBg: '#134e3a' },
+        docs: { color: '#d97706', bg: '#fef3c7', darkBg: '#4a3520' },
+        tools: { color: '#4f46e5', bg: '#e0e7ff', darkBg: '#312e81' },
+        text: { color: '#2563eb', bg: '#dbeafe', darkBg: '#1e3a5f' },
+        image: { color: '#db2777', bg: '#fce7f3', darkBg: '#4a1942' },
+        video: { color: '#059669', bg: '#d1fae5', darkBg: '#134e3a' },
+        audio: { color: '#d97706', bg: '#fef3c7', darkBg: '#4a3520' },
+        agent: { color: '#4f46e5', bg: '#e0e7ff', darkBg: '#312e81' }
+      };
+      return defaults[category] || { color: '#6b7280', bg: '#f3f4f6', darkBg: '#374151' };
+    }
+
+    function renderGrid() {
+      const items = getFilteredItems();
+      const container = document.getElementById('mainGrid');
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <i class="ri-inbox-line"></i>
+            <p>${searchQuery ? '找不到符合的項目' : '目前沒有項目'}</p>
+            <button class="btn btn-primary" onclick="openAddModal()">
+              <i class="ri-add-line"></i> 新增項目
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      const isDark = document.documentElement.classList.contains('dark');
+      container.innerHTML = items.map(item => {
+        const catColor = getCategoryColor(item.category);
+        const iconBg = isDark ? catColor.darkBg : catColor.bg;
+        const hasIcon = item.iconUrl && item.iconUrl.trim();
+        const iconContent = hasIcon
+          ? `<img src="${escapeHtml(item.iconUrl)}" alt="${escapeHtml(item.name)}" onerror="this.parentElement.innerHTML='<i class=\\'${getCategoryIcon(item.category)}\\'></i>'; this.parentElement.style.background='${iconBg}'; this.parentElement.style.color='${catColor.color}';">`
+          : `<i class="${getCategoryIcon(item.category)}"></i>`;
+        const iconStyle = hasIcon
+          ? 'background: transparent;'
+          : `background: ${iconBg}; color: ${catColor.color};`;
+        return `
+        <div class="card" onclick="openItem('${escapeHtml(item.name)}')">
+          <div class="card-actions">
+            <button class="card-btn ${item.isPinned ? 'pinned' : ''}"
+                    onclick="event.stopPropagation(); togglePin('${item.id}')"
+                    title="${item.isPinned ? '取消釘選' : '釘選'}">
+              <i class="ri-pushpin-${item.isPinned ? 'fill' : 'line'}"></i>
+            </button>
+            <button class="card-btn" onclick="event.stopPropagation(); openEditModal('${item.id}')" title="編輯">
+              <i class="ri-edit-line"></i>
+            </button>
+            <button class="card-btn danger" onclick="event.stopPropagation(); confirmDelete('${item.id}')" title="刪除">
+              <i class="ri-delete-bin-line"></i>
+            </button>
+          </div>
+          <div class="card-header">
+            <div class="card-icon" style="${iconStyle}">
+              ${iconContent}
+            </div>
+            <div class="card-info">
+              <div class="card-name">
+                <span>${escapeHtml(item.name)}</span>
+                ${item.isPrivate ? '<span class="badge badge-private">PRIVATE</span>' : ''}
+              </div>
+              <div class="card-desc">${escapeHtml(item.description || '無描述')}</div>
+            </div>
+          </div>
+          <div class="card-footer">
+            <div class="card-category">
+              <i class="${getCategoryIcon(item.category)}"></i>
+              ${getCategoryName(item.category)}
+            </div>
+            <button class="open-btn" onclick="event.stopPropagation(); openItem('${escapeHtml(item.name)}')">
+              開啟 <i class="ri-external-link-line"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    function openItem(name) {
+      window.open(`https://poe.com/${name}`, '_blank');
+    }
+
+    // ========== CRUD ==========
+    function togglePin(id) {
+      const items = currentTab === 'apps' ? apps : llms;
+      const item = items.find(i => i.id === id);
+      if (item) {
+        item.isPinned = !item.isPinned;
+        renderGrid();
+        showToast(item.isPinned ? '已釘選' : '已取消釘選', 'success');
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('editModalTitle').textContent = currentTab === 'apps' ? '新增 App' : '新增 LLM';
+      document.getElementById('editId').value = '';
+      document.getElementById('editName').value = '';
+      document.getElementById('editDesc').value = '';
+      document.getElementById('editIconUrl').value = '';
+      document.getElementById('editPinned').checked = false;
+      document.getElementById('editPrivate').checked = false;
+      document.getElementById('privateGroup').style.display = currentTab === 'apps' ? 'block' : 'none';
+      updateIconPreview('');
+
+      populateCategorySelect();
+      openModal('editModal');
+    }
+
+    function openEditModal(id) {
+      const items = currentTab === 'apps' ? apps : llms;
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('editModalTitle').textContent = currentTab === 'apps' ? '編輯 App' : '編輯 LLM';
+      document.getElementById('editId').value = item.id;
+      document.getElementById('editName').value = item.name;
+      document.getElementById('editDesc').value = item.description || '';
+      document.getElementById('editIconUrl').value = item.iconUrl || '';
+      document.getElementById('editPinned').checked = item.isPinned;
+      document.getElementById('editPrivate').checked = item.isPrivate || false;
+      document.getElementById('privateGroup').style.display = currentTab === 'apps' ? 'block' : 'none';
+      updateIconPreview(item.iconUrl || '');
+
+      populateCategorySelect(item.category);
+      openModal('editModal');
+    }
+
+    function populateCategorySelect(selected = null) {
+      const categories = (currentTab === 'apps' ? getAppCategories() : getLlmCategories())
+        .filter(c => c.id !== 'all' && c.id !== 'pinned');
+
+      const select = document.getElementById('editCategory');
+      select.innerHTML = categories.map(cat => `
+        <option value="${cat.id}" ${cat.id === selected ? 'selected' : ''}>${cat.name}</option>
+      `).join('');
+    }
+
+    function saveItem() {
+      const id = document.getElementById('editId').value;
+      const name = document.getElementById('editName').value.trim();
+      const description = document.getElementById('editDesc').value.trim();
+      const iconUrl = document.getElementById('editIconUrl').value.trim();
+      const category = document.getElementById('editCategory').value;
+      const isPinned = document.getElementById('editPinned').checked;
+      const isPrivate = document.getElementById('editPrivate').checked;
+
+      if (!name) {
+        showToast('請輸入名稱', 'error');
+        return;
+      }
+
+      const items = currentTab === 'apps' ? apps : llms;
+
+      if (id) {
+        // Edit
+        const item = items.find(i => i.id === id);
+        if (item) {
+          item.name = name;
+          item.description = description;
+          item.iconUrl = iconUrl || '';
+          item.category = category;
+          item.isPinned = isPinned;
+          if (currentTab === 'apps') item.isPrivate = isPrivate;
+        }
+        showToast('已更新', 'success');
+      } else {
+        // Add
+        const newItem = {
+          id: Date.now().toString(),
+          name,
+          description,
+          iconUrl: iconUrl || '',
+          category,
+          isPinned
+        };
+        if (currentTab === 'apps') newItem.isPrivate = isPrivate;
+        items.push(newItem);
+        showToast('已新增', 'success');
+      }
+
+      closeModal('editModal');
+      renderGrid();
+    }
+
+    function confirmDelete(id) {
+      const items = currentTab === 'apps' ? apps : llms;
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('confirmTitle').textContent = '確認刪除';
+      document.getElementById('confirmMessage').textContent = `確定要刪除「${item.name}」嗎？此操作無法復原。`;
+      document.getElementById('confirmBtn').onclick = () => deleteItem(id);
+      openModal('confirmModal');
+    }
+
+    function deleteItem(id) {
+      if (currentTab === 'apps') {
+        apps = apps.filter(i => i.id !== id);
+      } else {
+        llms = llms.filter(i => i.id !== id);
+      }
+      closeModal('confirmModal');
+      renderGrid();
+      showToast('已刪除', 'success');
+    }
+
+    // ========== Settings Modal ==========
+    function openSettingsModal() {
+      document.getElementById('githubRepo').value = githubConfig.repo;
+      document.getElementById('githubToken').value = githubConfig.token;
+      document.getElementById('githubBranch').value = githubConfig.branch;
+      document.getElementById('githubAppsPath').value = githubConfig.appsPath;
+      document.getElementById('githubLlmsPath').value = githubConfig.llmsPath;
+      openModal('settingsModal');
+    }
+
+    function saveGithubConfig() {
+      githubConfig = {
+        repo: document.getElementById('githubRepo').value.trim(),
+        token: document.getElementById('githubToken').value.trim(),
+        branch: document.getElementById('githubBranch').value.trim() || 'main',
+        appsPath: document.getElementById('githubAppsPath').value.trim(),
+        llmsPath: document.getElementById('githubLlmsPath').value.trim()
+      };
+    }
+
+    // ========== GitHub API ==========
+    async function loadFromGithub(type) {
+      saveGithubConfig();
+
+      if (!githubConfig.repo || !githubConfig.token) {
+        showToast('請填寫 GitHub Repository 和 Token', 'error');
+        return;
+      }
+
+      const filePath = type === 'apps' ? githubConfig.appsPath : githubConfig.llmsPath;
+      const url = `https://api.github.com/repos/${githubConfig.repo}/contents/${filePath}?ref=${githubConfig.branch}`;
+
+      try {
+        showToast('載入中...', 'info');
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${githubConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            showToast('檔案不存在，將使用預設資料', 'info');
+            return;
+          }
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const content = JSON.parse(atob(data.content));
+
+        if (type === 'apps') {
+          if (content.items && content.categories) {
+            apps = content.items;
+            customAppCategories = content.categories;
+          } else if (Array.isArray(content)) {
+            apps = content;
+          }
+        } else {
+          if (content.items && content.categories) {
+            llms = content.items;
+            customLlmCategories = content.categories;
+          } else if (Array.isArray(content)) {
+            llms = content;
+          }
+        }
+
+        renderCategoryTabs();
+        renderGrid();
+        showToast(`已從 GitHub 載入 ${type === 'apps' ? 'Apps' : 'LLMs'}`, 'success');
+      } catch (error) {
+        console.error('GitHub load error:', error);
+        showToast(`載入失敗: ${error.message}`, 'error');
+      }
+    }
+
+    async function saveToGithub(type) {
+      saveGithubConfig();
+
+      if (!githubConfig.repo || !githubConfig.token) {
+        showToast('請填寫 GitHub Repository 和 Token', 'error');
+        return;
+      }
+
+      const filePath = type === 'apps' ? githubConfig.appsPath : githubConfig.llmsPath;
+      const content = type === 'apps'
+        ? { items: apps, categories: customAppCategories }
+        : { items: llms, categories: customLlmCategories };
+      const url = `https://api.github.com/repos/${githubConfig.repo}/contents/${filePath}`;
+
+      // Check if file exists to get SHA (required for updates)
+      let sha = null;
+      try {
+        const checkUrl = `${url}?ref=${githubConfig.branch}`;
+        const checkResponse = await fetch(checkUrl, {
+          headers: {
+            'Authorization': `Bearer ${githubConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        });
+        if (checkResponse.ok) {
+          const existingFile = await checkResponse.json();
+          sha = existingFile.sha;
+        }
+      } catch (e) {
+        // File doesn't exist, sha remains null
+      }
+
+      try {
+        showToast('儲存中...', 'info');
+        const body = {
+          message: `Update ${type === 'apps' ? 'Poe Apps' : 'LLMs'} config via Poe Manager`,
+          content: btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))),
+          branch: githubConfig.branch
+        };
+        if (sha) {
+          body.sha = sha;
+        }
+
+        const response = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${githubConfig.token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}`);
+        }
+
+        showToast(`已儲存至 GitHub`, 'success');
+      } catch (error) {
+        console.error('GitHub save error:', error);
+        showToast(`儲存失敗: ${error.message}`, 'error');
+      }
+    }
+
+    // ========== Import/Export ==========
+    function exportData(type) {
+      let data, filename;
+
+      if (type === 'apps') {
+        data = { items: apps, categories: customAppCategories };
+        filename = 'poe-apps.json';
+      } else if (type === 'llms') {
+        data = { items: llms, categories: customLlmCategories };
+        filename = 'poe-llms.json';
+      } else {
+        data = {
+          apps,
+          llms,
+          githubConfig,
+          customAppCategories,
+          customLlmCategories
+        };
+        filename = 'poe-manager-backup.json';
+      }
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('已匯出', 'success');
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+
+          if (data.apps && data.llms) {
+            // Full backup
+            apps = data.apps;
+            llms = data.llms;
+            if (data.githubConfig) {
+              githubConfig = data.githubConfig;
+            }
+            if (data.customAppCategories) {
+              customAppCategories = data.customAppCategories;
+            }
+            if (data.customLlmCategories) {
+              customLlmCategories = data.customLlmCategories;
+            }
+            showToast('已匯入完整備份', 'success');
+          } else if (data.items && data.categories) {
+            // New format with categories
+            if (data.items.length > 0 && data.items[0].isPrivate !== undefined) {
+              apps = data.items;
+              customAppCategories = data.categories;
+              showToast('已匯入 Apps 及標籤', 'success');
+            } else {
+              llms = data.items;
+              customLlmCategories = data.categories;
+              showToast('已匯入 LLMs 及標籤', 'success');
+            }
+          } else if (Array.isArray(data)) {
+            // Legacy format - single type array
+            if (data.length > 0 && data[0].isPrivate !== undefined) {
+              apps = data;
+              showToast('已匯入 Apps', 'success');
+            } else {
+              llms = data;
+              showToast('已匯入 LLMs', 'success');
+            }
+          }
+
+          renderCategoryTabs();
+          renderGrid();
+        } catch (error) {
+          showToast('匯入失敗: 無效的 JSON 格式', 'error');
+        }
+      };
+      reader.readAsText(file);
+      event.target.value = '';
+    }
+
+    // ========== Modal ==========
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    // Close modal on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+    });
+
+    // ========== Tag Manager ==========
+    let currentTagTab = 'apps';
+    let selectedEmoji = '';
+    let selectedColor = COLOR_OPTIONS[0].value;
+
+    function openTagManagerModal() {
+      currentTagTab = 'apps';
+      document.querySelectorAll('[data-tagtab]').forEach(t => {
+        t.classList.toggle('active', t.dataset.tagtab === 'apps');
+      });
+      renderTagList();
+      openModal('tagManagerModal');
+    }
+
+    function switchTagTab(tab) {
+      currentTagTab = tab;
+      document.querySelectorAll('[data-tagtab]').forEach(t => {
+        t.classList.toggle('active', t.dataset.tagtab === tab);
+      });
+      renderTagList();
+    }
+
+    function renderTagList() {
+      const systemCats = currentTagTab === 'apps' ? SYSTEM_APP_CATEGORIES : SYSTEM_LLM_CATEGORIES;
+      const customCats = currentTagTab === 'apps' ? customAppCategories : customLlmCategories;
+      const container = document.getElementById('tagList');
+
+      const systemHTML = systemCats.map(cat => `
+        <div class="tag-item system">
+          <div class="tag-item-icon" style="background: var(--bg-tertiary); color: var(--text-secondary);">
+            <i class="${cat.icon}"></i>
+          </div>
+          <div class="tag-item-info">
+            <div class="tag-item-name">${cat.name}</div>
+            <div class="tag-item-id">${cat.id} (系統內建)</div>
+          </div>
+        </div>
+      `).join('');
+
+      const customHTML = customCats.map(cat => {
+        const colorInfo = COLOR_OPTIONS.find(c => c.value === cat.color) || COLOR_OPTIONS[0];
+        return `
+          <div class="tag-item">
+            <div class="tag-item-icon" style="background: ${colorInfo.bg}; color: ${cat.color};">
+              <i class="${cat.icon}"></i>
+            </div>
+            <div class="tag-item-info">
+              <div class="tag-item-name">${cat.name}</div>
+              <div class="tag-item-id">${cat.id}</div>
+            </div>
+            <div class="tag-item-actions">
+              <button class="card-btn" onclick="openTagEditModal('${cat.id}')" title="編輯">
+                <i class="ri-edit-line"></i>
+              </button>
+              <button class="card-btn danger" onclick="confirmDeleteTag('${cat.id}')" title="刪除">
+                <i class="ri-delete-bin-line"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = systemHTML + customHTML;
+    }
+
+    function openTagEditModal(tagId = null) {
+      const customCats = currentTagTab === 'apps' ? customAppCategories : customLlmCategories;
+      const tag = tagId ? customCats.find(c => c.id === tagId) : null;
+
+      document.getElementById('tagEditTitle').textContent = tag ? '編輯標籤' : '新增標籤';
+      document.getElementById('tagEditId').value = tagId || '';
+      document.getElementById('tagEditIdInput').value = tag ? tag.id : '';
+      document.getElementById('tagEditIdInput').disabled = !!tag; // Cannot change ID when editing
+      document.getElementById('tagEditName').value = tag ? tag.name : '';
+
+      selectedEmoji = '';
+      selectedColor = tag?.color || COLOR_OPTIONS[0].value;
+
+      // Render emoji picker
+      const emojiContainer = document.getElementById('emojiPicker');
+      emojiContainer.innerHTML = EMOJI_OPTIONS.map(emoji => `
+        <button type="button" class="emoji-btn" onclick="selectEmoji('${emoji}')">${emoji}</button>
+      `).join('');
+
+      // Render color picker
+      const colorContainer = document.getElementById('colorPicker');
+      colorContainer.innerHTML = COLOR_OPTIONS.map(color => `
+        <button type="button" class="color-btn ${color.value === selectedColor ? 'selected' : ''}"
+                style="background: ${color.value};"
+                onclick="selectColor('${color.value}')"></button>
+      `).join('');
+
+      openModal('tagEditModal');
+    }
+
+    function selectEmoji(emoji) {
+      selectedEmoji = emoji;
+      const nameInput = document.getElementById('tagEditName');
+      const currentName = nameInput.value;
+      // Replace first emoji or prepend
+      const emojiRegex = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}]\s*/u;
+      if (emojiRegex.test(currentName)) {
+        nameInput.value = currentName.replace(emojiRegex, emoji + ' ');
+      } else {
+        nameInput.value = emoji + ' ' + currentName;
+      }
+      // Update button states
+      document.querySelectorAll('.emoji-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.textContent === emoji);
+      });
+    }
+
+    function selectColor(color) {
+      selectedColor = color;
+      document.querySelectorAll('.color-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.style.background === color || btn.style.backgroundColor === color);
+      });
+    }
+
+    function saveTag() {
+      const originalId = document.getElementById('tagEditId').value;
+      const newId = document.getElementById('tagEditIdInput').value.trim().toLowerCase();
+      const name = document.getElementById('tagEditName').value.trim();
+
+      if (!newId || !name) {
+        showToast('請填寫標籤 ID 和名稱', 'error');
+        return;
+      }
+
+      // Validate ID format
+      if (!/^[a-z0-9]+$/.test(newId)) {
+        showToast('標籤 ID 只能包含英文小寫字母和數字', 'error');
+        return;
+      }
+
+      // Check for reserved IDs
+      if (newId === 'all' || newId === 'pinned') {
+        showToast('此 ID 為系統保留，請使用其他 ID', 'error');
+        return;
+      }
+
+      const customCats = currentTagTab === 'apps' ? customAppCategories : customLlmCategories;
+
+      // Check for duplicate ID (only when adding new or changing ID)
+      if (!originalId && customCats.some(c => c.id === newId)) {
+        showToast('此標籤 ID 已存在', 'error');
+        return;
+      }
+
+      const tagData = {
+        id: newId,
+        name,
+        icon: 'ri-price-tag-3-line',
+        color: selectedColor
+      };
+
+      if (originalId) {
+        // Edit existing
+        const index = customCats.findIndex(c => c.id === originalId);
+        if (index !== -1) {
+          tagData.id = originalId; // Keep original ID
+          tagData.icon = customCats[index].icon; // Keep original icon
+          customCats[index] = tagData;
+        }
+        showToast('標籤已更新', 'success');
+      } else {
+        // Add new
+        customCats.push(tagData);
+        showToast('標籤已新增', 'success');
+      }
+
+      closeModal('tagEditModal');
+      renderTagList();
+      renderCategoryTabs();
+      renderGrid();
+    }
+
+    function confirmDeleteTag(tagId) {
+      const customCats = currentTagTab === 'apps' ? customAppCategories : customLlmCategories;
+      const tag = customCats.find(c => c.id === tagId);
+      if (!tag) return;
+
+      // Check if any items use this category
+      const items = currentTagTab === 'apps' ? apps : llms;
+      const itemsWithTag = items.filter(i => i.category === tagId);
+
+      let message = `確定要刪除標籤「${tag.name}」嗎？`;
+      if (itemsWithTag.length > 0) {
+        message += `\n\n⚠️ 有 ${itemsWithTag.length} 個項目使用此標籤，刪除後這些項目將變成「未分類」狀態。`;
+      }
+
+      document.getElementById('confirmTitle').textContent = '刪除標籤';
+      document.getElementById('confirmMessage').textContent = message;
+      document.getElementById('confirmBtn').onclick = () => deleteTag(tagId);
+      openModal('confirmModal');
+    }
+
+    function deleteTag(tagId) {
+      if (currentTagTab === 'apps') {
+        customAppCategories = customAppCategories.filter(c => c.id !== tagId);
+        // Reset items with this category
+        apps.forEach(item => {
+          if (item.category === tagId) {
+            item.category = customAppCategories[0]?.id || 'tools';
+          }
+        });
+      } else {
+        customLlmCategories = customLlmCategories.filter(c => c.id !== tagId);
+        llms.forEach(item => {
+          if (item.category === tagId) {
+            item.category = customLlmCategories[0]?.id || 'text';
+          }
+        });
+      }
+
+      closeModal('confirmModal');
+      renderTagList();
+      renderCategoryTabs();
+      renderGrid();
+      showToast('標籤已刪除', 'success');
+    }
+
+    // ========== Toast ==========
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+
+      const icons = {
+        success: 'ri-check-line',
+        error: 'ri-error-warning-line',
+        info: 'ri-information-line'
+      };
+
+      toast.innerHTML = `
+        <i class="${icons[type] || icons.info}"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ========== Helpers ==========
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function updateIconPreview(url) {
+      const preview = document.getElementById('iconPreview');
+      const img = document.getElementById('iconPreviewImg');
+      if (url && url.trim()) {
+        img.src = url.trim();
+        preview.style.display = 'block';
+        img.onerror = () => { preview.style.display = 'none'; };
+      } else {
+        preview.style.display = 'none';
+      }
+    }
+
+    // ========== Search ==========
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderGrid();
+    });
+
+    // Icon URL preview on input
+    document.getElementById('editIconUrl').addEventListener('input', (e) => {
+      updateIconPreview(e.target.value);
+    });
+
+    // ========== Remote Config Loading ==========
+    // Using jsDelivr CDN to access GitHub files (allowed by Poe CSP)
+    const REMOTE_CONFIG = {
+      appsUrl: 'https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeAppList.json',
+      llmsUrl: 'https://cdn.jsdelivr.net/gh/johnyhh/poe@main/config/poeLlmList.json'
+    };
+
+    async function loadRemoteConfig() {
+      showToast('正在載入遠端配置...', 'info');
+
+      let appsLoaded = false;
+      let llmsLoaded = false;
+
+      // Cache-busting parameter to force fresh fetch
+      const cacheBuster = `?t=${Date.now()}`;
+
+      // Load Apps config
+      try {
+        const appsResponse = await fetch(REMOTE_CONFIG.appsUrl + cacheBuster);
+        if (appsResponse.ok) {
+          const appsData = await appsResponse.json();
+          console.log('Apps raw data:', JSON.stringify(appsData).substring(0, 500));
+
+          // Handle different JSON formats
+          if (appsData.items) {
+            apps = appsData.items;
+            if (appsData.categories) {
+              customAppCategories = appsData.categories;
+            }
+          } else if (appsData.apps) {
+            apps = appsData.apps;
+          } else if (Array.isArray(appsData)) {
+            apps = appsData;
+          }
+          appsLoaded = true;
+          console.log('Apps config loaded successfully, count:', apps.length);
+        }
+      } catch (error) {
+        console.error('Failed to load apps config:', error);
+      }
+
+      // Load LLMs config
+      try {
+        const llmsResponse = await fetch(REMOTE_CONFIG.llmsUrl + cacheBuster);
+        if (llmsResponse.ok) {
+          const llmsData = await llmsResponse.json();
+          console.log('LLMs raw data:', JSON.stringify(llmsData).substring(0, 500));
+
+          // Handle different JSON formats
+          if (llmsData.items) {
+            llms = llmsData.items;
+            if (llmsData.categories) {
+              customLlmCategories = llmsData.categories;
+            }
+          } else if (llmsData.llms) {
+            llms = llmsData.llms;
+          } else if (Array.isArray(llmsData)) {
+            llms = llmsData;
+          }
+          llmsLoaded = true;
+          console.log('LLMs config loaded successfully, count:', llms.length);
+        }
+      } catch (error) {
+        console.error('Failed to load llms config:', error);
+      }
+
+      // Update UI
+      renderCategoryTabs();
+      renderGrid();
+
+      // Show result toast
+      if (appsLoaded && llmsLoaded) {
+        showToast('已從 GitHub 載入配置', 'success');
+      } else if (appsLoaded || llmsLoaded) {
+        showToast('部分配置載入成功', 'info');
+      } else {
+        showToast('無法載入遠端配置，使用預設資料', 'error');
+      }
+    }
+
+    // ========== Init ==========
+    async function init() {
+      initTheme();
+      renderCategoryTabs();
+      renderGrid();
+
+      // Load remote config on startup
+      await loadRemoteConfig();
+    }
+
+    init();
+  </script>
+</body>
+</html>
+
+
+
+
+
